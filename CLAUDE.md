@@ -1,5 +1,7 @@
 # Czech B2B Email Outreach System — Project Context
 
+> **Workflow:** This project uses a branch-based GitHub-first workflow with multi-agent coordination. See the hub `CLAUDE.md` (parent directory) for the full protocol: create feature branch → work → PR → auto-merge. Always check `.claude/active-work.md` before starting.
+
 > **Setup:** Clone this repo, copy `.env.example` to `.env.local` and fill in secrets. Run `npm install` in `outreach-ui/`. Open Claude Code from the repo root.
 
 ## What this project is

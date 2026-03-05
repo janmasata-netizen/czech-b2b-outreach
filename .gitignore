@@ -31,3 +31,4 @@ Thumbs.db
 
 # Claude Code local state
 .claude/
+!.claude/active-work.md
