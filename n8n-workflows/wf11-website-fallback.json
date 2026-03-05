@@ -1,0 +1,1210 @@
+{
+  "name": "WF11: Website Contact Email Fallback",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "wf11-website-fallback",
+        "responseMode": "onReceived",
+        "options": {}
+      },
+      "id": "wf11-n01",
+      "name": "Webhook Trigger",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [
+        0,
+        480
+      ],
+      "webhookId": "wf11-website-fallback"
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForEachItem",
+        "jsCode": "return { json: { lead_id: $input.item.json.body.lead_id } };"
+      },
+      "id": "wf11-n02",
+      "name": "Extract Lead ID",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        240,
+        480
+      ]
+    },
+    {
+      "parameters": {
+        "method": "GET",
+        "url": "https://cycapkswtucbucyegdsn.supabase.co/rest/v1/leads",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "apikey",
+              "value": "SUPABASE_SERVICE_ROLE_KEY_PLACEHOLDER"
+            },
+            {
+              "name": "Authorization",
+              "value": "Bearer SUPABASE_SERVICE_ROLE_KEY_PLACEHOLDER"
+            }
+          ]
+        },
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            {
+              "name": "id",
+              "value": "={{ 'eq.' + $json.lead_id }}"
+            },
+            {
+              "name": "select",
+              "value": "id,website,domain,company_name"
+            },
+            {
+              "name": "limit",
+              "value": "1"
+            }
+          ]
+        },
+        "options": {
+          "timeout": 30000,
+          "neverError": true
+        }
+      },
+      "id": "wf11-n03",
+      "name": "Get Lead",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        480,
+        480
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://cycapkswtucbucyegdsn.supabase.co/rest/v1/rpc/get_jednatels_for_lead",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "apikey",
+              "value": "SUPABASE_SERVICE_ROLE_KEY_PLACEHOLDER"
+            },
+            {
+              "name": "Authorization",
+              "value": "Bearer SUPABASE_SERVICE_ROLE_KEY_PLACEHOLDER"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ p_lead_id: $('Extract Lead ID').first().json.lead_id }) }}",
+        "options": {
+          "timeout": 30000,
+          "neverError": true
+        }
+      },
+      "id": "wf11-n04",
+      "name": "Get Jednatels",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        720,
+        480
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://cycapkswtucbucyegdsn.supabase.co/rest/v1/enrichment_log",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "apikey",
+              "value": "SUPABASE_SERVICE_ROLE_KEY_PLACEHOLDER"
+            },
+            {
+              "name": "Authorization",
+              "value": "Bearer SUPABASE_SERVICE_ROLE_KEY_PLACEHOLDER"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ lead_id: $('Extract Lead ID').first().json.lead_id, step: 'website_fallback', status: 'started' }) }}",
+        "options": {
+          "timeout": 30000,
+          "neverError": true
+        }
+      },
+      "id": "wf11-n05",
+      "name": "Log WF11 Started",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        960,
+        480
+      ]
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "jsCode": "const lead = $('Get Lead').first().json;\nlet url = (lead.website || '').trim();\nconst lead_id = lead.id || $('Extract Lead ID').first().json.lead_id;\nconst lead_domain = (lead.domain || '').toLowerCase().replace(/^www\\./, '');\nif (!url) return [{ json: { has_website: false, lead_id, lead_domain } }];\nif (!url.startsWith('http')) url = 'https://' + url;\nurl = url.replace(/\\/+$/, '');\nreturn [{ json: { has_website: true, website_url: url, lead_id, lead_domain } }];"
+      },
+      "id": "wf11-n06",
+      "name": "Normalize URL",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1200,
+        480
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {},
+          "conditions": [
+            {
+              "id": "has-website",
+              "leftValue": "={{ $json.has_website }}",
+              "rightValue": true,
+              "operator": {
+                "type": "boolean",
+                "operation": "equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        }
+      },
+      "id": "wf11-n07",
+      "name": "IF Has Website",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [
+        1440,
+        480
+      ]
+    },
+    {
+      "parameters": {
+        "method": "PATCH",
+        "url": "https://cycapkswtucbucyegdsn.supabase.co/rest/v1/leads",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "apikey",
+              "value": "SUPABASE_SERVICE_ROLE_KEY_PLACEHOLDER"
+            },
+            {
+              "name": "Authorization",
+              "value": "Bearer SUPABASE_SERVICE_ROLE_KEY_PLACEHOLDER"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            {
+              "name": "id",
+              "value": "={{ 'eq.' + $json.lead_id }}"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={ \"status\": \"failed\", \"enrichment_error\": \"WF11: No website URL for this lead\" }",
+        "options": {
+          "timeout": 30000,
+          "neverError": true
+        }
+      },
+      "id": "wf11-n08",
+      "name": "Set Lead Failed No Website",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1680,
+        720
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://cycapkswtucbucyegdsn.supabase.co/rest/v1/enrichment_log",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "apikey",
+              "value": "SUPABASE_SERVICE_ROLE_KEY_PLACEHOLDER"
+            },
+            {
+              "name": "Authorization",
+              "value": "Bearer SUPABASE_SERVICE_ROLE_KEY_PLACEHOLDER"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ lead_id: $('Extract Lead ID').first().json.lead_id, step: 'website_fallback', status: 'failed', error_message: 'no_website', completed_at: new Date().toISOString() }) }}",
+        "options": {
+          "timeout": 30000,
+          "neverError": true
+        }
+      },
+      "id": "wf11-n09",
+      "name": "Log WF11 Failed No Website",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1920,
+        720
+      ]
+    },
+    {
+      "parameters": {
+        "method": "GET",
+        "url": "={{ $json.website_url }}",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "User-Agent",
+              "value": "Mozilla/5.0 (compatible; bot)"
+            },
+            {
+              "name": "Accept",
+              "value": "text/html,application/xhtml+xml"
+            }
+          ]
+        },
+        "options": {
+          "timeout": 15000,
+          "fullResponse": true,
+          "neverError": true,
+          "response": {
+            "response": {
+              "responseFormat": "text"
+            }
+          }
+        }
+      },
+      "id": "wf11-n10",
+      "name": "Fetch Homepage",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1680,
+        240
+      ]
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "jsCode": "const base = $('Normalize URL').first().json.website_url;\nconst html = ($input.first().json.body || $input.first().json.data || '') + '';\nconst emailRe = /[a-zA-Z0-9._%+\\-]+@[a-zA-Z0-9.\\-]+\\.[a-zA-Z]{2,}/g;\nconst mailtoRe = /mailto:([a-zA-Z0-9._%+\\-]+@[a-zA-Z0-9.\\-]+\\.[a-zA-Z]{2,})/gi;\nconst homepageEmails = [\n  ...(html.match(emailRe) || []),\n  ...[...html.matchAll(mailtoRe)].map(m => m[1])\n].map(e => e.toLowerCase());\nreturn ['/kontakt','/kontakty','/contact','/o-nas','/o-firme','/tim',\n        '/spolecnost','/vedeni','/management'].map(p => ({\n  json: { url: base + p, homepage_emails: homepageEmails }\n}));"
+      },
+      "id": "wf11-n11",
+      "name": "Build Contact URLs",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1920,
+        240
+      ]
+    },
+    {
+      "parameters": {
+        "method": "GET",
+        "url": "={{ $json.url }}",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "User-Agent",
+              "value": "Mozilla/5.0 (compatible; bot)"
+            },
+            {
+              "name": "Accept",
+              "value": "text/html,application/xhtml+xml"
+            }
+          ]
+        },
+        "options": {
+          "timeout": 10000,
+          "fullResponse": true,
+          "neverError": true,
+          "response": {
+            "response": {
+              "responseFormat": "text"
+            }
+          }
+        }
+      },
+      "id": "wf11-n12",
+      "name": "Fetch Contact Pages",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        2160,
+        240
+      ]
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "jsCode": "const INFO_PREFIXES = ['info','kontakt','contact','kancelar','obchod','office','admin'];\nconst homepageEmails = $('Build Contact URLs').first().json.homepage_emails || [];\nconst emailsWithContext = [];\nconst emailRe = /[a-zA-Z0-9._%+\\-]+@[a-zA-Z0-9.\\-]+\\.[a-zA-Z]{2,}/g;\nconst mailtoRe = /mailto:([a-zA-Z0-9._%+\\-]+@[a-zA-Z0-9.\\-]+\\.[a-zA-Z]{2,})/gi;\n\nfor (const item of $input.all()) {\n  const html = (item.json.body || item.json.data || '') + '';\n  const plain = html.replace(/<[^>]+>/g, ' ').replace(/\\s+/g, ' ');\n  let m;\n  const re = new RegExp(emailRe.source, 'g');\n  while ((m = re.exec(plain)) !== null) {\n    const email = m[0].toLowerCase();\n    const start = Math.max(0, m.index - 300);\n    const end = Math.min(plain.length, m.index + email.length + 300);\n    emailsWithContext.push({ email, context: plain.slice(start, end).trim() });\n  }\n  const mailtoMatches = [...html.matchAll(mailtoRe)];\n  for (const mm of mailtoMatches) {\n    const email = mm[1].toLowerCase();\n    if (!emailsWithContext.some(e => e.email === email))\n      emailsWithContext.push({ email, context: '' });\n  }\n}\nfor (const e of homepageEmails) {\n  if (!emailsWithContext.some(ec => ec.email === e.toLowerCase()))\n    emailsWithContext.push({ email: e.toLowerCase(), context: '' });\n}\nconst filtered = emailsWithContext\n  .filter(ec => !/(noreply|no-reply|bounce|mailer-daemon|postmaster|unsubscribe)/i.test(ec.email));\nconst deduped = [];\nconst seen = new Set();\nfor (const ec of filtered) {\n  if (!seen.has(ec.email)) { seen.add(ec.email); deduped.push(ec); }\n}\nconst sorted = deduped.sort((a, b) => {\n  const ai = INFO_PREFIXES.findIndex(p => a.email.split('@')[0].includes(p));\n  const bi = INFO_PREFIXES.findIndex(p => b.email.split('@')[0].includes(p));\n  return (ai === -1 ? 99 : ai) - (bi === -1 ? 99 : bi);\n});\nconst best = sorted[0]?.email || null;\nconst newDomain = best ? best.split('@')[1].toLowerCase() : null;\nconst lead_id = $('Extract Lead ID').first().json.lead_id;\nreturn [{ json: {\n  emails: sorted.map(e => e.email),\n  emails_with_context: sorted,\n  best_email: best, new_domain: newDomain, lead_id\n}}];"
+      },
+      "id": "wf11-n13",
+      "name": "Consolidate All Emails",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        2400,
+        240
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {},
+          "conditions": [
+            {
+              "id": "has-emails",
+              "leftValue": "={{ $json.emails.length }}",
+              "rightValue": 0,
+              "operator": {
+                "type": "number",
+                "operation": "gt"
+              }
+            }
+          ],
+          "combinator": "and"
+        }
+      },
+      "id": "wf11-n14",
+      "name": "IF Has Emails",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [
+        2640,
+        240
+      ]
+    },
+    {
+      "parameters": {
+        "method": "PATCH",
+        "url": "https://cycapkswtucbucyegdsn.supabase.co/rest/v1/leads",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "apikey",
+              "value": "SUPABASE_SERVICE_ROLE_KEY_PLACEHOLDER"
+            },
+            {
+              "name": "Authorization",
+              "value": "Bearer SUPABASE_SERVICE_ROLE_KEY_PLACEHOLDER"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            {
+              "name": "id",
+              "value": "={{ 'eq.' + $json.lead_id }}"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={ \"status\": \"failed\", \"enrichment_error\": \"WF11: No contact email found on company website\" }",
+        "options": {
+          "timeout": 30000,
+          "neverError": true
+        }
+      },
+      "id": "wf11-n15",
+      "name": "Set Lead Failed No Email",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        2880,
+        480
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://cycapkswtucbucyegdsn.supabase.co/rest/v1/enrichment_log",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "apikey",
+              "value": "SUPABASE_SERVICE_ROLE_KEY_PLACEHOLDER"
+            },
+            {
+              "name": "Authorization",
+              "value": "Bearer SUPABASE_SERVICE_ROLE_KEY_PLACEHOLDER"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ lead_id: $('Extract Lead ID').first().json.lead_id, step: 'website_fallback', status: 'failed', error_message: 'no_email_found', completed_at: new Date().toISOString() }) }}",
+        "options": {
+          "timeout": 30000,
+          "neverError": true
+        }
+      },
+      "id": "wf11-n16",
+      "name": "Log WF11 Failed No Email",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        3120,
+        480
+      ]
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "jsCode": "function stripDiacritics(str) {\n  return str.normalize('NFD').replace(/[\\u0300-\\u036f]/g,'').toLowerCase().replace(/[^a-z0-9]/g,'');\n}\nconst GENERIC_PREFIXES = ['info','kontakt','contact','kancelar','obchod','office','admin',\n  'support','help','sales','marketing','redakce','sekretariat','posta','mail','web',\n  'noreply','no-reply','billing','invoic'];\nconst ROLE_KEYWORDS = ['jednatel','reditel','\\u0159editel','majitel','ceo','founder','zakladatel',\n  'zakladatelka','jednatelka','\\u0159editelka','statut\\u00e1rn\\u00ed','statutory','owner','managing director'];\nconst data = $input.first().json;\nconst domain = data.new_domain;\nconst jednatels = ($('Get Jednatels').first().json.jednatels || []);\n\nfunction isGeneric(email) {\n  const local = email.split('@')[0].toLowerCase();\n  return GENERIC_PREFIXES.some(p => local.startsWith(p)) || !/[a-z]/.test(local);\n}\nfunction matchJednatel(local, j) {\n  const first = stripDiacritics(j.first_name || '');\n  const last = stripDiacritics(j.last_name || '');\n  if (!first || !last) return false;\n  const clean = local.toLowerCase().replace(/[^a-z]/g,'');\n  return clean.includes(last) || (clean.includes(first) && clean.length <= first.length + last.length + 3);\n}\nfunction contextMentionsJednatel(ctx, j) {\n  const n = stripDiacritics(ctx);\n  const first = stripDiacritics(j.first_name || '');\n  const last = stripDiacritics(j.last_name || '');\n  return !!(first && last && n.includes(first) && n.includes(last));\n}\nfunction contextHasRole(ctx) {\n  const n = stripDiacritics(ctx);\n  return ROLE_KEYWORDS.some(r => n.includes(stripDiacritics(r)));\n}\nfunction detectPattern(email, firstName, lastName) {\n  const local = email.split('@')[0].toLowerCase();\n  const f = stripDiacritics(firstName); const l = stripDiacritics(lastName);\n  if (!f || !l) return null;\n  if (local===f+'.'+l) return 'first.last';\n  if (local===l+'.'+f) return 'last.first';\n  if (local===f[0]+'.'+l) return 'f.last';\n  if (local===f+l) return 'firstlast';\n  if (local===l+f[0]) return 'lastf';\n  if (local===f+'.'+l[0]) return 'first.l';\n  if (local===f[0]+'.'+l[0]) return 'f.l';\n  if (local===f[0]+l) return 'flast';\n  if (local===l) return 'last';\n  if (local===f) return 'first';\n  return null;\n}\nfunction applyPattern(pattern, firstName, lastName, dom) {\n  const f = stripDiacritics(firstName); const l = stripDiacritics(lastName);\n  if (!f || !l) return null;\n  const map = {\n    'first.last': f+'.'+l, 'last.first': l+'.'+f, 'f.last': f[0]+'.'+l,\n    'firstlast': f+l, 'lastf': l+f[0], 'first.l': f+'.'+l[0],\n    'f.l': f[0]+'.'+l[0], 'flast': f[0]+l, 'last': l, 'first': f\n  };\n  const local = map[pattern];\n  return local ? local+'@'+dom : null;\n}\n\n// STEP 1: classify scraped emails\nconst scrapedEmails = data.emails_with_context || (data.emails||[]).map(e=>({email:e,context:''}));\nconst classifiedEmails = [];\nlet detectedPattern = null;\n\nfor (const entry of scrapedEmails) {\n  const email = entry.email; const context = entry.context || '';\n  if (isGeneric(email)) {\n    classifiedEmails.push({ email_address: email, type:'generic', confidence:'direct_hit',\n      jednatel_id: jednatels[0]?.id || null, source:'website_scrape' });\n    continue;\n  }\n  const local = email.split('@')[0].toLowerCase();\n  let matched = false;\n  for (const j of jednatels) {\n    if (contextMentionsJednatel(context, j)) {\n      classifiedEmails.push({ email_address: email, type:'jednatel', confidence:'direct_hit',\n        jednatel_id: j.id, source:'website_scrape' });\n      matched = true;\n      if (!detectedPattern) detectedPattern = detectPattern(email, j.first_name, j.last_name);\n      break;\n    }\n    if (matchJednatel(local, j)) {\n      classifiedEmails.push({ email_address: email, type:'jednatel', confidence:'name_match',\n        jednatel_id: j.id, source:'website_scrape' });\n      matched = true;\n      if (!detectedPattern) detectedPattern = detectPattern(email, j.first_name, j.last_name);\n      break;\n    }\n  }\n  if (!matched) {\n    const hasRole = contextHasRole(context);\n    classifiedEmails.push({ email_address: email,\n      type: hasRole ? 'staff_decision_maker' : 'staff',\n      confidence:'unknown_person', jednatel_id: jednatels[0]?.id || null, source:'website_scrape' });\n    if (!detectedPattern && jednatels[0]) {\n      const p = detectPattern(email, jednatels[0].first_name || '', jednatels[0].last_name || '');\n      if (p) detectedPattern = p;\n    }\n  }\n}\n\n// STEP 2: generate combos per jednatel\nconst items = [];\nfor (const j of jednatels) {\n  const first = stripDiacritics(j.first_name||''); const last = stripDiacritics(j.last_name||'');\n  if (!first||!last) continue;\n  const alreadyFound = classifiedEmails.some(e=>e.jednatel_id===j.id&&['direct_hit','name_match'].includes(e.confidence));\n  if (detectedPattern && !alreadyFound) {\n    const pe = applyPattern(detectedPattern, j.first_name, j.last_name, domain);\n    if (pe) items.push({ jednatel_id:j.id, email_address:pe, type:'jednatel',\n      confidence:'pattern_match', source:'combo_generation', best_email:data.best_email, lead_id:data.lead_id });\n  }\n  const combos = [first+'.'+last, last+'.'+first, first[0]+'.'+last,\n    last, first, first+last, last+first[0],\n    first+'.'+last[0], first[0]+'.'+last[0], first[0]+last];\n  combos.forEach(local => items.push({ jednatel_id:j.id, email_address:local+'@'+domain,\n    type:'jednatel', confidence:'combo', source:'combo_generation',\n    best_email:data.best_email, lead_id:data.lead_id }));\n}\n\n// STEP 3: add classified scraped emails\nfor (const ce of classifiedEmails) {\n  items.push({ ...ce, best_email:data.best_email, lead_id:data.lead_id });\n}\n\n// Deduplicate by email_address (keep highest confidence)\nconst confidenceOrder = ['direct_hit','name_match','pattern_match','combo','unknown_person'];\nconst deduped = {};\nfor (const item of items) {\n  const key = item.email_address.toLowerCase();\n  if (!deduped[key]||confidenceOrder.indexOf(item.confidence)<confidenceOrder.indexOf(deduped[key].confidence))\n    deduped[key] = item;\n}\nreturn Object.values(deduped).map(i=>({json:i}));"
+      },
+      "id": "wf11-n21",
+      "name": "Generate New Domain Candidates",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        3120,
+        240
+      ]
+    },
+    {
+      "parameters": {
+        "source": "database",
+        "workflowId": "Aov5PfwmBDv51L0e",
+        "mode": "runOnceForEachItem",
+        "waitForCompletion": true
+      },
+      "id": "wf11-n22",
+      "name": "Verify New Candidates",
+      "type": "n8n-nodes-base.executeWorkflow",
+      "typeVersion": 1,
+      "position": [
+        3360,
+        240
+      ]
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForEachItem",
+        "jsCode": "const verify = $input.item.json;\nconst cand = $('Generate New Domain Candidates').item.json;\nreturn { json: {\n  jednatel_id:   cand.jednatel_id,\n  email_address: cand.email_address,\n  seznam_status: (verify.is_valid && !verify.is_disposable) ? 'likely_valid' : 'bounced',\n  type:          cand.type       || 'jednatel',\n  confidence:    cand.confidence || 'combo',\n  source:        cand.source     || 'combo_generation',\n  best_email:    cand.best_email,\n  lead_id:       cand.lead_id,\n}};"
+      },
+      "id": "wf11-n23",
+      "name": "Classify New Candidates",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        3600,
+        240
+      ]
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "jsCode": "const items = $input.all().map(i => i.json);\nconst lead_id = items[0]?.lead_id;\nconst best_email = items[0]?.best_email;\nconst jednatels = ($('Get Jednatels').first().json.jednatels || []);\nconst firstJednatel = jednatels[0];\nconst verified = items.filter(i => i.seznam_status === 'likely_valid');\nconst has_verified = verified.length > 0;\nconst has_jednatel_verified = verified.some(i => i.type === 'jednatel');\nconst has_staff_verified = verified.some(i => i.type === 'staff' || i.type === 'staff_decision_maker');\nreturn [{ json: {\n  candidates: items.map(({best_email:_,lead_id:__,...c}) => c),\n  has_verified, has_jednatel_verified, has_staff_verified,\n  best_email, lead_id, first_jednatel_id: firstJednatel?.id\n}}];"
+      },
+      "id": "wf11-n24",
+      "name": "Check If Any Verified",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        3840,
+        240
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {},
+          "conditions": [
+            {
+              "id": "has-verified",
+              "leftValue": "={{ $json.has_verified }}",
+              "rightValue": true,
+              "operator": {
+                "type": "boolean",
+                "operation": "equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        }
+      },
+      "id": "wf11-n25",
+      "name": "IF Has Verified",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [
+        4080,
+        240
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://cycapkswtucbucyegdsn.supabase.co/rest/v1/email_candidates",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "apikey",
+              "value": "SUPABASE_SERVICE_ROLE_KEY_PLACEHOLDER"
+            },
+            {
+              "name": "Authorization",
+              "value": "Bearer SUPABASE_SERVICE_ROLE_KEY_PLACEHOLDER"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            },
+            {
+              "name": "Prefer",
+              "value": "resolution=ignore-duplicates,return=minimal"
+            }
+          ]
+        },
+        "sendBody": true,
+        "contentType": "raw",
+        "rawContentType": "application/json",
+        "body": "={{ JSON.stringify($json.candidates) }}",
+        "options": {
+          "timeout": 30000,
+          "neverError": true
+        }
+      },
+      "id": "wf11-n26",
+      "name": "Insert Verified Candidates",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        4320,
+        -180
+      ]
+    },
+    {
+      "parameters": {
+        "method": "PATCH",
+        "url": "https://cycapkswtucbucyegdsn.supabase.co/rest/v1/leads",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "apikey",
+              "value": "SUPABASE_SERVICE_ROLE_KEY_PLACEHOLDER"
+            },
+            {
+              "name": "Authorization",
+              "value": "Bearer SUPABASE_SERVICE_ROLE_KEY_PLACEHOLDER"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            {
+              "name": "id",
+              "value": "={{ 'eq.' + $('Extract Lead ID').first().json.lead_id }}"
+            }
+          ]
+        },
+        "sendBody": true,
+        "options": {
+          "timeout": 30000,
+          "neverError": true
+        },
+        "contentType": "raw",
+        "rawContentType": "application/json",
+        "body": "={{ JSON.stringify({ status: $('Check If Any Verified').first().json.has_jednatel_verified ? 'email_discovery' : 'staff_email', enrichment_error: null }) }}"
+      },
+      "id": "wf11-n27",
+      "name": "Set Lead Email Discovery",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        4560,
+        -180
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "http://72.62.53.244:32770/webhook/wf6-qev",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "contentType": "raw",
+        "rawContentType": "application/json",
+        "body": "={{ JSON.stringify({ lead_id: $('Extract Lead ID').first().json.lead_id }) }}",
+        "options": {
+          "timeout": 30000,
+          "neverError": true
+        }
+      },
+      "id": "wf11-n27b",
+      "name": "Trigger WF6",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        4800,
+        -180
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://cycapkswtucbucyegdsn.supabase.co/rest/v1/enrichment_log",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "apikey",
+              "value": "SUPABASE_SERVICE_ROLE_KEY_PLACEHOLDER"
+            },
+            {
+              "name": "Authorization",
+              "value": "Bearer SUPABASE_SERVICE_ROLE_KEY_PLACEHOLDER"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ lead_id: $('Extract Lead ID').first().json.lead_id, step: 'website_fallback', status: 'success', details: JSON.stringify({ path: 'email_discovery_new_domain' }), completed_at: new Date().toISOString() }) }}",
+        "options": {
+          "timeout": 30000,
+          "neverError": true
+        }
+      },
+      "id": "wf11-n27c",
+      "name": "Log WF11 Success New Domain",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        5040,
+        -180
+      ]
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "jsCode": "const data = $input.first().json;\nconst jednatels = ($('Get Jednatels').first().json.jednatels || []);\nconst firstJednatel = jednatels[0];\nif (!firstJednatel) return [{ json: { error: 'no_jednatels', lead_id: data.lead_id } }];\nreturn [{ json: {\n  candidates: [{\n    jednatel_id:   firstJednatel.id,\n    email_address: data.best_email,\n    seznam_status: 'likely_valid',\n    is_verified:   true,\n    qev_status:    'valid',\n    type:          'generic',\n    confidence:    'direct_hit',\n    source:        'website_scrape'\n  }],\n  lead_id: data.lead_id\n}}];"
+      },
+      "id": "wf11-n28",
+      "name": "Prep Info Candidate No Verified",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        4320,
+        480
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://cycapkswtucbucyegdsn.supabase.co/rest/v1/email_candidates",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "apikey",
+              "value": "SUPABASE_SERVICE_ROLE_KEY_PLACEHOLDER"
+            },
+            {
+              "name": "Authorization",
+              "value": "Bearer SUPABASE_SERVICE_ROLE_KEY_PLACEHOLDER"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            },
+            {
+              "name": "Prefer",
+              "value": "resolution=ignore-duplicates,return=minimal"
+            }
+          ]
+        },
+        "sendBody": true,
+        "contentType": "raw",
+        "rawContentType": "application/json",
+        "body": "={{ JSON.stringify($json.candidates) }}",
+        "options": {
+          "timeout": 30000,
+          "neverError": true
+        }
+      },
+      "id": "wf11-n29",
+      "name": "Insert Info Email No Verified",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        4560,
+        480
+      ]
+    },
+    {
+      "parameters": {
+        "method": "PATCH",
+        "url": "https://cycapkswtucbucyegdsn.supabase.co/rest/v1/leads",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "apikey",
+              "value": "SUPABASE_SERVICE_ROLE_KEY_PLACEHOLDER"
+            },
+            {
+              "name": "Authorization",
+              "value": "Bearer SUPABASE_SERVICE_ROLE_KEY_PLACEHOLDER"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            {
+              "name": "id",
+              "value": "={{ 'eq.' + $('Extract Lead ID').first().json.lead_id }}"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={ \"status\": \"info_email\", \"enrichment_error\": null }",
+        "options": {
+          "timeout": 30000,
+          "neverError": true
+        }
+      },
+      "id": "wf11-n30",
+      "name": "Set Lead Info Email No Verified",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        4800,
+        480
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://cycapkswtucbucyegdsn.supabase.co/rest/v1/enrichment_log",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "apikey",
+              "value": "SUPABASE_SERVICE_ROLE_KEY_PLACEHOLDER"
+            },
+            {
+              "name": "Authorization",
+              "value": "Bearer SUPABASE_SERVICE_ROLE_KEY_PLACEHOLDER"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ lead_id: $('Extract Lead ID').first().json.lead_id, step: 'website_fallback', status: 'success', details: JSON.stringify({ path: 'info_email_no_verified' }), completed_at: new Date().toISOString() }) }}",
+        "options": {
+          "timeout": 30000,
+          "neverError": true
+        }
+      },
+      "id": "wf11-n31",
+      "name": "Log WF11 Success Info No Verified",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        5040,
+        480
+      ]
+    }
+  ],
+  "connections": {
+    "Webhook Trigger": {
+      "main": [
+        [
+          {
+            "node": "Extract Lead ID",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Extract Lead ID": {
+      "main": [
+        [
+          {
+            "node": "Get Lead",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get Lead": {
+      "main": [
+        [
+          {
+            "node": "Get Jednatels",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get Jednatels": {
+      "main": [
+        [
+          {
+            "node": "Log WF11 Started",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Log WF11 Started": {
+      "main": [
+        [
+          {
+            "node": "Normalize URL",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Normalize URL": {
+      "main": [
+        [
+          {
+            "node": "IF Has Website",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "IF Has Website": {
+      "main": [
+        [
+          {
+            "node": "Fetch Homepage",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Set Lead Failed No Website",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Set Lead Failed No Website": {
+      "main": [
+        [
+          {
+            "node": "Log WF11 Failed No Website",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Log WF11 Failed No Website": {
+      "main": [
+        []
+      ]
+    },
+    "Fetch Homepage": {
+      "main": [
+        [
+          {
+            "node": "Build Contact URLs",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Build Contact URLs": {
+      "main": [
+        [
+          {
+            "node": "Fetch Contact Pages",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Fetch Contact Pages": {
+      "main": [
+        [
+          {
+            "node": "Consolidate All Emails",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Consolidate All Emails": {
+      "main": [
+        [
+          {
+            "node": "IF Has Emails",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "IF Has Emails": {
+      "main": [
+        [
+          {
+            "node": "Generate New Domain Candidates",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Set Lead Failed No Email",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Set Lead Failed No Email": {
+      "main": [
+        [
+          {
+            "node": "Log WF11 Failed No Email",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Log WF11 Failed No Email": {
+      "main": [
+        []
+      ]
+    },
+    "Generate New Domain Candidates": {
+      "main": [
+        [
+          {
+            "node": "Verify New Candidates",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Verify New Candidates": {
+      "main": [
+        [
+          {
+            "node": "Classify New Candidates",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Classify New Candidates": {
+      "main": [
+        [
+          {
+            "node": "Check If Any Verified",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Check If Any Verified": {
+      "main": [
+        [
+          {
+            "node": "IF Has Verified",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "IF Has Verified": {
+      "main": [
+        [
+          {
+            "node": "Insert Verified Candidates",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Prep Info Candidate No Verified",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Insert Verified Candidates": {
+      "main": [
+        [
+          {
+            "node": "Set Lead Email Discovery",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Set Lead Email Discovery": {
+      "main": [
+        [
+          {
+            "node": "Trigger WF6",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Trigger WF6": {
+      "main": [
+        [
+          {
+            "node": "Log WF11 Success New Domain",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Log WF11 Success New Domain": {
+      "main": [
+        []
+      ]
+    },
+    "Prep Info Candidate No Verified": {
+      "main": [
+        [
+          {
+            "node": "Insert Info Email No Verified",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Insert Info Email No Verified": {
+      "main": [
+        [
+          {
+            "node": "Set Lead Info Email No Verified",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Set Lead Info Email No Verified": {
+      "main": [
+        [
+          {
+            "node": "Log WF11 Success Info No Verified",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Log WF11 Success Info No Verified": {
+      "main": [
+        []
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "pinData": {}
+}

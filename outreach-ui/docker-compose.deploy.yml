@@ -1,0 +1,9 @@
+services:
+  outreach-ui:
+    image: nginx:alpine
+    ports:
+      - "32772:80"
+    volumes:
+      - ./dist:/usr/share/nginx/html:ro
+      - ./nginx.conf:/etc/nginx/conf.d/default.conf:ro
+    restart: unless-stopped

@@ -1,0 +1,163 @@
+import { useNavigate } from 'react-router-dom';
+import type { Lead } from '@/types/database';
+import StatusBadge from '@/components/shared/StatusBadge';
+import { formatDate, extractDomain, truncate } from '@/lib/utils';
+import { TableSkeleton } from '@/components/shared/LoadingSkeleton';
+import EmptyState from '@/components/shared/EmptyState';
+import { useRemoveLeadFromWave } from '@/hooks/useLeads';
+import { toast } from 'sonner';
+
+const EMAIL_STATUS_STYLES: Record<string, { color: string; bg: string; label: string }> = {
+  valid:             { color: '#3ecf8e', bg: 'rgba(62,207,142,0.12)', label: 'valid' },
+  manually_verified: { color: '#3ecf8e', bg: 'rgba(62,207,142,0.12)', label: 'verified' },
+  likely_valid:      { color: '#f0b429', bg: 'rgba(240,180,41,0.12)',  label: 'likely valid' },
+  bounced:           { color: '#f87171', bg: 'rgba(248,113,113,0.12)', label: 'bounced' },
+  invalid:           { color: '#f87171', bg: 'rgba(248,113,113,0.12)', label: 'invalid' },
+  pending:           { color: '#94a3b8', bg: 'rgba(148,163,184,0.12)', label: 'pending' },
+  unknown:           { color: '#94a3b8', bg: 'rgba(148,163,184,0.12)', label: 'unknown' },
+  info_email:        { color: '#22d3ee', bg: 'rgba(34,211,238,0.12)',  label: 'info email' },
+};
+
+function EmailStatusBadge({ status }: { status: string }) {
+  const s = EMAIL_STATUS_STYLES[status] ?? { color: '#94a3b8', bg: 'rgba(148,163,184,0.12)', label: status };
+  return (
+    <span style={{
+      display: 'inline-block', padding: '2px 7px', borderRadius: 4,
+      fontSize: 11, fontWeight: 600, letterSpacing: '0.04em',
+      color: s.color, background: s.bg, whiteSpace: 'nowrap',
+    }}>
+      {s.label}
+    </span>
+  );
+}
+
+const TH: React.CSSProperties = {
+  padding: '9px 14px', textAlign: 'left', fontSize: 11, fontWeight: 600,
+  letterSpacing: '0.05em', textTransform: 'uppercase' as const,
+  color: 'var(--text-muted)', background: 'var(--bg-subtle)',
+  borderBottom: '1px solid var(--border)', whiteSpace: 'nowrap' as const,
+};
+
+interface LeadsTableProps {
+  leads: Lead[];
+  isLoading: boolean;
+  selected: string[];
+  onSelect: (ids: string[]) => void;
+}
+
+export default function LeadsTable({ leads, isLoading, selected, onSelect }: LeadsTableProps) {
+  const navigate = useNavigate();
+  const removeFromWave = useRemoveLeadFromWave();
+
+  async function handleRemoveFromWave(e: React.MouseEvent, waveLeadId: string, leadId: string, waveName: string) {
+    e.stopPropagation();
+    if (!window.confirm(`Odebrat lead z vlny "${waveName}"?\nStav leadu bude nastaven zpět na "připraven".`)) return;
+    try {
+      await removeFromWave.mutateAsync({ waveLeadId, leadId });
+      toast.success('Lead odebrán z vlny');
+    } catch (err: any) {
+      toast.error('Chyba: ' + (err?.message ?? 'neznámá chyba'));
+    }
+  }
+
+  function toggleAll(e: React.ChangeEvent<HTMLInputElement>) {
+    onSelect(e.target.checked ? leads.map(l => l.id) : []);
+  }
+
+  function toggle(id: string) {
+    onSelect(selected.includes(id) ? selected.filter(s => s !== id) : [...selected, id]);
+  }
+
+  if (isLoading) return <TableSkeleton rows={10} />;
+  if (!leads.length) return <EmptyState icon="◈" title="Žádné leady" description="Přidejte leady pomocí tlačítka výše nebo importem." />;
+
+  return (
+    <div style={{ overflowX: 'auto' }}>
+      <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+        <thead>
+          <tr>
+            <th style={{ ...TH, width: 40, padding: '9px 12px' }}>
+              <input type="checkbox" checked={selected.length === leads.length && leads.length > 0} onChange={toggleAll} style={{ accentColor: 'var(--green)' }} />
+            </th>
+            {['Firma', 'IČO', 'Web', 'Email', 'Email stav', 'Jednatel', 'Stav', 'Vlna', 'Přidáno'].map(h => (
+              <th key={h} style={TH}>{h}</th>
+            ))}
+          </tr>
+        </thead>
+        <tbody>
+          {leads.map(lead => {
+            const isSelected = selected.includes(lead.id);
+            const candidates: any[] = (lead as any).email_candidates ?? [];
+            const bestCand = candidates.find((e: any) => e.is_verified) ?? candidates[0];
+            const primaryEmail = bestCand?.email_address;
+            const emailStatus = lead.status === 'info_email'
+              ? 'info_email'
+              : bestCand?.qev_status && bestCand.qev_status !== 'unknown'
+              ? bestCand.qev_status
+              : bestCand?.seznam_status ?? null;
+            const jednatels = (lead as any).jednatels?.map((j: any) => j.full_name).filter(Boolean).join(', ');
+            const waveLead = (lead as any).wave_leads?.[0];
+            const waveName: string | undefined = waveLead?.waves?.name;
+            const waveStatus: string | undefined = waveLead?.waves?.status;
+            const canRemove = !!waveLead;
+
+            return (
+              <tr
+                key={lead.id}
+                className="glass-table-row"
+                style={{ background: isSelected ? 'rgba(62,207,142,0.05)' : undefined, borderBottom: '1px solid var(--border)' }}
+                onClick={() => navigate(`/leady/${lead.id}`)}
+              >
+                <td style={{ padding: '11px 12px' }} onClick={e => { e.stopPropagation(); toggle(lead.id); }}>
+                  <input type="checkbox" checked={isSelected} onChange={() => toggle(lead.id)} style={{ accentColor: 'var(--green)' }} />
+                </td>
+                <td style={{ padding: '11px 14px' }}>
+                  <div style={{ fontWeight: 600, fontSize: 13, color: 'var(--text)' }}>
+                    {truncate(lead.company_name ?? '—', 32)}
+                    {lead.lead_type === 'contact' && (
+                      <span style={{
+                        fontSize: 10, padding: '1px 5px', borderRadius: 4,
+                        background: 'rgba(139,92,246,0.15)', color: '#a78bfa',
+                        marginLeft: 5, fontWeight: 500, verticalAlign: 'middle',
+                      }}>Kontakt</span>
+                    )}
+                  </div>
+                </td>
+                <td style={{ padding: '11px 14px', fontSize: 12, fontFamily: 'JetBrains Mono, monospace', color: 'var(--text-dim)' }}>{lead.ico ?? '—'}</td>
+                <td style={{ padding: '11px 14px', fontSize: 12, color: 'var(--text-dim)' }}>{lead.website ? extractDomain(lead.website) : '—'}</td>
+                <td style={{ padding: '11px 14px', fontSize: 12, fontFamily: 'JetBrains Mono, monospace', color: primaryEmail ? 'var(--text)' : 'var(--text-muted)' }}>
+                  {primaryEmail ? truncate(primaryEmail, 34) : '—'}
+                </td>
+                <td style={{ padding: '11px 14px' }}>
+                  {emailStatus ? <EmailStatusBadge status={emailStatus} /> : <span style={{ fontSize: 12, color: 'var(--text-muted)' }}>—</span>}
+                </td>
+                <td style={{ padding: '11px 14px', fontSize: 12, color: 'var(--text-dim)' }}>{jednatels || '—'}</td>
+                <td style={{ padding: '11px 14px' }}><StatusBadge status={lead.status ?? 'new'} /></td>
+                <td style={{ padding: '11px 14px' }} onClick={e => e.stopPropagation()}>
+                  {waveLead && waveName ? (
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 5, minWidth: 0 }}>
+                      <span style={{ fontSize: 11, color: 'var(--text-dim)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: 110 }} title={waveName}>
+                        {waveName}
+                      </span>
+                      {canRemove && (
+                        <button
+                          title="Odebrat z vlny"
+                          onClick={e => handleRemoveFromWave(e, waveLead.id, lead.id, waveName)}
+                          disabled={removeFromWave.isPending}
+                          style={{ flexShrink: 0, background: 'none', border: '1px solid rgba(248,113,113,0.35)', borderRadius: 4, cursor: 'pointer', color: '#f87171', fontSize: 13, lineHeight: 1, padding: '1px 5px' }}
+                        >×</button>
+                      )}
+                    </div>
+                  ) : (
+                    <span style={{ fontSize: 12, color: 'var(--text-muted)' }}>—</span>
+                  )}
+                </td>
+                <td style={{ padding: '11px 14px', fontSize: 12, color: 'var(--text-muted)', fontFamily: 'JetBrains Mono, monospace', whiteSpace: 'nowrap' }}>{formatDate(lead.created_at)}</td>
+              </tr>
+            );
+          })}
+        </tbody>
+      </table>
+    </div>
+  );
+}

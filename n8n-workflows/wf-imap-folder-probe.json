@@ -1,0 +1,75 @@
+{
+  "name": "TEMP: IMAP Folder Probe",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "GET",
+        "path": "imap-folder-probe",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "id": "probe-0001",
+      "name": "Webhook Trigger",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [0, 400],
+      "webhookId": "imap-folder-probe"
+    },
+    {
+      "parameters": {
+        "mailbox": "INBOX",
+        "options": {
+          "customEmailConfig": "[\"ALL\"]",
+          "format": "simple",
+          "downloadAttachments": false,
+          "markSeen": false
+        }
+      },
+      "id": "probe-0002",
+      "name": "Read All INBOX",
+      "type": "n8n-nodes-base.emailReadImap",
+      "typeVersion": 2,
+      "position": [280, 400],
+      "credentials": {
+        "imap": {
+          "id": "zvcpvsLoAq7WiOzX",
+          "name": "vyhry-temu@seznam.cz"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "jsCode": "const items = $input.all();\nconst bounceRx = /undeliverable|delivery.?fail|returned.?mail|non.?delivery|bounce|mailer-daemon|postmaster/i;\n\nconst allSubjects = items.map(function(i) {\n  return { subject: i.json.subject, from: i.json.from, date: i.json.date };\n});\n\nconst bounceEmails = allSubjects.filter(function(e) {\n  return bounceRx.test((e.subject||'') + ' ' + (e.from||''));\n});\n\nreturn [{ json: {\n  total_in_inbox: items.length,\n  bounce_related_count: bounceEmails.length,\n  bounce_emails: bounceEmails,\n  all_subjects: allSubjects.slice(0, 30)\n} }];"
+      },
+      "id": "probe-0003",
+      "name": "Summarise",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [560, 400]
+    },
+    {
+      "parameters": {
+        "respondWith": "firstIncomingItem",
+        "options": { "responseCode": 200 }
+      },
+      "id": "probe-0004",
+      "name": "Respond",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1,
+      "position": [840, 400]
+    }
+  ],
+  "connections": {
+    "Webhook Trigger": {
+      "main": [[ { "node": "Read All INBOX", "type": "main", "index": 0 } ]]
+    },
+    "Read All INBOX": {
+      "main": [[ { "node": "Summarise", "type": "main", "index": 0 } ]]
+    },
+    "Summarise": {
+      "main": [[ { "node": "Respond", "type": "main", "index": 0 } ]]
+    }
+  },
+  "settings": { "executionOrder": "v1" }
+}

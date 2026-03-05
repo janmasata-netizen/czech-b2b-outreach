@@ -1,0 +1,145 @@
+/* TipTap WYSIWYG editor — dark theme matching glass design system */
+
+.tiptap-editor {
+  display: flex;
+  flex-direction: column;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  overflow: hidden;
+  background: var(--bg-base);
+}
+
+.tiptap-editor:focus-within {
+  border-color: var(--green);
+}
+
+/* Toolbar */
+.tiptap-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 2px;
+  padding: 6px 8px;
+  background: var(--bg-subtle);
+  border-bottom: 1px solid var(--border);
+}
+
+.tiptap-toolbar button {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 30px;
+  height: 28px;
+  border: none;
+  border-radius: 4px;
+  background: transparent;
+  color: var(--text-dim);
+  cursor: pointer;
+  transition: all 0.12s;
+}
+
+.tiptap-toolbar button:hover {
+  background: rgba(255, 255, 255, 0.06);
+  color: var(--text);
+}
+
+.tiptap-toolbar button.is-active {
+  background: var(--green-bg);
+  color: var(--green);
+}
+
+.tiptap-toolbar .separator {
+  width: 1px;
+  height: 20px;
+  background: var(--border);
+  margin: 4px 4px;
+  align-self: center;
+}
+
+/* Variable buttons row */
+.tiptap-variables {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 5px;
+  padding: 6px 10px;
+  background: rgba(62, 207, 142, 0.03);
+  border-bottom: 1px solid var(--border);
+  align-items: center;
+}
+
+.tiptap-variables .var-label {
+  font-size: 11px;
+  color: var(--text-muted);
+  margin-right: 2px;
+}
+
+.tiptap-variables button {
+  background: rgba(62, 207, 142, 0.08);
+  border: 1px solid rgba(62, 207, 142, 0.25);
+  color: #3ECF8E;
+  font-size: 11px;
+  font-family: 'JetBrains Mono', monospace;
+  font-weight: 600;
+  padding: 2px 7px;
+  border-radius: 4px;
+  cursor: pointer;
+  transition: all 0.12s;
+}
+
+.tiptap-variables button:hover {
+  background: rgba(62, 207, 142, 0.15);
+}
+
+.tiptap-variables button.auto-var {
+  background: rgba(82, 82, 91, 0.1);
+  border-color: var(--border);
+  color: var(--text-dim);
+  font-weight: 400;
+}
+
+.tiptap-variables button.auto-var:hover {
+  background: rgba(82, 82, 91, 0.2);
+}
+
+/* Editor content area */
+.tiptap-editor .tiptap {
+  padding: 14px 16px;
+  color: var(--text);
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+  font-size: 13px;
+  line-height: 1.6;
+  outline: none;
+  overflow-y: auto;
+  flex: 1;
+}
+
+.tiptap-editor .tiptap p {
+  margin-bottom: 0.6em;
+}
+
+.tiptap-editor .tiptap p:last-child {
+  margin-bottom: 0;
+}
+
+.tiptap-editor .tiptap a {
+  color: var(--green);
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+.tiptap-editor .tiptap ul,
+.tiptap-editor .tiptap ol {
+  padding-left: 1.4em;
+  margin-bottom: 0.6em;
+}
+
+.tiptap-editor .tiptap li {
+  margin-bottom: 0.2em;
+}
+
+.tiptap-editor .tiptap p.is-editor-empty:first-child::before {
+  content: attr(data-placeholder);
+  color: var(--text-muted);
+  float: left;
+  height: 0;
+  pointer-events: none;
+}

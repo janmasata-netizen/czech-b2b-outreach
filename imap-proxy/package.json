@@ -1,0 +1,17 @@
+{
+  "name": "imap-proxy",
+  "version": "1.0.0",
+  "description": "IMAP proxy that fetches emails without marking them as read (bypasses n8n IMAP bug)",
+  "type": "module",
+  "main": "server.mjs",
+  "scripts": {
+    "start": "node server.mjs"
+  },
+  "dependencies": {
+    "imapflow": "^1.0.171",
+    "mailparser": "^3.7.2"
+  },
+  "devDependencies": {
+    "ssh2": "^1.17.0"
+  }
+}

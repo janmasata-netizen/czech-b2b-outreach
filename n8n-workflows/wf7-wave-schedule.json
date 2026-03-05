@@ -1,0 +1,623 @@
+{
+  "name": "WF7: Wave Scheduling",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "wf7-wave-schedule",
+        "responseMode": "onReceived",
+        "options": {}
+      },
+      "id": "wf07-0000-0000-0000-000000000001",
+      "name": "Webhook Trigger",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [
+        0,
+        300
+      ],
+      "webhookId": "wf7-wave-schedule"
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForEachItem",
+        "jsCode": "return { json: { wave_id: $input.item.json.body.wave_id } };"
+      },
+      "id": "wf07-0000-0000-0000-000000000002",
+      "name": "Extract Wave ID",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        240,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "method": "GET",
+        "url": "https://cycapkswtucbucyegdsn.supabase.co/rest/v1/waves",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "apikey",
+              "value": "SUPABASE_SERVICE_ROLE_KEY_PLACEHOLDER"
+            },
+            {
+              "name": "Authorization",
+              "value": "Bearer SUPABASE_SERVICE_ROLE_KEY_PLACEHOLDER"
+            }
+          ]
+        },
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            {
+              "name": "select",
+              "value": "*"
+            },
+            {
+              "name": "id",
+              "value": "={{ 'eq.' + $json.wave_id }}"
+            },
+            {
+              "name": "limit",
+              "value": "1"
+            }
+          ]
+        },
+        "options": {
+          "timeout": 30000,
+          "neverError": true
+        }
+      },
+      "id": "wf07-0000-0000-0000-000000000003",
+      "name": "Get Wave",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        480,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "method": "GET",
+        "url": "https://cycapkswtucbucyegdsn.supabase.co/rest/v1/email_templates",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "apikey",
+              "value": "SUPABASE_SERVICE_ROLE_KEY_PLACEHOLDER"
+            },
+            {
+              "name": "Authorization",
+              "value": "Bearer SUPABASE_SERVICE_ROLE_KEY_PLACEHOLDER"
+            }
+          ]
+        },
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            {
+              "name": "select",
+              "value": "*"
+            },
+            {
+              "name": "template_set_id",
+              "value": "={{ 'eq.' + $('Get Wave').first().json.template_set_id }}"
+            }
+          ]
+        },
+        "options": {
+          "timeout": 30000,
+          "neverError": true
+        }
+      },
+      "id": "wf07-0000-0000-0000-000000000004",
+      "name": "Get Template Variants",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        720,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "jsCode": "const templates = $input.all().map(i => i.json);\nif (!templates.length || (templates.length === 1 && !templates[0].id)) {\n  throw new Error('No templates found for template_set_id: ' +\n    $('Get Wave').first().json.template_set_id);\n}\nreturn templates.map(t => ({ json: t }));"
+      },
+      "id": "wf07-0000-0000-0000-000000000012",
+      "name": "Validate Templates",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        960,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "method": "GET",
+        "url": "https://cycapkswtucbucyegdsn.supabase.co/rest/v1/wave_leads",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "apikey",
+              "value": "SUPABASE_SERVICE_ROLE_KEY_PLACEHOLDER"
+            },
+            {
+              "name": "Authorization",
+              "value": "Bearer SUPABASE_SERVICE_ROLE_KEY_PLACEHOLDER"
+            }
+          ]
+        },
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            {
+              "name": "select",
+              "value": "id,lead_id,leads(domain,company_name,ico,custom_fields,jednatels(id,first_name,last_name,full_name,salutation,email_status,email_candidates(id,email_address,is_verified,qev_status,seznam_status,type,confidence)))"
+            },
+            {
+              "name": "wave_id",
+              "value": "={{ 'eq.' + $('Extract Wave ID').first().json.wave_id }}"
+            }
+          ]
+        },
+        "options": {
+          "timeout": 30000,
+          "neverError": true
+        }
+      },
+      "id": "wf07-0000-0000-0000-000000000005",
+      "name": "Get Wave Leads",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1200,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "method": "GET",
+        "url": "https://cycapkswtucbucyegdsn.supabase.co/rest/v1/outreach_accounts",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "apikey",
+              "value": "SUPABASE_SERVICE_ROLE_KEY_PLACEHOLDER"
+            },
+            {
+              "name": "Authorization",
+              "value": "Bearer SUPABASE_SERVICE_ROLE_KEY_PLACEHOLDER"
+            }
+          ]
+        },
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            {
+              "name": "select",
+              "value": "id,email_address,display_name,smtp_credential_name,daily_send_limit,sends_today"
+            },
+            {
+              "name": "id",
+              "value": "={{ 'eq.' + $('Get Wave').first().json.outreach_account_id }}"
+            },
+            {
+              "name": "limit",
+              "value": "1"
+            }
+          ]
+        },
+        "options": {
+          "timeout": 30000,
+          "neverError": true
+        }
+      },
+      "id": "wf07-0000-0000-0000-000000000006",
+      "name": "Get Outreach Account",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1440,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "jsCode": "function renderTemplate(text, vars) {\n  return (text || '').replace(/\\{\\{(\\w+)\\}\\}/g, (_, key) =>\n    vars[key] !== undefined && vars[key] !== '' ? vars[key] : '{{' + key + '}}'\n  );\n}\n\nfunction isValidMinute(m) { return (m % 5) !== 0; }\nfunction advanceToValidMinute(date) {\n  while (!isValidMinute(date.getMinutes())) date.setMinutes(date.getMinutes() + 1);\n  return date;\n}\nfunction randomDelay() { return 4 + Math.floor(Math.random() * 5); }\n\nfunction getCzechOffset(dateStr) {\n  const year = parseInt(dateStr.split('-')[0]);\n  let d = new Date(Date.UTC(year, 2, 31));\n  while (d.getUTCDay() !== 0) d.setUTCDate(d.getUTCDate() - 1);\n  const dstStart = Date.UTC(year, 2, d.getUTCDate(), 1, 0);\n  d = new Date(Date.UTC(year, 9, 31));\n  while (d.getUTCDay() !== 0) d.setUTCDate(d.getUTCDate() - 1);\n  const dstEnd = Date.UTC(year, 9, d.getUTCDate(), 1, 0);\n  const check = new Date(dateStr + 'T12:00:00Z').getTime();\n  return (check >= dstStart && check < dstEnd) ? 2 : 1;\n}\n\nconst wave = $('Get Wave').first().json;\nif (!wave || !wave.id) throw new Error('Wave not found');\n\nconst isDummy = wave.is_dummy === true;\nconst dummyEmail = wave.dummy_email || '';\n\nconst templates = $('Validate Templates').all().map(i => i.json);\nconst waveLeadsRaw = $('Get Wave Leads').all().map(i => i.json);\nconst seenWL = new Set();\nconst waveLeads = waveLeadsRaw.filter(wl => { if (seenWL.has(wl.id)) return false; seenWL.add(wl.id); return true; });\nconst oaRaw = $('Get Outreach Account').all().map(i => i.json);\nconst seenOA = new Set();\nconst outreachAccounts = oaRaw.filter(o => { if (seenOA.has(o.id)) return false; seenOA.add(o.id); return true; });\n\nif (!outreachAccounts.length) throw new Error('No active outreach account for team');\nif (!waveLeads.length) throw new Error('No wave leads found');\n\nconst oa = outreachAccounts[0];\n\n// Get distinct sorted sequence numbers from actual templates (not hardcoded 1,2,3)\nconst seqNumbers = [...new Set(templates.map(t => t.sequence_number))].sort((a, b) => a - b);\nif (!seqNumbers.length) throw new Error('No sequence numbers found in templates');\n\n// Map sequence position (0-based index in seqNumbers) to DB column (send_date_seq1/2/3)\nfunction getSeqDateAndTime(seqIndex) {\n  const fallbackTime = wave.send_window_start || '08:00';\n  const colIndex = seqIndex + 1; // 1-based for column names\n  if (colIndex === 1) {\n    return {\n      date: wave.send_date_seq1 || new Date().toISOString().slice(0, 10),\n      time: wave.send_time_seq1 || fallbackTime,\n    };\n  }\n  if (colIndex === 2) {\n    if (wave.send_date_seq2) return { date: wave.send_date_seq2, time: wave.send_time_seq2 || '08:00' };\n    const seq1Info = getSeqDateAndTime(0);\n    const base = new Date(seq1Info.date);\n    base.setDate(base.getDate() + (wave.delay_seq1_to_seq2_days || 3));\n    return { date: base.toISOString().slice(0, 10), time: fallbackTime };\n  }\n  // colIndex === 3\n  if (wave.send_date_seq3) return { date: wave.send_date_seq3, time: wave.send_time_seq3 || '08:00' };\n  const seq2Info = getSeqDateAndTime(1);\n  const base = new Date(seq2Info.date);\n  base.setDate(base.getDate() + (wave.delay_seq2_to_seq3_days || 5));\n  return { date: base.toISOString().slice(0, 10), time: fallbackTime };\n}\n\nconst seqPointers = {};\nfunction getNextScheduledTime(seq, seqIndex) {\n  if (!seqPointers[seq]) {\n    if (isDummy) {\n      const d = new Date();\n      d.setMinutes(d.getMinutes() + seqIndex * 2);\n      seqPointers[seq] = d;\n    } else {\n      const { date, time } = getSeqDateAndTime(seqIndex);\n      const [h, m] = (time || '08:00').split(':').map(Number);\n      const offset = getCzechOffset(date);\n      const pad2 = n => String(n).padStart(2, '0');\n      const d = new Date(`${date}T${pad2(h)}:${pad2(m)}:00+${pad2(offset)}:00`);\n      advanceToValidMinute(d);\n      seqPointers[seq] = d;\n    }\n  }\n  const scheduledTime = new Date(seqPointers[seq]);\n  if (!isDummy) {\n    seqPointers[seq].setMinutes(seqPointers[seq].getMinutes() + randomDelay());\n    advanceToValidMinute(seqPointers[seq]);\n  } else {\n    seqPointers[seq].setSeconds(seqPointers[seq].getSeconds() + 10);\n  }\n  return scheduledTime;\n}\n\nfunction mapEmailType(candidateType) {\n  if (candidateType === 'staff' || candidateType === 'staff_decision_maker') return 'staff';\n  if (candidateType === 'generic') return 'generic';\n  return 'jednatel';\n}\n\nfunction pickTemplate(tmpls, seq, variant, emailType) {\n  return tmpls.find(t => t.sequence_number === seq && t.variant === variant && t.email_type === emailType)\n    || tmpls.find(t => t.sequence_number === seq && t.variant === variant && t.email_type === 'jednatel')\n    || tmpls.find(t => t.sequence_number === seq && t.variant === variant)\n    || tmpls.find(t => t.sequence_number === seq);\n}\n\nconst queueItems = [];\nconst wlUpdates  = [];\n\nfor (const wl of waveLeads) {\n  const lead = wl.leads || {};\n  const jednatelsRaw = lead.jednatels;\n  if (!jednatelsRaw) continue;\n  const jednatels = Array.isArray(jednatelsRaw) ? jednatelsRaw : [jednatelsRaw];\n\n  const candidateMap = new Map();\n  for (const j of jednatels) {\n    const cands = Array.isArray(j.email_candidates) ? j.email_candidates : [];\n    for (const c of cands) {\n      const isUsable = isDummy || c.is_verified || c.qev_status === 'valid' || c.seznam_status === 'likely_valid';\n      if (!isUsable) continue;\n      if (!candidateMap.has(c.email_address)) {\n        candidateMap.set(c.email_address, { email: c.email_address, type: c.type || 'jednatel', jednatel: j });\n      }\n    }\n  }\n\n  if (!candidateMap.size && isDummy && jednatels.length > 0) {\n    const j = jednatels[0];\n    candidateMap.set(dummyEmail, { email: dummyEmail, type: 'jednatel', jednatel: j });\n  }\n  if (!candidateMap.size) continue;\n\n  const abVariant = Math.random() < 0.5 ? 'A' : 'B';\n  wlUpdates.push({ id: wl.id, ab_variant: abVariant, outreach_account_id: oa.id });\n\n  const customFields = lead.custom_fields || {};\n\n  for (const { email: verifiedEmail, type: candType, jednatel: selectedJ } of candidateMap.values()) {\n    const emailType = mapEmailType(candType);\n    const standardVars = {\n      salutation:   selectedJ.salutation  || '',\n      company_name: lead.company_name     || '',\n      first_name:   selectedJ.first_name  || '',\n      last_name:    selectedJ.last_name   || '',\n      full_name:    selectedJ.full_name   || '',\n      ico:          lead.ico              || '',\n      domain:       lead.domain           || '',\n    };\n    const vars = { ...standardVars, ...customFields };\n\n      // Compute seq 1's rendered subject for email threading (all seqs share this)\n      const seq1Tpl = pickTemplate(templates, seqNumbers[0], abVariant, emailType);\n      const threadSubject = (isDummy ? '[TEST] ' : '') + renderTemplate(seq1Tpl ? seq1Tpl.subject : '', vars);\n\n    // Iterate actual template sequence numbers (not hardcoded 1..3)\n    for (let i = 0; i < seqNumbers.length; i++) {\n      const seq = seqNumbers[i];\n      const tpl = pickTemplate(templates, seq, abVariant, emailType);\n      if (!tpl) continue;\n\n      const scheduledAt = getNextScheduledTime(seq, i);\n\n      queueItems.push({\n        wave_lead_id:        wl.id,\n        jednatel_id:         selectedJ.id,\n        email_address:       isDummy && dummyEmail ? dummyEmail : verifiedEmail,\n        sequence_number:     seq,\n        outreach_account_id: oa.id,\n        subject_rendered:    (isDummy ? '[TEST] ' : '') + renderTemplate(tpl.subject, vars),\n        body_rendered:       renderTemplate(tpl.body_html, vars),\n          thread_subject:      threadSubject,\n        status:              i === 0 ? 'queued' : 'pending_prev',\n        max_sequence_number: seqNumbers[seqNumbers.length - 1],\n        retry_count:         0,\n        scheduled_at:        scheduledAt.toISOString(),\n      });\n    }\n  }\n}\n\nif (!queueItems.length && isDummy) throw new Error('No queue items generated - add at least one lead with a jednatel');\nif (!queueItems.length) throw new Error('No queue items generated - no leads with verified emails');\n\n// Build wave date update to write computed dates back to waves table\nconst waveDateUpdate = { wave_id: wave.id };\nfor (let i = 0; i < Math.min(seqNumbers.length, 3); i++) {\n  const info = getSeqDateAndTime(i);\n  const col = i + 1;\n  waveDateUpdate['send_date_seq' + col] = info.date;\n  waveDateUpdate['send_time_seq' + col] = info.time;\n}\n\nreturn [\n  { json: { _type: 'wave_date_update', ...waveDateUpdate } },\n  ...wlUpdates.map(u => ({ json: { _type: 'wavelead_update', ...u } })),\n  ...queueItems.map(q => ({ json: { _type: 'queue_item',     ...q } })),\n];"
+      },
+      "id": "wf07-0000-0000-0000-000000000007",
+      "name": "Build Queue",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1680,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {},
+          "conditions": [
+            {
+              "id": "is-wavelead",
+              "leftValue": "={{ $json._type }}",
+              "rightValue": "wavelead_update",
+              "operator": {
+                "type": "string",
+                "operation": "equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        }
+      },
+      "id": "wf07-0000-0000-0000-000000000008",
+      "name": "IF Wave Lead Update",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [
+        1920,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "method": "PATCH",
+        "url": "https://cycapkswtucbucyegdsn.supabase.co/rest/v1/wave_leads",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "apikey",
+              "value": "SUPABASE_SERVICE_ROLE_KEY_PLACEHOLDER"
+            },
+            {
+              "name": "Authorization",
+              "value": "Bearer SUPABASE_SERVICE_ROLE_KEY_PLACEHOLDER"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            {
+              "name": "id",
+              "value": "={{ 'eq.' + $json.id }}"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ ab_variant: $json.ab_variant, outreach_account_id: $json.outreach_account_id }) }}",
+        "options": {
+          "timeout": 30000,
+          "neverError": true
+        }
+      },
+      "id": "wf07-0000-0000-0000-000000000009",
+      "name": "Update Wave Lead",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        2160,
+        120
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {},
+          "conditions": [
+            {
+              "id": "is-queue-item",
+              "leftValue": "={{ $json._type }}",
+              "rightValue": "queue_item",
+              "operator": {
+                "type": "string",
+                "operation": "equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        }
+      },
+      "id": "wf07-0000-0000-0000-000000000013",
+      "name": "IF Queue or Date Update",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [
+        2160,
+        420
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://cycapkswtucbucyegdsn.supabase.co/rest/v1/email_queue",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "apikey",
+              "value": "SUPABASE_SERVICE_ROLE_KEY_PLACEHOLDER"
+            },
+            {
+              "name": "Authorization",
+              "value": "Bearer SUPABASE_SERVICE_ROLE_KEY_PLACEHOLDER"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ wave_lead_id: $json.wave_lead_id, jednatel_id: $json.jednatel_id, email_address: $json.email_address, sequence_number: $json.sequence_number, outreach_account_id: $json.outreach_account_id, subject_rendered: $json.subject_rendered, body_rendered: $json.body_rendered, scheduled_at: $json.scheduled_at, status: $json.status, thread_subject: $json.thread_subject, max_sequence_number: $json.max_sequence_number, retry_count: 0 }) }}",
+        "options": {
+          "timeout": 30000,
+          "neverError": true
+        }
+      },
+      "id": "wf07-0000-0000-0000-000000000010",
+      "name": "Insert Queue Item",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        2400,
+        340
+      ]
+    },
+    {
+      "parameters": {
+        "method": "PATCH",
+        "url": "https://cycapkswtucbucyegdsn.supabase.co/rest/v1/waves",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "apikey",
+              "value": "SUPABASE_SERVICE_ROLE_KEY_PLACEHOLDER"
+            },
+            {
+              "name": "Authorization",
+              "value": "Bearer SUPABASE_SERVICE_ROLE_KEY_PLACEHOLDER"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            {
+              "name": "id",
+              "value": "={{ 'eq.' + $('Extract Wave ID').first().json.wave_id }}"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "{ \"status\": \"scheduled\" }",
+        "options": {
+          "timeout": 30000,
+          "neverError": true
+        }
+      },
+      "id": "wf07-0000-0000-0000-000000000011",
+      "name": "Update Wave Scheduled",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        2640,
+        340
+      ]
+    },
+    {
+      "parameters": {
+        "method": "PATCH",
+        "url": "https://cycapkswtucbucyegdsn.supabase.co/rest/v1/waves",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "apikey",
+              "value": "SUPABASE_SERVICE_ROLE_KEY_PLACEHOLDER"
+            },
+            {
+              "name": "Authorization",
+              "value": "Bearer SUPABASE_SERVICE_ROLE_KEY_PLACEHOLDER"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            {
+              "name": "id",
+              "value": "={{ 'eq.' + $json.wave_id }}"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ send_date_seq1: $json.send_date_seq1 || null, send_date_seq2: $json.send_date_seq2 || null, send_date_seq3: $json.send_date_seq3 || null, send_time_seq1: $json.send_time_seq1 || null, send_time_seq2: $json.send_time_seq2 || null, send_time_seq3: $json.send_time_seq3 || null }) }}",
+        "options": {
+          "timeout": 30000,
+          "neverError": true
+        }
+      },
+      "id": "wf07-0000-0000-0000-000000000014",
+      "name": "Update Wave Dates",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        2400,
+        540
+      ]
+    }
+  ],
+  "connections": {
+    "Webhook Trigger": {
+      "main": [
+        [
+          {
+            "node": "Extract Wave ID",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Extract Wave ID": {
+      "main": [
+        [
+          {
+            "node": "Get Wave",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get Wave": {
+      "main": [
+        [
+          {
+            "node": "Get Template Variants",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get Template Variants": {
+      "main": [
+        [
+          {
+            "node": "Validate Templates",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Validate Templates": {
+      "main": [
+        [
+          {
+            "node": "Get Wave Leads",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get Wave Leads": {
+      "main": [
+        [
+          {
+            "node": "Get Outreach Account",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get Outreach Account": {
+      "main": [
+        [
+          {
+            "node": "Build Queue",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Build Queue": {
+      "main": [
+        [
+          {
+            "node": "IF Wave Lead Update",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "IF Wave Lead Update": {
+      "main": [
+        [
+          {
+            "node": "Update Wave Lead",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "IF Queue or Date Update",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "IF Queue or Date Update": {
+      "main": [
+        [
+          {
+            "node": "Insert Queue Item",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Update Wave Dates",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Insert Queue Item": {
+      "main": [
+        [
+          {
+            "node": "Update Wave Scheduled",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "pinData": {}
+}

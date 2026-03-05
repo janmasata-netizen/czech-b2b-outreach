@@ -1,0 +1,19 @@
+services:
+  imap-proxy:
+    build: .
+    container_name: imap-proxy
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:3001:3001"
+    volumes:
+      - ./config.json:/app/config.json:ro
+    environment:
+      - PORT=3001
+    networks:
+      - default
+      - n8n-network
+
+networks:
+  n8n-network:
+    external: true
+    name: n8n-p5bv_default

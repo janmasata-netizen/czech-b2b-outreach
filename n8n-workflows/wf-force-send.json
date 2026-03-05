@@ -1,0 +1,1223 @@
+{
+  "name": "WF: Force Send Next Sequence",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "wf-force-send",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "id": "fs-0001",
+      "name": "Webhook",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [
+        0,
+        300
+      ],
+      "webhookId": "wf-force-send"
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "jsCode": "const raw = $input.all()[0].json;\nconst body = raw.body || raw;\nconst queueIds = body.queue_ids;\n\nif (!queueIds || !Array.isArray(queueIds) || queueIds.length === 0) {\n  return [{ json: { valid: false, success: false, error: 'queue_ids must be a non-empty array' } }];\n}\n\nreturn [{ json: { valid: true, queue_ids: queueIds } }];"
+      },
+      "id": "fs-0002",
+      "name": "Validate Input",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        240,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {},
+          "conditions": [
+            {
+              "id": "valid-input",
+              "leftValue": "={{ $json.valid }}",
+              "rightValue": true,
+              "operator": {
+                "type": "boolean",
+                "operation": "equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        }
+      },
+      "id": "fs-0003",
+      "name": "IF Valid Input",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [
+        480,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "method": "GET",
+        "url": "https://cycapkswtucbucyegdsn.supabase.co/rest/v1/email_queue",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "apikey",
+              "value": "SUPABASE_SERVICE_ROLE_KEY_PLACEHOLDER"
+            },
+            {
+              "name": "Authorization",
+              "value": "Bearer SUPABASE_SERVICE_ROLE_KEY_PLACEHOLDER"
+            }
+          ]
+        },
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            {
+              "name": "id",
+              "value": "={{ 'in.(' + $json.queue_ids.join(',') + ')' }}"
+            },
+            {
+              "name": "status",
+              "value": "in.(pending_prev,queued)"
+            },
+            {
+              "name": "select",
+              "value": "*"
+            }
+          ]
+        },
+        "options": {
+          "timeout": 30000
+        }
+      },
+      "id": "fs-0004",
+      "name": "Fetch Queue Items",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        720,
+        180
+      ]
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "jsCode": "const items = $input.all().map(i => i.json);\n\n// Filter out wrapper objects (HTTP response metadata)\nconst emails = items.filter(eq => eq.id && eq.wave_lead_id);\n\nif (emails.length === 0) {\n  return [{ json: { has_emails: false, success: false, error: 'No eligible queue items found (all already sent or cancelled)' } }];\n}\n\nreturn emails.map(eq => ({ json: {\n  has_emails: true,\n  id:                  eq.id,\n  wave_lead_id:        eq.wave_lead_id,\n  jednatel_id:         eq.jednatel_id,\n  email_address:       eq.email_address,\n  sequence_number:     eq.sequence_number,\n  outreach_account_id: eq.outreach_account_id,\n  smtp_message_id_ref: eq.smtp_message_id_ref,\n  subject_rendered:    eq.subject_rendered,\n  body_rendered:       eq.body_rendered,\n  original_status:     eq.status,\n  thread_subject:      eq.thread_subject || '',\n  max_sequence_number: eq.max_sequence_number || 3,\n  retry_count:         0,\n} }));"
+      },
+      "id": "fs-0005",
+      "name": "Flatten Queue Items",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        960,
+        180
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {},
+          "conditions": [
+            {
+              "id": "has-emails",
+              "leftValue": "={{ $json.has_emails }}",
+              "rightValue": true,
+              "operator": {
+                "type": "boolean",
+                "operation": "equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        }
+      },
+      "id": "fs-0006",
+      "name": "IF Has Items",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [
+        1200,
+        180
+      ]
+    },
+    {
+      "parameters": {
+        "batchSize": 1,
+        "options": {
+          "reset": true
+        }
+      },
+      "id": "fs-0007",
+      "name": "Loop Items",
+      "type": "n8n-nodes-base.splitInBatches",
+      "typeVersion": 1,
+      "position": [
+        1440,
+        60
+      ]
+    },
+    {
+      "parameters": {
+        "method": "PATCH",
+        "url": "https://cycapkswtucbucyegdsn.supabase.co/rest/v1/email_queue",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "apikey",
+              "value": "SUPABASE_SERVICE_ROLE_KEY_PLACEHOLDER"
+            },
+            {
+              "name": "Authorization",
+              "value": "Bearer SUPABASE_SERVICE_ROLE_KEY_PLACEHOLDER"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            {
+              "name": "id",
+              "value": "={{ 'eq.' + $json.id }}"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ status: 'sending' }) }}",
+        "options": {
+          "timeout": 30000,
+          "neverError": true
+        }
+      },
+      "id": "fs-0008",
+      "name": "Mark As Sending",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1800,
+        60
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {},
+          "conditions": [
+            {
+              "id": "has-wave-lead-id",
+              "leftValue": "={{ $json.wave_lead_id }}",
+              "rightValue": "",
+              "operator": {
+                "type": "string",
+                "operation": "notEquals"
+              }
+            }
+          ],
+          "combinator": "and"
+        }
+      },
+      "id": "fs-0031",
+      "name": "IF Valid Queue Item",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [
+        1620,
+        60
+      ]
+    },
+    {
+      "parameters": {
+        "method": "GET",
+        "url": "https://cycapkswtucbucyegdsn.supabase.co/rest/v1/wave_leads",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "apikey",
+              "value": "SUPABASE_SERVICE_ROLE_KEY_PLACEHOLDER"
+            },
+            {
+              "name": "Authorization",
+              "value": "Bearer SUPABASE_SERVICE_ROLE_KEY_PLACEHOLDER"
+            }
+          ]
+        },
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            {
+              "name": "id",
+              "value": "={{ 'eq.' + $('Loop Items').first().json.wave_lead_id }}"
+            },
+            {
+              "name": "select",
+              "value": "outreach_accounts(email_address,display_name,sends_today,daily_send_limit),waves(salesmen(email))"
+            },
+            {
+              "name": "limit",
+              "value": "1"
+            }
+          ]
+        },
+        "options": {
+          "timeout": 30000,
+          "neverError": true
+        }
+      },
+      "id": "fs-0009",
+      "name": "Check Daily Limit",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        2040,
+        60
+      ]
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForEachItem",
+        "jsCode": "const emailItem = $('Loop Items').first().json;\nconst wlData = $input.item.json;\nconst oa = wlData.outreach_accounts || {};\nconst salesman = (wlData.waves || {}).salesmen || {};\nreturn { json: {\n  ...emailItem,\n  outreach_email: oa.email_address || '',\n  display_name: oa.display_name || oa.email_address || '',\n  salesman_email: salesman.email || '',\n  fresh_sends_today: oa.sends_today || 0,\n  fresh_daily_limit: oa.daily_send_limit || 130\n}};"
+      },
+      "id": "fs-0010",
+      "name": "Parse Limit Check",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        2280,
+        60
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {},
+          "conditions": [
+            {
+              "id": "under-limit",
+              "leftValue": "={{ $json.fresh_sends_today }}",
+              "rightValue": "={{ $json.fresh_daily_limit }}",
+              "operator": {
+                "type": "number",
+                "operation": "lt"
+              }
+            }
+          ],
+          "combinator": "and"
+        }
+      },
+      "id": "fs-0011",
+      "name": "IF Under Limit",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [
+        2520,
+        60
+      ]
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForEachItem",
+        "jsCode": "const eq = $('Parse Limit Check').first().json;\n\n// Generate a unique SMTP Message-ID for this email\nconst timestamp = Date.now();\nconst random = Math.random().toString(36).substring(2, 10);\nconst domain = eq.outreach_email ? eq.outreach_email.split('@')[1] : 'mail.local';\nconst generatedMessageId = '<' + timestamp + '.' + random + '@' + domain + '>';\n\n// Subject: seq 1 uses own subject, seq 2/3 use seq 1's subject (thread_subject) with Re: prefix\nlet subject = eq.subject_rendered || '';\nif (eq.sequence_number > 1) {\n  const baseSubject = eq.thread_subject || eq.subject_rendered || '';\n  subject = baseSubject.startsWith('Re:') ? baseSubject : 'Re: ' + baseSubject;\n}\n\n// References chain: smtp_message_id_ref stores the full ancestor chain\nconst refChain = eq.smtp_message_id_ref || '';\n\n// For smtp-proxy: only include threading headers when non-empty (seq 1 has none)\nconst proxyInReplyTo = refChain ? refChain.trim().split(' ').pop() : '';\nconst proxyReferences = refChain || '';\n\nreturn { json: {\n  ...eq,\n  generated_message_id: generatedMessageId,\n  smtp_message_id: generatedMessageId,\n  smtp_subject: subject,\n  in_reply_to: proxyInReplyTo,\n  references: proxyReferences,\n  proxy_in_reply_to: proxyInReplyTo || null,\n  proxy_references: proxyReferences || null,\n}};"
+      },
+      "id": "fs-0012",
+      "name": "Prepare Email",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        2640,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "http://smtp-proxy:3002/send-email",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ credential_name: 'Burner SMTP', from: $json.outreach_email, to: $json.email_address, subject: $json.smtp_subject, html: $json.body_rendered, replyTo: $json.salesman_email, messageId: $json.generated_message_id, inReplyTo: $json.proxy_in_reply_to || '', references: $json.proxy_references || '' }) }}",
+        "options": {
+          "timeout": 30000,
+          "neverError": true
+        }
+      },
+      "id": "fs-0013",
+      "name": "Send SMTP Email",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        2880,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForEachItem",
+        "jsCode": "const sendOutput = $input.item.json;\nconst e = $('Prepare Email').first().json;\n\n// smtp-proxy returns { success, messageId, response } or { success: false, error }\nconst proxySuccess = sendOutput.success === true;\nconst base = {\n  id: e.id,\n  wave_lead_id: e.wave_lead_id,\n  jednatel_id: e.jednatel_id,\n  email_address: e.email_address,\n  sequence_number: e.sequence_number,\n  outreach_account_id: e.outreach_account_id,\n  outreach_email: e.outreach_email,\n  salesman_email: e.salesman_email,\n  subject_rendered: e.subject_rendered,\n  smtp_subject: e.smtp_subject,\n  smtp_message_id: e.generated_message_id,\n  max_sequence_number: e.max_sequence_number || 3,\n};\n\nif (!proxySuccess) {\n  return { json: { ...base, success: false, error: sendOutput.error || 'SMTP proxy send failed' } };\n}\n\nreturn { json: { ...base, success: true } };"
+      },
+      "id": "fs-0014",
+      "name": "Check Send Result",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        3120,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {},
+          "conditions": [
+            {
+              "id": "send-success",
+              "leftValue": "={{ $json.success }}",
+              "rightValue": true,
+              "operator": {
+                "type": "boolean",
+                "operation": "equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        }
+      },
+      "id": "fs-0015",
+      "name": "IF Send Success",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [
+        3360,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://cycapkswtucbucyegdsn.supabase.co/rest/v1/sent_emails",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "apikey",
+              "value": "SUPABASE_SERVICE_ROLE_KEY_PLACEHOLDER"
+            },
+            {
+              "name": "Authorization",
+              "value": "Bearer SUPABASE_SERVICE_ROLE_KEY_PLACEHOLDER"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ queue_id: $json.id, wave_lead_id: $json.wave_lead_id, jednatel_id: $json.jednatel_id, email_address: $json.email_address, sequence_number: $json.sequence_number, outreach_account_id: $json.outreach_account_id, smtp_message_id: $json.smtp_message_id, subject: $json.smtp_subject, sent_at: new Date().toISOString() }) }}",
+        "options": {
+          "timeout": 30000,
+          "neverError": true
+        }
+      },
+      "id": "fs-0016",
+      "name": "Insert Sent Email",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        3600,
+        -120
+      ]
+    },
+    {
+      "parameters": {
+        "method": "PATCH",
+        "url": "https://cycapkswtucbucyegdsn.supabase.co/rest/v1/email_queue",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "apikey",
+              "value": "SUPABASE_SERVICE_ROLE_KEY_PLACEHOLDER"
+            },
+            {
+              "name": "Authorization",
+              "value": "Bearer SUPABASE_SERVICE_ROLE_KEY_PLACEHOLDER"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            {
+              "name": "id",
+              "value": "={{ 'eq.' + $('Check Send Result').first().json.id }}"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ status: 'sent', sent_at: new Date().toISOString() }) }}",
+        "options": {
+          "timeout": 30000,
+          "neverError": true
+        }
+      },
+      "id": "fs-0017",
+      "name": "Update Queue Sent",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        3600,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://cycapkswtucbucyegdsn.supabase.co/rest/v1/rpc/increment_and_check_sends",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "apikey",
+              "value": "SUPABASE_SERVICE_ROLE_KEY_PLACEHOLDER"
+            },
+            {
+              "name": "Authorization",
+              "value": "Bearer SUPABASE_SERVICE_ROLE_KEY_PLACEHOLDER"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ p_account_id: $('Check Send Result').first().json.outreach_account_id }) }}",
+        "options": {
+          "timeout": 30000,
+          "neverError": true
+        }
+      },
+      "id": "fs-0018",
+      "name": "Increment Sends RPC",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        3600,
+        120
+      ]
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForEachItem",
+        "jsCode": "const eq = $('Check Send Result').first().json;\nconst prepEmail = $('Prepare Email').first().json;\nconst currentSeq = eq.sequence_number;\nconst maxSeq = eq.max_sequence_number || 3;\n\nif (currentSeq >= maxSeq) {\n  return { json: { action: 'complete', wave_lead_id: eq.wave_lead_id, sequence_number: currentSeq } };\n}\n\n// Build cumulative references: previous chain + current message ID\nconst currentRefs = prepEmail.references || '';\nconst refsForNext = (currentRefs ? currentRefs + ' ' : '') + eq.smtp_message_id;\n\nreturn { json: {\n  action:       'activate_next',\n  wave_lead_id: eq.wave_lead_id,\n  sequence_number: currentSeq,\n  next_sequence_number: currentSeq + 1,\n  smtp_message_id: eq.smtp_message_id,\n  smtp_refs_for_next: refsForNext,\n} };"
+      },
+      "id": "fs-0019",
+      "name": "Schedule Next Seq",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        3840,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {},
+          "conditions": [
+            {
+              "id": "has-next",
+              "leftValue": "={{ $json.action }}",
+              "rightValue": "activate_next",
+              "operator": {
+                "type": "string",
+                "operation": "equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        }
+      },
+      "id": "fs-0020",
+      "name": "IF Schedule Next",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [
+        4080,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "method": "PATCH",
+        "url": "https://cycapkswtucbucyegdsn.supabase.co/rest/v1/email_queue",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "apikey",
+              "value": "SUPABASE_SERVICE_ROLE_KEY_PLACEHOLDER"
+            },
+            {
+              "name": "Authorization",
+              "value": "Bearer SUPABASE_SERVICE_ROLE_KEY_PLACEHOLDER"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            {
+              "name": "wave_lead_id",
+              "value": "={{ 'eq.' + $json.wave_lead_id }}"
+            },
+            {
+              "name": "sequence_number",
+              "value": "={{ 'eq.' + $json.next_sequence_number }}"
+            },
+            {
+              "name": "status",
+              "value": "eq.pending_prev"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ status: 'queued', smtp_message_id_ref: $json.smtp_refs_for_next || null }) }}",
+        "options": {
+          "timeout": 30000,
+          "neverError": true
+        }
+      },
+      "id": "fs-0021",
+      "name": "Activate Next Seq Item",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        4320,
+        -120
+      ]
+    },
+    {
+      "parameters": {
+        "method": "PATCH",
+        "url": "https://cycapkswtucbucyegdsn.supabase.co/rest/v1/wave_leads",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "apikey",
+              "value": "SUPABASE_SERVICE_ROLE_KEY_PLACEHOLDER"
+            },
+            {
+              "name": "Authorization",
+              "value": "Bearer SUPABASE_SERVICE_ROLE_KEY_PLACEHOLDER"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            {
+              "name": "id",
+              "value": "={{ 'eq.' + $('Schedule Next Seq').first().json.wave_lead_id }}"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ status: $('Schedule Next Seq').first().json.action === 'complete' ? 'completed' : ('seq' + $('Schedule Next Seq').first().json.sequence_number + '_sent') }) }}",
+        "options": {
+          "timeout": 30000,
+          "neverError": true
+        }
+      },
+      "id": "fs-0022",
+      "name": "Update Wave Lead Status",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        4320,
+        120
+      ]
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForEachItem",
+        "jsCode": "const eq = $('Check Send Result').first().json;\nreturn { json: {\n  id: eq.id,\n  email_address: eq.email_address,\n  sequence_number: eq.sequence_number,\n  status: 'failed',\n  error: eq.error || 'SMTP send failed'\n} };"
+      },
+      "id": "fs-0023",
+      "name": "Handle Send Failure",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        3600,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "method": "PATCH",
+        "url": "https://cycapkswtucbucyegdsn.supabase.co/rest/v1/email_queue",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "apikey",
+              "value": "SUPABASE_SERVICE_ROLE_KEY_PLACEHOLDER"
+            },
+            {
+              "name": "Authorization",
+              "value": "Bearer SUPABASE_SERVICE_ROLE_KEY_PLACEHOLDER"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            {
+              "name": "id",
+              "value": "={{ 'eq.' + $json.id }}"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ status: 'failed', error_message: $json.error }) }}",
+        "options": {
+          "timeout": 30000,
+          "neverError": true
+        }
+      },
+      "id": "fs-0024",
+      "name": "Mark As Failed",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        3840,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForEachItem",
+        "jsCode": "const eq = $('Parse Limit Check').first().json;\n\n// Revert status back from sending to queued (limit hit)\nreturn { json: {\n  id: eq.id,\n  email_address: eq.email_address,\n  sequence_number: eq.sequence_number,\n  status: 'skipped',\n  reason: 'daily_limit_reached'\n} };"
+      },
+      "id": "fs-0025",
+      "name": "Collect Skip",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        2640,
+        240
+      ]
+    },
+    {
+      "parameters": {
+        "method": "PATCH",
+        "url": "https://cycapkswtucbucyegdsn.supabase.co/rest/v1/email_queue",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "apikey",
+              "value": "SUPABASE_SERVICE_ROLE_KEY_PLACEHOLDER"
+            },
+            {
+              "name": "Authorization",
+              "value": "Bearer SUPABASE_SERVICE_ROLE_KEY_PLACEHOLDER"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            {
+              "name": "id",
+              "value": "={{ 'eq.' + $json.id }}"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ status: $('Loop Items').first().json.original_status || 'pending_prev' }) }}",
+        "options": {
+          "timeout": 30000,
+          "neverError": true
+        }
+      },
+      "id": "fs-0026",
+      "name": "Revert Status On Skip",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        2880,
+        240
+      ]
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "jsCode": "// Collect results from all loop iterations\nconst allItems = $input.all();\n\n// We just need to return a summary — the actual details\n// are tracked by the DB updates throughout the loop.\n// Count results by checking what happened:\nlet sent = 0, skipped = 0, failed = 0;\nconst details = [];\n\n// We can't easily aggregate from the loop, so we'll query the DB\n// Actually — the loop items arrive here one at a time on the 'done' output.\n// With SplitInBatches v1, the done output fires once after all items processed.\n// The items at this point are whatever the last iteration left.\n// Better approach: just return a simple success message and let the UI refresh.\n\nreturn [{ json: {\n  success: true,\n  message: 'Force send completed. Refresh the wave to see results.'\n} }];"
+      },
+      "id": "fs-0027",
+      "name": "Build Response",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1440,
+        -180
+      ]
+    },
+    {
+      "parameters": {
+        "respondWith": "firstIncomingItem",
+        "options": {
+          "responseCode": 200
+        }
+      },
+      "id": "fs-0028",
+      "name": "Success Response",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [
+        1680,
+        -180
+      ]
+    },
+    {
+      "parameters": {
+        "respondWith": "firstIncomingItem",
+        "options": {
+          "responseCode": 400
+        }
+      },
+      "id": "fs-0029",
+      "name": "Error Response (Invalid)",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [
+        720,
+        480
+      ]
+    },
+    {
+      "parameters": {
+        "respondWith": "firstIncomingItem",
+        "options": {
+          "responseCode": 400
+        }
+      },
+      "id": "fs-0030",
+      "name": "Error Response (No Items)",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [
+        1440,
+        360
+      ]
+    }
+  ],
+  "connections": {
+    "Webhook": {
+      "main": [
+        [
+          {
+            "node": "Validate Input",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Validate Input": {
+      "main": [
+        [
+          {
+            "node": "IF Valid Input",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "IF Valid Input": {
+      "main": [
+        [
+          {
+            "node": "Fetch Queue Items",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Error Response (Invalid)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Fetch Queue Items": {
+      "main": [
+        [
+          {
+            "node": "Flatten Queue Items",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Flatten Queue Items": {
+      "main": [
+        [
+          {
+            "node": "IF Has Items",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "IF Has Items": {
+      "main": [
+        [
+          {
+            "node": "Loop Items",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Error Response (No Items)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Loop Items": {
+      "main": [
+        [
+          {
+            "node": "IF Valid Queue Item",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Build Response",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "IF Valid Queue Item": {
+      "main": [
+        [
+          {
+            "node": "Mark As Sending",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        []
+      ]
+    },
+    "Mark As Sending": {
+      "main": [
+        [
+          {
+            "node": "Check Daily Limit",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Check Daily Limit": {
+      "main": [
+        [
+          {
+            "node": "Parse Limit Check",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Parse Limit Check": {
+      "main": [
+        [
+          {
+            "node": "IF Under Limit",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "IF Under Limit": {
+      "main": [
+        [
+          {
+            "node": "Prepare Email",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Collect Skip",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Prepare Email": {
+      "main": [
+        [
+          {
+            "node": "Send SMTP Email",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Send SMTP Email": {
+      "main": [
+        [
+          {
+            "node": "Check Send Result",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Check Send Result": {
+      "main": [
+        [
+          {
+            "node": "IF Send Success",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "IF Send Success": {
+      "main": [
+        [
+          {
+            "node": "Insert Sent Email",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Handle Send Failure",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Insert Sent Email": {
+      "main": [
+        [
+          {
+            "node": "Update Queue Sent",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Update Queue Sent": {
+      "main": [
+        [
+          {
+            "node": "Increment Sends RPC",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Increment Sends RPC": {
+      "main": [
+        [
+          {
+            "node": "Schedule Next Seq",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Schedule Next Seq": {
+      "main": [
+        [
+          {
+            "node": "IF Schedule Next",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "IF Schedule Next": {
+      "main": [
+        [
+          {
+            "node": "Activate Next Seq Item",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Update Wave Lead Status",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Activate Next Seq Item": {
+      "main": [
+        [
+          {
+            "node": "Update Wave Lead Status",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Update Wave Lead Status": {
+      "main": [
+        [
+          {
+            "node": "Loop Items",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Handle Send Failure": {
+      "main": [
+        [
+          {
+            "node": "Mark As Failed",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Mark As Failed": {
+      "main": [
+        [
+          {
+            "node": "Loop Items",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Collect Skip": {
+      "main": [
+        [
+          {
+            "node": "Revert Status On Skip",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Revert Status On Skip": {
+      "main": [
+        [
+          {
+            "node": "Loop Items",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Build Response": {
+      "main": [
+        [
+          {
+            "node": "Success Response",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "pinData": {}
+}

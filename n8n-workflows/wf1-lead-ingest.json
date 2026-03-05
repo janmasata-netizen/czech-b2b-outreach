@@ -1,0 +1,421 @@
+{
+  "name": "WF1 - Lead Ingest",
+  "nodes": [
+    {
+      "id": "wf01-node-webhook",
+      "name": "Webhook Trigger",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [
+        240,
+        300
+      ],
+      "parameters": {
+        "path": "lead-ingest",
+        "httpMethod": "POST",
+        "responseMode": "responseNode"
+      },
+      "webhookId": "lead-ingest"
+    },
+    {
+      "id": "wf01-node-rpc",
+      "name": "Ingest Lead RPC",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4,
+      "position": [
+        480,
+        300
+      ],
+      "parameters": {
+        "method": "POST",
+        "url": "https://cycapkswtucbucyegdsn.supabase.co/rest/v1/rpc/ingest_lead",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "apikey",
+              "value": "SUPABASE_SERVICE_ROLE_KEY_PLACEHOLDER"
+            },
+            {
+              "name": "Authorization",
+              "value": "Bearer SUPABASE_SERVICE_ROLE_KEY_PLACEHOLDER"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({\n  p_company_name: $json.body?.company_name || $json.body?.contact_name\n                  || $json.company_name || $json.contact_name || null,\n  p_ico:          $json.body?.ico || $json.ico || null,\n  p_website:      $json.body?.website || $json.website || null,\n  p_team_id_hint: $json.body?.team_id || $json.team_id || null\n}) }}",
+        "options": {
+          "timeout": 30000,
+          "neverError": true
+        }
+      }
+    },
+    {
+      "id": "wf01-node-ifdup",
+      "name": "IF Duplicate",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [
+        720,
+        300
+      ],
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict"
+          },
+          "conditions": [
+            {
+              "id": "dup-check",
+              "leftValue": "={{ $json.duplicate }}",
+              "rightValue": true,
+              "operator": {
+                "type": "boolean",
+                "operation": "equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        }
+      }
+    },
+    {
+      "id": "wf01-node-409",
+      "name": "Respond 409",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1,
+      "position": [
+        960,
+        200
+      ],
+      "parameters": {
+        "respondWith": "json",
+        "responseCode": 409,
+        "responseBody": "{\"error\":\"Duplicate lead\"}"
+      }
+    },
+    {
+      "id": "wf01-node-200",
+      "name": "Respond 200",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1,
+      "position": [
+        960,
+        400
+      ],
+      "parameters": {
+        "respondWith": "text",
+        "responseCode": 200,
+        "responseBody": ""
+      }
+    },
+    {
+      "id": "wf01-node-ifcontact",
+      "name": "IF Contact Lead",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [
+        1200,
+        400
+      ],
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict"
+          },
+          "conditions": [
+            {
+              "id": "contact-check",
+              "leftValue": "={{ $('Webhook Trigger').first().json.body?.contact_name }}",
+              "rightValue": "",
+              "operator": {
+                "type": "string",
+                "operation": "notEmpty"
+              }
+            }
+          ],
+          "combinator": "and"
+        }
+      }
+    },
+    {
+      "id": "wf01-node-parsename",
+      "name": "Parse Contact Name",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1440,
+        300
+      ],
+      "parameters": {
+        "jsCode": "const raw = $('Webhook Trigger').first().json.body?.contact_name || '';\nconst parts = raw.trim().split(/\\s+/);\nconst firstName = parts[0] || '';\nconst lastName  = parts.slice(1).join(' ') || '';\nreturn { json: {\n  lead_id:    $('Ingest Lead RPC').first().json.lead_id,\n  full_name:  raw,\n  first_name: firstName,\n  last_name:  lastName,\n  contact_name: raw,\n}};",
+        "mode": "runOnceForEachItem"
+      }
+    },
+    {
+      "id": "wf01-node-updatelead",
+      "name": "Update Lead (Contact)",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4,
+      "position": [
+        1680,
+        300
+      ],
+      "parameters": {
+        "method": "PATCH",
+        "url": "=https://cycapkswtucbucyegdsn.supabase.co/rest/v1/leads?id=eq.{{ $json.lead_id }}",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "apikey",
+              "value": "SUPABASE_SERVICE_ROLE_KEY_PLACEHOLDER"
+            },
+            {
+              "name": "Authorization",
+              "value": "Bearer SUPABASE_SERVICE_ROLE_KEY_PLACEHOLDER"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            },
+            {
+              "name": "Prefer",
+              "value": "return=minimal"
+            }
+          ]
+        },
+        "sendBody": true,
+        "contentType": "raw",
+        "rawContentType": "application/json",
+        "body": "={{ JSON.stringify({ lead_type: 'contact', contact_name: $json.contact_name, status: 'enriched' }) }}",
+        "options": {
+          "timeout": 10000,
+          "neverError": true
+        }
+      }
+    },
+    {
+      "id": "wf01-node-insertjednatel",
+      "name": "Insert Jednatel",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4,
+      "position": [
+        1920,
+        300
+      ],
+      "parameters": {
+        "method": "POST",
+        "url": "https://cycapkswtucbucyegdsn.supabase.co/rest/v1/jednatels",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "apikey",
+              "value": "SUPABASE_SERVICE_ROLE_KEY_PLACEHOLDER"
+            },
+            {
+              "name": "Authorization",
+              "value": "Bearer SUPABASE_SERVICE_ROLE_KEY_PLACEHOLDER"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            },
+            {
+              "name": "Prefer",
+              "value": "resolution=ignore-duplicates,return=minimal"
+            }
+          ]
+        },
+        "sendBody": true,
+        "contentType": "raw",
+        "rawContentType": "application/json",
+        "body": "={{ JSON.stringify({ lead_id: $('Parse Contact Name').first().json.lead_id, full_name: $('Parse Contact Name').first().json.full_name, first_name: $('Parse Contact Name').first().json.first_name, last_name: $('Parse Contact Name').first().json.last_name }) }}",
+        "options": {
+          "timeout": 10000,
+          "neverError": true
+        }
+      }
+    },
+    {
+      "id": "wf01-node-wf4direct",
+      "name": "Trigger WF4 Direct",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4,
+      "position": [
+        2160,
+        300
+      ],
+      "parameters": {
+        "method": "POST",
+        "url": "http://72.62.53.244:32770/webhook/wf4-email-gen",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "contentType": "raw",
+        "rawContentType": "application/json",
+        "body": "={{ JSON.stringify({ lead_id: $('Parse Contact Name').first().json.lead_id }) }}",
+        "options": {
+          "timeout": 10000,
+          "neverError": true
+        }
+      }
+    },
+    {
+      "id": "wf01-node-wf2",
+      "name": "Trigger WF2",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4,
+      "position": [
+        1440,
+        500
+      ],
+      "parameters": {
+        "method": "POST",
+        "url": "http://72.62.53.244:32770/webhook/wf2-ares",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ lead_id: $(\"Ingest Lead RPC\").first().json.lead_id }) }}",
+        "options": {
+          "timeout": 10000,
+          "neverError": true
+        }
+      }
+    }
+  ],
+  "connections": {
+    "Webhook Trigger": {
+      "main": [
+        [
+          {
+            "node": "Ingest Lead RPC",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Ingest Lead RPC": {
+      "main": [
+        [
+          {
+            "node": "IF Duplicate",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "IF Duplicate": {
+      "main": [
+        [
+          {
+            "node": "Respond 409",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Respond 200",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Respond 200": {
+      "main": [
+        [
+          {
+            "node": "IF Contact Lead",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "IF Contact Lead": {
+      "main": [
+        [
+          {
+            "node": "Parse Contact Name",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Trigger WF2",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Parse Contact Name": {
+      "main": [
+        [
+          {
+            "node": "Update Lead (Contact)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Update Lead (Contact)": {
+      "main": [
+        [
+          {
+            "node": "Insert Jednatel",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Insert Jednatel": {
+      "main": [
+        [
+          {
+            "node": "Trigger WF4 Direct",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "staticData": null,
+  "pinData": {}
+}

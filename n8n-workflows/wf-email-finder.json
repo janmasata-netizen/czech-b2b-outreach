@@ -1,0 +1,227 @@
+{
+  "name": "WF: Email Finder (On-Demand)",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "wf-email-finder",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "id": "wfef-0001",
+      "name": "Webhook Trigger",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [0, 400],
+      "webhookId": "wf-email-finder"
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForEachItem",
+        "jsCode": "const body = $input.item.json.body || $input.item.json;\nconst mode = body.mode || 'ico';\nconst ico = (body.ico || '').trim();\nconst website = (body.website || '').trim();\nconst first_name = (body.first_name || '').trim();\nconst last_name = (body.last_name || '').trim();\nconst email = (body.email || '').trim();\n\n// Extract clean domain from website (or from email for verify mode)\nlet domain = website.replace(/^https?:\\/\\//i, '').replace(/^www\\./i, '').split('/')[0].trim();\nif (!domain && email) domain = email.split('@')[1] || '';\n\nreturn {\n  json: { mode, ico, website, first_name, last_name, email, domain }\n};"
+      },
+      "id": "wfef-0002",
+      "name": "Extract Input",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [240, 400]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": { "caseSensitive": true, "leftValue": "", "typeValidation": "strict" },
+          "conditions": [
+            {
+              "leftValue": "={{ $json.mode }}",
+              "rightValue": "verify",
+              "operator": { "type": "string", "operation": "equals" }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "wfef-0011",
+      "name": "IF Verify Mode",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [480, 400]
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForEachItem",
+        "jsCode": "const email = $('Extract Input').first().json.email;\nreturn { json: { email_address: email, source: 'direct' } };"
+      },
+      "id": "wfef-0012",
+      "name": "Prepare Single Email",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [720, 160]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": { "caseSensitive": true, "leftValue": "", "typeValidation": "strict" },
+          "conditions": [
+            {
+              "leftValue": "={{ $json.mode }}",
+              "rightValue": "ico",
+              "operator": { "type": "string", "operation": "equals" }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "wfef-0003",
+      "name": "IF ICO Mode",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [720, 500]
+    },
+    {
+      "parameters": {
+        "method": "GET",
+        "url": "=https://rejstrik-firem.kurzy.cz/{{ $('Extract Input').first().json.ico }}/",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Accept",
+              "value": "text/html,application/xhtml+xml"
+            },
+            {
+              "name": "User-Agent",
+              "value": "Mozilla/5.0 (compatible; bot)"
+            }
+          ]
+        },
+        "options": {
+          "timeout": 30000,
+          "fullResponse": true,
+          "neverError": true,
+          "response": {
+            "response": {
+              "responseFormat": "text"
+            }
+          }
+        }
+      },
+      "id": "wfef-0004",
+      "name": "Fetch Kurzy Page",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [960, 360]
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForEachItem",
+        "jsCode": "const domain = $('Extract Input').first().json.domain;\nconst ico = $('Extract Input').first().json.ico;\n\nconst resp = $input.item.json;\nconst html = (resp.body || resp.data || '') + '';\n\nif (!html || html.length < 100) {\n  return { json: { jednatels: [], domain } };\n}\n\nconst jednatels = [];\nconst seen = new Set();\n\n// Strategy 1: <b>Jednatel</b> then <a href=\"/osoba/N/\">NAME</a>\nconst kurzyPattern = /<(?:b|strong)[^>]*>[\\s\\n]*Jednatel[\\s\\n]*<\\/(?:b|strong)>[\\s\\S]{0,600}?<a[^>]*href=\"\\/osoba\\/\\d+\\/[^\"]*\"[^>]*>([^<]+)/gi;\nlet m;\nwhile ((m = kurzyPattern.exec(html)) !== null) {\n  const raw = m[1].trim();\n  if (raw.length < 3 || raw.length > 100 || seen.has(raw.toLowerCase())) continue;\n  seen.add(raw.toLowerCase());\n  const cleaned = raw.replace(/^(Ing\\.|Mgr\\.|Bc\\.|JUDr\\.|MUDr\\.|PhDr\\.|Doc\\.|Prof\\.|RNDr\\.|DiS\\.)\\s*/gi, '').trim();\n  const parts = cleaned.split(/\\s+/);\n  if (parts.length < 2) continue;\n  jednatels.push({ first_name: parts[0], last_name: parts[parts.length - 1] });\n}\n\n// Strategy 2: generic TD pattern\nif (jednatels.length === 0) {\n  const tdPattern = /<td[^>]*>[^<]*jednatel[^<]*<\\/td>\\s*<td[^>]*>([^<]+)<\\/td>/gi;\n  while ((m = tdPattern.exec(html)) !== null) {\n    const raw = m[1].trim();\n    if (raw.length < 3 || raw.length > 100 || seen.has(raw.toLowerCase())) continue;\n    seen.add(raw.toLowerCase());\n    const cleaned = raw.replace(/^(Ing\\.|Mgr\\.|Bc\\.|JUDr\\.|MUDr\\.|PhDr\\.)\\s*/gi, '').trim();\n    const parts = cleaned.split(/\\s+/);\n    if (parts.length < 2) continue;\n    jednatels.push({ first_name: parts[0], last_name: parts[parts.length - 1] });\n  }\n}\n\n// Strategy 3: Statutární orgán section\nif (jednatels.length === 0) {\n  const sectionMatch = html.match(/Statutárn[íi] orgán[\\s\\S]*?(?=<h[1-4]|<\\/section)/i);\n  if (sectionMatch) {\n    const section = sectionMatch[0];\n    const namePattern = /<strong>([^<]{5,60})<\\/strong>/g;\n    while ((m = namePattern.exec(section)) !== null) {\n      const raw = m[1].trim();\n      if (seen.has(raw.toLowerCase())) continue;\n      seen.add(raw.toLowerCase());\n      const cleaned = raw.replace(/^(Ing\\.|Mgr\\.|Bc\\.|JUDr\\.|MUDr\\.)\\s*/gi, '').trim();\n      const parts = cleaned.split(/\\s+/);\n      if (parts.length < 2) continue;\n      jednatels.push({ first_name: parts[0], last_name: parts[parts.length - 1] });\n    }\n    if (jednatels.length === 0) {\n      const osobaPattern = /<a[^>]*href=\"\\/osoba\\/\\d+\\/[^\"]*\"[^>]*>([^<]+)<\\/a>/gi;\n      while ((m = osobaPattern.exec(section)) !== null) {\n        const raw = m[1].trim();\n        if (raw.length < 3 || raw.length > 100 || seen.has(raw.toLowerCase())) continue;\n        seen.add(raw.toLowerCase());\n        const cleaned = raw.replace(/^(Ing\\.|Mgr\\.|Bc\\.|JUDr\\.|MUDr\\.|PhDr\\.|Doc\\.|Prof\\.|RNDr\\.|DiS\\.)\\s*/gi, '').trim();\n        const parts = cleaned.split(/\\s+/);\n        if (parts.length < 2) continue;\n        jednatels.push({ first_name: parts[0], last_name: parts[parts.length - 1] });\n      }\n    }\n  }\n}\n\nreturn { json: { jednatels, domain } };"
+      },
+      "id": "wfef-0005",
+      "name": "Parse Kurzy Jednatels",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1200, 360]
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForEachItem",
+        "jsCode": "const domain = $('Extract Input').first().json.domain;\nconst first_name = $('Extract Input').first().json.first_name;\nconst last_name  = $('Extract Input').first().json.last_name;\nconst jednatels = (first_name || last_name) ? [{ first_name, last_name }] : [];\nreturn { json: { jednatels, domain } };"
+      },
+      "id": "wfef-0006",
+      "name": "Build Name Jednatels",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [960, 640]
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "jsCode": "const items = $input.all();\nconst { jednatels, domain } = items[0].json;\n\nfunction norm(s) {\n  return (s || '')\n    .toLowerCase()\n    .normalize('NFD')\n    .replace(/[\\u0300-\\u036f]/g, '')\n    .replace(/[^a-z0-9]/g, '');\n}\n\nconst candidates = [];\n\nfor (const j of jednatels) {\n  const f = norm(j.first_name);\n  const l = norm(j.last_name);\n  if (!f && !l) continue;\n  if (f && l) {\n    candidates.push({ email_address: `${f}.${l}@${domain}`, source: 'personal' });\n    candidates.push({ email_address: `${f[0]}.${l}@${domain}`, source: 'personal' });\n    candidates.push({ email_address: `${f}@${domain}`, source: 'personal' });\n    candidates.push({ email_address: `${f}${l}@${domain}`, source: 'personal' });\n  } else if (l) {\n    candidates.push({ email_address: `${l}@${domain}`, source: 'personal' });\n  } else if (f) {\n    candidates.push({ email_address: `${f}@${domain}`, source: 'personal' });\n  }\n}\n\nfor (const local of ['info', 'kontakt', 'hello', 'admin']) {\n  candidates.push({ email_address: `${local}@${domain}`, source: 'generic' });\n}\n\nconst seen = new Set();\nconst unique = candidates.filter(c => {\n  if (seen.has(c.email_address)) return false;\n  seen.add(c.email_address);\n  return true;\n});\n\nreturn unique.map(c => ({ json: { ...c, domain } }));"
+      },
+      "id": "wfef-0007",
+      "name": "Generate Email Patterns",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1440, 500]
+    },
+    {
+      "parameters": {
+        "workflowId": "Aov5PfwmBDv51L0e",
+        "options": {}
+      },
+      "id": "wfef-0008",
+      "name": "Verify Email",
+      "type": "n8n-nodes-base.executeWorkflow",
+      "typeVersion": 1,
+      "position": [1680, 380]
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "jsCode": "const items = $input.all();\nconst inputData = $('Extract Input').first().json;\nconst results = [];\n\nfunction deriveStatus(d) {\n  if (!d.has_mx) return 'invalid';\n  if (d.smtp_result === 'invalid') return 'invalid';\n  if (d.smtp_result === 'valid' && !d.is_catch_all) return 'valid';\n  if (d.smtp_result === 'valid' && d.is_catch_all) return 'likely_valid';\n  if (d.is_valid) return 'likely_valid';\n  if (['timeout','error','skipped','unknown'].includes(d.smtp_result)) return 'unknown';\n  return 'unknown';\n}\n\nfunction deriveConfidence(score) {\n  if (score >= 70) return 'high';\n  if (score >= 40) return 'medium';\n  return 'low';\n}\n\nfor (const item of items) {\n  const d = item.json;\n  const email = d.email || d.email_address || '';\n  if (!email) continue;\n  const status = deriveStatus(d);\n  const confidence = deriveConfidence(d.confidence_score || 0);\n  results.push({ email, status, confidence, smtp_result: d.smtp_result || null });\n}\n\nconst order = { valid: 0, likely_valid: 1, unknown: 2, invalid: 3 };\nresults.sort((a, b) => (order[a.status] ?? 5) - (order[b.status] ?? 5));\n\nconst domain = inputData.domain || (results[0]?.email?.split('@')[1] || '');\n\nreturn [{ json: { candidates: results, domain, total: results.length } }];"
+      },
+      "id": "wfef-0009",
+      "name": "Build Response",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1920, 380]
+    },
+    {
+      "parameters": {
+        "respondWith": "firstIncomingItem",
+        "options": { "responseCode": 200 }
+      },
+      "id": "wfef-0010",
+      "name": "Webhook Response",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1,
+      "position": [2160, 380]
+    }
+  ],
+  "connections": {
+    "Webhook Trigger": {
+      "main": [[ { "node": "Extract Input", "type": "main", "index": 0 } ]]
+    },
+    "Extract Input": {
+      "main": [[ { "node": "IF Verify Mode", "type": "main", "index": 0 } ]]
+    },
+    "IF Verify Mode": {
+      "main": [
+        [ { "node": "Prepare Single Email", "type": "main", "index": 0 } ],
+        [ { "node": "IF ICO Mode",          "type": "main", "index": 0 } ]
+      ]
+    },
+    "Prepare Single Email": {
+      "main": [[ { "node": "Verify Email", "type": "main", "index": 0 } ]]
+    },
+    "IF ICO Mode": {
+      "main": [
+        [ { "node": "Fetch Kurzy Page",     "type": "main", "index": 0 } ],
+        [ { "node": "Build Name Jednatels", "type": "main", "index": 0 } ]
+      ]
+    },
+    "Fetch Kurzy Page": {
+      "main": [[ { "node": "Parse Kurzy Jednatels", "type": "main", "index": 0 } ]]
+    },
+    "Parse Kurzy Jednatels": {
+      "main": [[ { "node": "Generate Email Patterns", "type": "main", "index": 0 } ]]
+    },
+    "Build Name Jednatels": {
+      "main": [[ { "node": "Generate Email Patterns", "type": "main", "index": 0 } ]]
+    },
+    "Generate Email Patterns": {
+      "main": [[ { "node": "Verify Email", "type": "main", "index": 0 } ]]
+    },
+    "Verify Email": {
+      "main": [[ { "node": "Build Response", "type": "main", "index": 0 } ]]
+    },
+    "Build Response": {
+      "main": [[ { "node": "Webhook Response", "type": "main", "index": 0 } ]]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1"
+  }
+}

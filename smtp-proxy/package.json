@@ -1,0 +1,16 @@
+{
+  "name": "smtp-proxy",
+  "version": "1.0.0",
+  "description": "SMTP proxy that sets Message-ID/In-Reply-To/References via nodemailer dedicated options (bypasses n8n community node bug)",
+  "type": "module",
+  "main": "server.mjs",
+  "scripts": {
+    "start": "node server.mjs"
+  },
+  "dependencies": {
+    "nodemailer": "^6.9.16"
+  },
+  "devDependencies": {
+    "ssh2": "^1.17.0"
+  }
+}

@@ -1,0 +1,477 @@
+/* ================================================================
+   SUPABASE-STYLE DESIGN SYSTEM
+   ================================================================ */
+
+:root {
+  /* ── Core palette ───────────────────────────────────────────── */
+  --bg-base:    #101010;   /* app background                     */
+  --bg-sidebar: #141414;   /* sidebar                            */
+  --bg-surface: #1a1a1a;   /* cards, panels                      */
+  --bg-overlay: #222222;   /* modals, dropdowns                  */
+  --bg-muted:   #2a2a2a;   /* hover, subtle bg                   */
+  --bg-subtle:  #242424;   /* table header, elevated             */
+
+  /* ── Borders ────────────────────────────────────────────────── */
+  --border:        #2a2a2a;
+  --border-strong: #383838;
+
+  /* ── Text ───────────────────────────────────────────────────── */
+  --text:       #ededed;
+  --text-dim:   #9b9b9b;
+  --text-muted: #52525b;
+
+  /* ── Brand green ────────────────────────────────────────────── */
+  --green:        #3ECF8E;
+  --green-bg:     rgba(62, 207, 142, 0.1);
+  --green-border: rgba(62, 207, 142, 0.25);
+
+  /* ── Status colours ─────────────────────────────────────────── */
+  --red:    #f87171;
+  --orange: #fb923c;
+  --yellow: #fbbf24;
+  --purple: #a78bfa;
+  --cyan:   #22d3ee;
+  --blue:   #60a5fa;
+
+  /* ── Backward-compat aliases (so inline styles still work) ──── */
+  --accent:              var(--green);
+  --glass-bg:            var(--bg-surface);
+  --glass-bg-strong:     var(--bg-overlay);
+  --glass-bg-hover:      var(--bg-muted);
+  --glass-bg-active:     var(--bg-muted);
+  --glass-border:        var(--border);
+  --glass-border-color:  var(--border);
+  --glass-border-strong: var(--border-strong);
+  --glass-border-pop:    var(--green);
+  --shadow-rest:         0 1px 4px rgba(0,0,0,0.5);
+  --shadow-pop:          0 4px 16px rgba(0,0,0,0.6);
+  --shadow-deep-pop:     0 8px 32px rgba(0,0,0,0.7);
+  --ease-pop:            cubic-bezier(0.4, 0, 0.2, 1);
+  --glass-blur:          0px;
+  --glass-blur-heavy:    0px;
+}
+
+/* ================================================================
+   BASE
+   ================================================================ */
+.app-bg {
+  background: var(--bg-base);
+  min-height: 100vh;
+}
+
+/* ================================================================
+   SIDEBAR
+   ================================================================ */
+.glass-sidebar {
+  background: var(--bg-sidebar);
+  border-right: 1px solid var(--border);
+  /* label/span fade handled inline */
+}
+
+/* ================================================================
+   NAV ITEM (Supabase style)
+   ================================================================ */
+.nav-item {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  padding: 5px 8px;
+  margin: 0 6px;
+  border-radius: 5px;
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--text-dim);
+  transition: background 0.15s, color 0.15s;
+  cursor: pointer;
+  text-decoration: none;
+  user-select: none;
+}
+.nav-item:hover {
+  background: var(--bg-muted);
+  color: var(--text);
+}
+.nav-item.active {
+  background: var(--green-bg);
+  color: var(--green);
+}
+.nav-item.active:hover {
+  background: rgba(62, 207, 142, 0.14);
+}
+
+/* ================================================================
+   GLASS CARD (flat panel)
+   ================================================================ */
+.glass-card {
+  background: var(--bg-surface);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  transition: transform 0.18s ease, box-shadow 0.18s ease, border-color 0.15s;
+}
+.glass-card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 24px rgba(0,0,0,0.35);
+  border-color: var(--border-strong);
+}
+
+/* ================================================================
+   STAT CARD
+   ================================================================ */
+.stat-card {
+  background: var(--bg-surface);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  transition: transform 0.18s ease, box-shadow 0.18s ease, border-color 0.15s;
+}
+.stat-card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 24px rgba(0,0,0,0.35);
+  border-color: var(--border-strong);
+}
+
+/* ================================================================
+   GLASS INPUT
+   ================================================================ */
+.glass-input {
+  width: 100%;
+  height: 34px;
+  padding: 0 10px;
+  background: var(--bg-base);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  color: var(--text);
+  font-size: 13px;
+  transition: border-color 0.15s, box-shadow 0.15s;
+  outline: none;
+  font-family: inherit;
+}
+textarea.glass-input {
+  height: auto;
+  padding: 8px 10px;
+  resize: vertical;
+}
+.glass-input::placeholder {
+  color: var(--text-muted);
+}
+.glass-input:focus {
+  border-color: var(--green);
+  box-shadow: 0 0 0 2px var(--green-bg);
+}
+.glass-input:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+select.glass-input {
+  cursor: pointer;
+  appearance: none;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%236b6b6b' stroke-width='2'%3E%3Cpolyline points='6 9 12 15 18 9'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 10px center;
+  padding-right: 30px;
+}
+
+/* ================================================================
+   GLASS BUTTON — PRIMARY (green)
+   ================================================================ */
+.glass-btn-primary {
+  background: var(--green);
+  border: 1px solid var(--green);
+  border-radius: 6px;
+  color: #0a0a0a;
+  font-weight: 600;
+  transition: background 0.15s, transform 0.15s ease, box-shadow 0.15s ease;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  white-space: nowrap;
+  letter-spacing: -0.01em;
+}
+.glass-btn-primary:hover {
+  background: #45d99a;
+  border-color: #45d99a;
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(62,207,142,0.3);
+}
+.glass-btn-primary:active {
+  background: #38b883;
+  border-color: #38b883;
+  transform: translateY(0);
+  box-shadow: none;
+}
+
+/* ================================================================
+   GLASS BUTTON — SECONDARY
+   ================================================================ */
+.glass-btn-secondary {
+  background: var(--bg-surface);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  color: var(--text-dim);
+  font-weight: 500;
+  transition: background 0.15s, border-color 0.15s, color 0.15s, transform 0.15s ease, box-shadow 0.15s ease;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  white-space: nowrap;
+}
+.glass-btn-secondary:hover {
+  background: var(--bg-muted);
+  border-color: var(--border-strong);
+  color: var(--text);
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(0,0,0,0.25);
+}
+.glass-btn-secondary:active {
+  background: var(--bg-muted);
+  transform: translateY(0);
+  box-shadow: none;
+}
+
+/* ================================================================
+   GLASS BUTTON — DANGER
+   ================================================================ */
+.glass-btn-danger {
+  background: var(--bg-surface);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  color: var(--red);
+  font-weight: 500;
+  transition: background 0.15s, border-color 0.15s, transform 0.15s ease, box-shadow 0.15s ease;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+}
+.glass-btn-danger:hover {
+  background: rgba(248,113,113,0.08);
+  border-color: rgba(248,113,113,0.4);
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(248,113,113,0.2);
+}
+.glass-btn-danger:active {
+  background: rgba(248,113,113,0.12);
+  transform: translateY(0);
+  box-shadow: none;
+}
+
+/* ── Disabled ──────────────────────────────────────────────────── */
+.glass-btn-primary:disabled,
+.glass-btn-secondary:disabled,
+.glass-btn-danger:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+  pointer-events: none;
+}
+
+/* ================================================================
+   GLASS MODAL
+   ================================================================ */
+.glass-modal-backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.7);
+  z-index: 50;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 1rem;
+}
+.glass-modal-panel {
+  background: var(--bg-overlay);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  box-shadow: 0 20px 60px rgba(0,0,0,0.6);
+  animation: modal-pop-in 0.15s ease-out forwards;
+  width: 100%;
+  max-width: 520px;
+  max-height: 90vh;
+  overflow-y: auto;
+}
+
+/* ================================================================
+   TABLE
+   ================================================================ */
+.glass-table-row {
+  transition: background 0.1s, box-shadow 0.15s;
+  cursor: pointer;
+}
+.glass-table-row:hover td {
+  background: var(--bg-subtle) !important;
+}
+.glass-table-row:hover {
+  box-shadow: 0 2px 12px rgba(0,0,0,0.25);
+  position: relative;
+  z-index: 1;
+}
+
+/* ================================================================
+   STATUS BADGE
+   ================================================================ */
+.status-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 2px 8px;
+  border-radius: 4px;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  font-family: 'JetBrains Mono', monospace;
+}
+
+/* ================================================================
+   TIMELINE
+   ================================================================ */
+.timeline-dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
+.timeline-dot-green  { background: var(--green); }
+.timeline-dot-red    { background: var(--red); }
+.timeline-dot-orange { background: var(--orange); }
+.timeline-dot-grey   { background: var(--text-muted); }
+.timeline-line { width: 1px; flex: 1; background: var(--border); margin: 0 auto; }
+
+/* ================================================================
+   GLASS PROGRESS BAR
+   ================================================================ */
+.glass-progress-track {
+  background: var(--bg-muted);
+  border-radius: 999px;
+  overflow: hidden;
+  height: 4px;
+}
+.glass-progress-fill {
+  height: 100%;
+  border-radius: 999px;
+  transition: width 0.4s ease;
+}
+
+/* ================================================================
+   LOADING SKELETON
+   ================================================================ */
+.skeleton {
+  background: var(--bg-subtle);
+  border-radius: 6px;
+  position: relative;
+  overflow: hidden;
+}
+.skeleton::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(
+    90deg,
+    transparent 0%,
+    rgba(255,255,255,0.04) 50%,
+    transparent 100%
+  );
+  animation: shimmer 1.5s infinite;
+}
+
+/* ================================================================
+   ANIMATIONS
+   ================================================================ */
+@keyframes modal-pop-in {
+  0%   { opacity: 0; transform: scale(0.97) translateY(6px); }
+  100% { opacity: 1; transform: scale(1) translateY(0); }
+}
+@keyframes shimmer {
+  0%   { transform: translateX(-100%); }
+  100% { transform: translateX(100%); }
+}
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+@keyframes fade-in {
+  from { opacity: 0; transform: translateY(4px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+.animate-fade-in {
+  animation: fade-in 0.2s ease forwards;
+}
+
+/* ================================================================
+   SCROLLBAR
+   ================================================================ */
+::-webkit-scrollbar { width: 6px; height: 6px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: var(--border-strong); border-radius: 3px; }
+::-webkit-scrollbar-thumb:hover { background: var(--text-muted); }
+
+/* ================================================================
+   RECHARTS OVERRIDES
+   ================================================================ */
+.recharts-tooltip-wrapper .recharts-default-tooltip {
+  background: var(--bg-overlay) !important;
+  border: 1px solid var(--border) !important;
+  border-radius: 6px !important;
+}
+.recharts-cartesian-axis-tick-value { fill: var(--text-muted); font-size: 11px; }
+.recharts-cartesian-grid-horizontal line,
+.recharts-cartesian-grid-vertical line { stroke: var(--border); }
+
+/* ================================================================
+   MOBILE RESPONSIVE
+   ================================================================ */
+@media (max-width: 767px) {
+  /* Larger tap targets for nav items */
+  .nav-item {
+    padding: 10px 12px 10px 14px;
+    font-size: 14px;
+    gap: 10px;
+    margin: 0 4px;
+    border-radius: 6px;
+    min-height: 44px;
+  }
+
+  /* Modals fill more of the screen */
+  .glass-modal-backdrop {
+    padding: 8px;
+    align-items: flex-end;
+  }
+  .glass-modal-panel {
+    max-width: 100%;
+    max-height: 85vh;
+    border-radius: 12px 12px 0 0;
+  }
+
+  /* Cards don't lift on hover (no hover on touch) */
+  .glass-card:hover,
+  .stat-card:hover {
+    transform: none;
+    box-shadow: none;
+  }
+
+  /* Table rows: no hover lift */
+  .glass-table-row:hover {
+    box-shadow: none;
+  }
+
+  /* Buttons: taller for touch */
+  .glass-btn-primary,
+  .glass-btn-secondary,
+  .glass-btn-danger {
+    min-height: 40px;
+    padding: 8px 14px;
+    font-size: 13px;
+  }
+
+  /* Inputs: taller for touch, prevent iOS zoom */
+  .glass-input {
+    height: 40px;
+    font-size: 16px;
+    padding: 0 12px;
+  }
+  textarea.glass-input {
+    height: auto;
+    padding: 10px 12px;
+  }
+  select.glass-input {
+    font-size: 16px;
+  }
+
+  /* Wider scrollbar thumb for touch */
+  ::-webkit-scrollbar { width: 4px; height: 4px; }
+}

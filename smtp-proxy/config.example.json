@@ -1,0 +1,11 @@
+{
+  "credentials": {
+    "Burner SMTP": {
+      "host": "smtp.example.com",
+      "port": 465,
+      "secure": true,
+      "user": "your-smtp-user",
+      "pass": "your-smtp-password"
+    }
+  }
+}

@@ -1,0 +1,601 @@
+{
+  "name": "WF5: Seznam Bounce Verification",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "wf5-seznam",
+        "responseMode": "onReceived",
+        "options": {}
+      },
+      "id": "wf05-0000-0000-0000-000000000001",
+      "name": "Webhook Trigger",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [
+        0,
+        300
+      ],
+      "webhookId": "wf5-seznam"
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForEachItem",
+        "jsCode": "return { json: { lead_id: $input.item.json.body.lead_id } };"
+      },
+      "id": "wf05-0000-0000-0000-000000000002",
+      "name": "Extract Lead ID",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        240,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "method": "GET",
+        "url": "https://cycapkswtucbucyegdsn.supabase.co/rest/v1/email_candidates",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "apikey",
+              "value": "SUPABASE_SERVICE_ROLE_KEY_PLACEHOLDER"
+            },
+            {
+              "name": "Authorization",
+              "value": "Bearer SUPABASE_SERVICE_ROLE_KEY_PLACEHOLDER"
+            }
+          ]
+        },
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            {
+              "name": "select",
+              "value": "id,email_address,jednatel_id,jednatels(lead_id)"
+            },
+            {
+              "name": "seznam_status",
+              "value": "eq.pending"
+            },
+            {
+              "name": "jednatels.lead_id",
+              "value": "={{ 'eq.' + $json.lead_id }}"
+            }
+          ]
+        },
+        "options": {
+          "timeout": 30000,
+          "neverError": true
+        }
+      },
+      "id": "wf05-0000-0000-0000-000000000003",
+      "name": "Get Pending Candidates",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        480,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "method": "GET",
+        "url": "https://cycapkswtucbucyegdsn.supabase.co/rest/v1/config",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "apikey",
+              "value": "SUPABASE_SERVICE_ROLE_KEY_PLACEHOLDER"
+            },
+            {
+              "name": "Authorization",
+              "value": "Bearer SUPABASE_SERVICE_ROLE_KEY_PLACEHOLDER"
+            }
+          ]
+        },
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            {
+              "name": "select",
+              "value": "key,value"
+            },
+            {
+              "name": "key",
+              "value": "eq.seznam_from_email"
+            },
+            {
+              "name": "limit",
+              "value": "1"
+            }
+          ]
+        },
+        "options": {
+          "timeout": 30000,
+          "neverError": true
+        }
+      },
+      "id": "wf05-conf-seznam-0000-000000000001",
+      "name": "Get Config SEZNAM",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        720,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "jsCode": "const candidates = $('Get Pending Candidates').all().map(i => i.json);\nconst lead_id = $('Extract Lead ID').first().json.lead_id;\n\nconst filtered = candidates.filter(c => {\n  const j = c.jednatels;\n  return j && (Array.isArray(j) ? j.some(x => x.lead_id === lead_id) : j.lead_id === lead_id);\n});\n\nreturn filtered.map(c => ({ json: { id: c.id, email_address: c.email_address, lead_id } }));"
+      },
+      "id": "wf05-0000-0000-0000-000000000004",
+      "name": "Flatten Candidates",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        960,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "fromEmail": "={{ $('Get Config SEZNAM').first().json.value }}",
+        "toEmail": "={{ $json.email_address }}",
+        "subject": "Test doručení",
+        "emailType": "text",
+        "message": "Tento email je automatický test doručitelnosti.",
+        "options": {
+          "appendAttribution": false
+        }
+      },
+      "id": "wf05-0000-0000-0000-000000000007",
+      "name": "Send Test Email",
+      "type": "n8n-nodes-base.emailSend",
+      "typeVersion": 2.1,
+      "position": [
+        1200,
+        300
+      ],
+      "credentials": {
+        "smtp": {
+          "id": "3X8mKDvlcXsGRmZS",
+          "name": "vyhry-temu@seznam.cz"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "method": "PATCH",
+        "url": "https://cycapkswtucbucyegdsn.supabase.co/rest/v1/email_candidates",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "apikey",
+              "value": "SUPABASE_SERVICE_ROLE_KEY_PLACEHOLDER"
+            },
+            {
+              "name": "Authorization",
+              "value": "Bearer SUPABASE_SERVICE_ROLE_KEY_PLACEHOLDER"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            {
+              "name": "id",
+              "value": "={{ 'eq.' + $('Flatten Candidates').item.json.id }}"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={ \"seznam_status\": \"sent\" }",
+        "options": {
+          "timeout": 30000,
+          "neverError": true
+        }
+      },
+      "id": "wf05-0000-0000-0000-000000000008",
+      "name": "Mark Sent",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1440,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "jsCode": "// All test emails have been sent. Consolidate to 1 item before the wait.\nreturn [{ json: { done: true } }];"
+      },
+      "id": "wf05-0000-0000-0000-000000000018",
+      "name": "Consolidate After Send",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1680,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "amount": 3,
+        "unit": "minutes"
+      },
+      "id": "wf05-0000-0000-0000-000000000009",
+      "name": "Wait 3 Minutes",
+      "type": "n8n-nodes-base.wait",
+      "typeVersion": 1.1,
+      "position": [
+        1920,
+        300
+      ],
+      "webhookId": "wf5-wait"
+    },
+    {
+      "parameters": {
+        "mailbox": "INBOX",
+        "options": {
+          "customEmailConfig": "[\"UNSEEN\",[\"FROM\",\"mailer-daemon@seznam.cz\"]]",
+          "downloadAttachments": false,
+          "markSeen": false
+        }
+      },
+      "id": "wf05-0000-0000-0000-000000000010",
+      "name": "Check Bounces IMAP",
+      "type": "n8n-nodes-base.emailReadImap",
+      "typeVersion": 2,
+      "position": [
+        2160,
+        300
+      ],
+      "credentials": {
+        "imap": {
+          "id": "zvcpvsLoAq7WiOzX",
+          "name": "vyhry-temu@seznam.cz"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "jsCode": "const bounceMessages = $input.all().map(i => i.json);\nconst bouncedEmails = new Set();\n\nfor (const msg of bounceMessages) {\n  const text = (msg.text || msg.html || msg.textHtml || '').toString();\n  \n  const patterns = [\n    /(?:Final-Recipient|Original-Recipient):[^\\n]*<([a-zA-Z0-9._%+\\-]+@[a-zA-Z0-9.\\-]+\\.[a-zA-Z]{2,})>/gi,\n    /(?:Failed Recipient|The following address):\\s*([a-zA-Z0-9._%+\\-]+@[a-zA-Z0-9.\\-]+\\.[a-zA-Z]{2,})/gi,\n    /Delivery to the following recipient failed[^\\n]+\\n+\\s*([a-zA-Z0-9._%+\\-]+@[a-zA-Z0-9.\\-]+\\.[a-zA-Z]{2,})/gi,\n    /\\bTo:\\s*([a-zA-Z0-9._%+\\-]+@[a-zA-Z0-9.\\-]+\\.[a-zA-Z]{2,})/gi,\n  ];\n  \n  for (const pattern of patterns) {\n    let match;\n    while ((match = pattern.exec(text)) !== null) {\n      bouncedEmails.add(match[1].toLowerCase());\n    }\n  }\n}\n\nreturn [{ json: { bouncedEmails: Array.from(bouncedEmails) } }];"
+      },
+      "id": "wf05-0000-0000-0000-000000000011",
+      "name": "Extract Bounced Emails",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        2400,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "jsCode": "const bouncedEmails = $input.first().json.bouncedEmails || [];\nconst bouncedSet = new Set(bouncedEmails.map(e => e.toLowerCase()));\n\nconst candidates = $('Get Pending Candidates').all().map(i => i.json);\nconst lead_id = $('Extract Lead ID').first().json.lead_id;\n\nconst mine = candidates.filter(c => {\n  const j = c.jednatels;\n  return j && (Array.isArray(j) ? j.some(x => x.lead_id === lead_id) : j.lead_id === lead_id);\n});\n\nreturn mine.map(c => ({ json: {\n  id:            c.id,\n  seznam_status: bouncedSet.has(c.email_address.toLowerCase()) ? 'bounced' : 'likely_valid',\n  lead_id,\n} }));"
+      },
+      "id": "wf05-0000-0000-0000-000000000012",
+      "name": "Classify Candidates",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        2640,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "method": "PATCH",
+        "url": "https://cycapkswtucbucyegdsn.supabase.co/rest/v1/email_candidates",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "apikey",
+              "value": "SUPABASE_SERVICE_ROLE_KEY_PLACEHOLDER"
+            },
+            {
+              "name": "Authorization",
+              "value": "Bearer SUPABASE_SERVICE_ROLE_KEY_PLACEHOLDER"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            {
+              "name": "id",
+              "value": "={{ 'eq.' + $json.id }}"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ seznam_status: $json.seznam_status, seznam_checked_at: new Date().toISOString() }) }}",
+        "options": {
+          "timeout": 30000,
+          "neverError": true
+        }
+      },
+      "id": "wf05-0000-0000-0000-000000000014",
+      "name": "Update Candidate Status",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        2880,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "jsCode": "// All candidates updated. Consolidate to 1 item before logging and triggering WF6.\nreturn [{ json: { done: true } }];"
+      },
+      "id": "wf05-0000-0000-0000-000000000019",
+      "name": "Consolidate After Update",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        3120,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://cycapkswtucbucyegdsn.supabase.co/rest/v1/enrichment_log",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "apikey",
+              "value": "SUPABASE_SERVICE_ROLE_KEY_PLACEHOLDER"
+            },
+            {
+              "name": "Authorization",
+              "value": "Bearer SUPABASE_SERVICE_ROLE_KEY_PLACEHOLDER"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ lead_id: $('Extract Lead ID').first().json.lead_id, step: 'seznam_verify', status: 'success', completed_at: new Date().toISOString() }) }}",
+        "options": {
+          "timeout": 30000,
+          "neverError": true
+        }
+      },
+      "id": "wf05-0000-0000-0000-000000000015",
+      "name": "Log Success",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        3360,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "http://72.62.53.244:32770/webhook/wf6-qev",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ lead_id: $('Extract Lead ID').first().json.lead_id }) }}",
+        "options": {
+          "timeout": 30000,
+          "neverError": true
+        }
+      },
+      "id": "wf05-0000-0000-0000-000000000016",
+      "name": "Trigger WF6",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        3600,
+        300
+      ]
+    }
+  ],
+  "connections": {
+    "Webhook Trigger": {
+      "main": [
+        [
+          {
+            "node": "Extract Lead ID",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Extract Lead ID": {
+      "main": [
+        [
+          {
+            "node": "Get Pending Candidates",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get Pending Candidates": {
+      "main": [
+        [
+          {
+            "node": "Get Config SEZNAM",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get Config SEZNAM": {
+      "main": [
+        [
+          {
+            "node": "Flatten Candidates",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Flatten Candidates": {
+      "main": [
+        [
+          {
+            "node": "Send Test Email",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Send Test Email": {
+      "main": [
+        [
+          {
+            "node": "Mark Sent",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Mark Sent": {
+      "main": [
+        [
+          {
+            "node": "Consolidate After Send",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Consolidate After Send": {
+      "main": [
+        [
+          {
+            "node": "Wait 3 Minutes",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Wait 3 Minutes": {
+      "main": [
+        [
+          {
+            "node": "Check Bounces IMAP",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Check Bounces IMAP": {
+      "main": [
+        [
+          {
+            "node": "Extract Bounced Emails",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Extract Bounced Emails": {
+      "main": [
+        [
+          {
+            "node": "Classify Candidates",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Classify Candidates": {
+      "main": [
+        [
+          {
+            "node": "Update Candidate Status",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Update Candidate Status": {
+      "main": [
+        [
+          {
+            "node": "Consolidate After Update",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Consolidate After Update": {
+      "main": [
+        [
+          {
+            "node": "Log Success",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Log Success": {
+      "main": [
+        [
+          {
+            "node": "Trigger WF6",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "pinData": {}
+}

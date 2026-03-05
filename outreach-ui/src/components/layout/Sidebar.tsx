@@ -1,0 +1,281 @@
+import { useState } from 'react';
+import { Link, useLocation, useSearchParams } from 'react-router-dom';
+import {
+  LayoutDashboard, Users, Send, Search, Database,
+  Building2, UserCheck, UserCog,
+  AtSign, Key, FileText, X,
+  LayoutList, Zap, Archive, AlertTriangle, CircleCheck, Plus, Ban,
+} from 'lucide-react';
+import { TOP_H } from './TopBar';
+import { useMobileNav } from '@/hooks/useMobileNav';
+
+const NAV_ITEMS = [
+  { to: '/prehled',      label: 'Přehled',      Icon: LayoutDashboard, exact: true  },
+  { to: '/databaze',     label: 'Databáze',     Icon: Database,        exact: false },
+  { to: '/leady',        label: 'Leady',        Icon: Users,           exact: false },
+  { to: '/vlny',         label: 'Vlny',         Icon: Send,            exact: false },
+  { to: '/email-finder', label: 'Email Finder', Icon: Search,          exact: true  },
+];
+
+const PEOPLE_ITEMS = [
+  { to: '/nastaveni/tymy',       label: 'Týmy',       Icon: Building2, exact: true },
+  { to: '/nastaveni/obchodnici', label: 'Obchodníci', Icon: UserCheck, exact: true },
+  { to: '/nastaveni/uzivatele',  label: 'Uživatelé',  Icon: UserCog,   exact: true },
+];
+
+const CONFIG_ITEMS = [
+  { to: '/nastaveni/ucty',      label: 'Outreach účty', Icon: AtSign,   exact: true },
+  { to: '/nastaveni/api-klice', label: 'API klíče',     Icon: Key,      exact: true },
+  { to: '/nastaveni/sablony',   label: 'Šablony',       Icon: FileText, exact: true },
+];
+
+/* SubPanel sections — duplicated here for mobile drawer */
+type SubItem = { label: string; to: string; tabParam?: string; defaultTab?: true; Icon: React.ElementType };
+const LEAD_SUBS: SubItem[] = [
+  { label: 'Všechny',          to: '/leady', defaultTab: true,        Icon: Users         },
+  { label: 'Hledání e-mailů',  to: '/leady', tabParam: 'discovery',   Icon: Search        },
+  { label: 'Připraveni',       to: '/leady', tabParam: 'ready',        Icon: CircleCheck   },
+  { label: 'Problémové',       to: '/leady', tabParam: 'problematic',  Icon: AlertTriangle },
+];
+const WAVE_SUBS: SubItem[] = [
+  { label: 'Manager', to: '/vlny', defaultTab: true,    Icon: LayoutList },
+  { label: 'Live',    to: '/vlny', tabParam: 'live',    Icon: Zap        },
+  { label: 'Archiv',  to: '/vlny', tabParam: 'archive', Icon: Archive    },
+];
+const DB_SUBS: SubItem[] = [
+  { label: 'Všechny',      to: '/databaze', defaultTab: true,         Icon: Database      },
+  { label: 'Aktivní',      to: '/databaze', tabParam: 'active',       Icon: CircleCheck   },
+  { label: 'Blacklist',    to: '/databaze', tabParam: 'blacklist',    Icon: Ban           },
+  { label: 'Archivováno',  to: '/databaze', tabParam: 'archived',     Icon: Archive       },
+];
+
+const W_COLLAPSED = 44;
+const W_EXPANDED  = 216;
+const MOBILE_W    = 280;
+const DURATION    = '0.44s';
+const EASE        = 'cubic-bezier(0.4,0,0.2,1)';
+
+export default function Sidebar() {
+  const location = useLocation();
+  const [sp]     = useSearchParams();
+  const [hover, setHover] = useState(false);
+  const { isMobile, sidebarOpen, closeSidebar } = useMobileNav();
+
+  const open = isMobile ? sidebarOpen : hover;
+
+  const textStyle = (): React.CSSProperties => ({
+    whiteSpace: 'nowrap',
+    maxWidth: open ? 200 : 0,
+    overflow: 'hidden',
+    opacity: open ? 1 : 0,
+    transition: `max-width ${DURATION} ${EASE}, opacity 0.2s ease ${open ? '0.05s' : '0s'}`,
+    pointerEvents: 'none',
+  });
+
+  const handleNav = () => {
+    if (isMobile) closeSidebar();
+  };
+
+  const navLink = ({ to, label, Icon, exact }: { to: string; label: string; Icon: React.ElementType; exact: boolean }) => {
+    const active = exact ? location.pathname === to : location.pathname.startsWith(to);
+    return (
+      <Link
+        key={to}
+        to={to}
+        onClick={handleNav}
+        title={!open ? label : undefined}
+        className={`nav-item${active ? ' active' : ''}`}
+        style={{
+          justifyContent: 'flex-start',
+          padding: isMobile ? '10px 12px 10px 14px' : '5px 8px 5px 9px',
+          gap: open ? 8 : 0,
+          transition: `gap ${DURATION} ${EASE}`,
+        }}
+      >
+        <Icon size={isMobile ? 16 : 13} strokeWidth={active ? 2.2 : 1.8} style={{ flexShrink: 0 }} />
+        <span style={isMobile ? { whiteSpace: 'nowrap' } : textStyle()}>{label}</span>
+      </Link>
+    );
+  };
+
+  const divider = (
+    <div style={{ height: 1, background: 'var(--border)', margin: isMobile ? '8px 14px' : '6px 14px', flexShrink: 0 }} />
+  );
+
+  /* Mobile: check if we're on a page that has sub-items */
+  const onLeads = location.pathname.startsWith('/leady');
+  const onWaves = location.pathname.startsWith('/vlny');
+  const onDb    = location.pathname.startsWith('/databaze');
+  const showLeadSubs = isMobile && onLeads;
+  const showWaveSubs = isMobile && onWaves;
+  const showDbSubs   = isMobile && onDb;
+
+  function isSubActive(item: SubItem): boolean {
+    const tabVal = sp.get('tab');
+    const allItems = onLeads ? LEAD_SUBS : onWaves ? WAVE_SUBS : DB_SUBS;
+    if (item.tabParam) return location.pathname === item.to && tabVal === item.tabParam;
+    if (item.defaultTab) {
+      if (location.pathname !== item.to && !location.pathname.startsWith(item.to + '/')) return false;
+      if (location.pathname === item.to) {
+        const siblings = allItems.filter(x => x.tabParam);
+        return !siblings.some(s => sp.get('tab') === s.tabParam);
+      }
+      return false;
+    }
+    return location.pathname === item.to;
+  }
+
+  function subItemHref(item: SubItem) {
+    return item.tabParam ? `${item.to}?tab=${item.tabParam}` : item.to;
+  }
+
+  const renderSubItems = (items: SubItem[], title: string, actionLabel?: string, actionHref?: string) => (
+    <div style={{ paddingLeft: 16, paddingRight: 8, paddingBottom: 4 }}>
+      <div style={{
+        fontSize: 10, fontWeight: 700, letterSpacing: '0.08em', textTransform: 'uppercase',
+        color: 'var(--text-muted)', padding: '8px 0 4px 14px',
+      }}>
+        {title}
+      </div>
+      {actionLabel && actionHref && (
+        <Link
+          to={actionHref}
+          onClick={handleNav}
+          style={{
+            display: 'flex', alignItems: 'center', gap: 7,
+            padding: '8px 14px', margin: '0 0 4px', borderRadius: 6,
+            border: '1px solid var(--border)', background: 'var(--bg-surface)',
+            color: 'var(--text-dim)', fontSize: 12, fontWeight: 500, textDecoration: 'none',
+          }}
+        >
+          <Plus size={12} strokeWidth={2} /> {actionLabel}
+        </Link>
+      )}
+      {items.map(item => {
+        const active = isSubActive(item);
+        const { Icon } = item;
+        return (
+          <Link
+            key={item.label}
+            to={subItemHref(item)}
+            onClick={handleNav}
+            style={{
+              display: 'flex', alignItems: 'center', gap: 8,
+              padding: '8px 14px', fontSize: 12, fontWeight: active ? 500 : 400,
+              color: active ? 'var(--text)' : 'var(--text-dim)',
+              textDecoration: 'none', borderRadius: 5,
+              background: active ? 'rgba(62,207,142,0.06)' : 'transparent',
+              borderLeft: active ? '2px solid var(--green)' : '2px solid transparent',
+            }}
+          >
+            <Icon size={12} strokeWidth={active ? 2.2 : 1.7} style={{ flexShrink: 0, color: active ? 'var(--green)' : 'inherit' }} />
+            {item.label}
+          </Link>
+        );
+      })}
+    </div>
+  );
+
+  /* ── Mobile drawer ─────────────────────────────────────────── */
+  if (isMobile) {
+    return (
+      <>
+        {/* Backdrop */}
+        {sidebarOpen && (
+          <div
+            onClick={closeSidebar}
+            style={{
+              position: 'fixed', inset: 0,
+              top: TOP_H,
+              background: 'rgba(0,0,0,0.6)',
+              zIndex: 199,
+              WebkitTapHighlightColor: 'transparent',
+            }}
+          />
+        )}
+
+        {/* Drawer */}
+        <aside
+          style={{
+            position: 'fixed',
+            left: 0,
+            top: TOP_H,
+            height: `calc(100vh - ${TOP_H}px)`,
+            width: MOBILE_W,
+            background: 'var(--bg-sidebar)',
+            borderRight: '1px solid var(--border)',
+            zIndex: 200,
+            display: 'flex',
+            flexDirection: 'column',
+            overflowY: 'auto',
+            overflowX: 'hidden',
+            transform: sidebarOpen ? 'translateX(0)' : `translateX(-${MOBILE_W + 1}px)`,
+            transition: 'transform 0.28s cubic-bezier(0.4,0,0.2,1)',
+            WebkitOverflowScrolling: 'touch',
+          }}
+        >
+          {/* Close button */}
+          <div style={{ display: 'flex', justifyContent: 'flex-end', padding: '8px 10px 0' }}>
+            <button
+              onClick={closeSidebar}
+              aria-label="Close menu"
+              style={{
+                background: 'none', border: 'none', cursor: 'pointer', padding: 6,
+                borderRadius: 6, color: 'var(--text-dim)', display: 'flex',
+                alignItems: 'center', justifyContent: 'center',
+              }}
+            >
+              <X size={18} />
+            </button>
+          </div>
+
+          <nav style={{ flex: 1, padding: '4px 0 20px', display: 'flex', flexDirection: 'column', gap: 1 }}>
+            {NAV_ITEMS.map(item => (
+              <div key={item.to}>
+                {navLink(item)}
+                {/* Inline sub-items for leads/waves on mobile */}
+                {item.to === '/databaze' && showDbSubs && renderSubItems(DB_SUBS, 'Stav', 'Přidat záznam', '/databaze?new=1')}
+                {item.to === '/leady' && showLeadSubs && renderSubItems(LEAD_SUBS, 'Filtry', 'Přidat lead', '/leady?new=1')}
+                {item.to === '/vlny' && showWaveSubs && renderSubItems(WAVE_SUBS, 'Zobrazení', 'Nová vlna', '/vlny?new=1')}
+              </div>
+            ))}
+            {divider}
+            {PEOPLE_ITEMS.map(item => navLink(item))}
+            {divider}
+            {CONFIG_ITEMS.map(item => navLink(item))}
+          </nav>
+        </aside>
+      </>
+    );
+  }
+
+  /* ── Desktop sidebar (unchanged behavior) ──────────────────── */
+  return (
+    <aside
+      className="glass-sidebar"
+      onMouseEnter={() => setHover(true)}
+      onMouseLeave={() => setHover(false)}
+      style={{
+        position: 'fixed',
+        left: 0,
+        top: TOP_H,
+        height: `calc(100vh - ${TOP_H}px)`,
+        width: open ? W_EXPANDED : W_COLLAPSED,
+        transition: `width ${DURATION} ${EASE}, box-shadow ${DURATION} ease`,
+        boxShadow: open ? '4px 0 32px rgba(0,0,0,0.55)' : 'none',
+        zIndex: 200,
+        display: 'flex',
+        flexDirection: 'column',
+        overflow: 'hidden',
+      }}
+    >
+      <nav style={{ flex: 1, padding: '8px 0', display: 'flex', flexDirection: 'column', gap: 1, overflow: 'hidden' }}>
+        {NAV_ITEMS.map(item => navLink(item))}
+        {divider}
+        {PEOPLE_ITEMS.map(item => navLink(item))}
+        {divider}
+        {CONFIG_ITEMS.map(item => navLink(item))}
+      </nav>
+    </aside>
+  );
+}

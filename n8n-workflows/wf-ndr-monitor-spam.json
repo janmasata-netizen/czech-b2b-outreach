@@ -1,0 +1,85 @@
+{
+  "name": "WF: NDR Monitor Spam Folder",
+  "nodes": [
+    {
+      "parameters": {
+        "content": "## NDR Monitor — Spam Folder\n**Purpose:** Sister workflow to wf-ndr-monitor (INBOX). Fires on every new email in the **Spam** folder. Extracts real email addresses from every field (incl. decoded attachments) and inserts each as a row into `email_probe_bounces`.\n**Why:** Some bounce NDRs land in Spam instead of INBOX. This ensures those bounces are still captured.\n**Must be ALWAYS ACTIVE**",
+        "height": 160,
+        "width": 640,
+        "color": 4
+      },
+      "id": "ndr-spam-sticky",
+      "name": "Sticky Note",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [-220, 60]
+    },
+    {
+      "parameters": {
+        "mailbox": "spam",
+        "options": {
+          "format": "simple",
+          "downloadAttachments": true,
+          "markSeen": true
+        }
+      },
+      "type": "n8n-nodes-base.emailReadImap",
+      "typeVersion": 2.1,
+      "position": [-16, 304],
+      "id": "ndr-spam-0001",
+      "name": "Email Trigger Spam",
+      "credentials": {
+        "imap": {
+          "id": "zvcpvsLoAq7WiOzX",
+          "name": "vyhry-temu@seznam.cz"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "jsCode": "// Extract real bounced email addresses from NDR emails.\n// Strategy: scan every text field + base64-decoded attachments with a regex,\n// then hard-filter each match to reject garbage (UUIDs, HTML entities,\n// whitespace, system addresses, implausible formats).\n\nconst OWN_RX    = /vyhry-temu@seznam\\.cz/i;\nconst SYSTEM_RX = /^(postmaster|mailer-daemon|noreply|no-reply|bounce|return)/i;\nconst UUID_RX   = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;\n// Strict: local@domain.tld — no spaces, no HTML chars in the match\nconst EMAIL_RX  = /([a-zA-Z0-9._%+\\-]+@[a-zA-Z0-9.\\-]+\\.[a-zA-Z]{2,6})/g;\n\nfunction isGoodEmail(raw) {\n  // Reject if the captured text itself contains bad chars\n  // (catches the mystery 'com not' / 'com couldn' cases)\n  if (/[\\s<>&;\"']/.test(raw)) return false;\n  const at = raw.indexOf('@');\n  if (at < 1) return false;\n  const local  = raw.slice(0, at);\n  const domain = raw.slice(at + 1);\n  // Reject own address\n  if (OWN_RX.test(raw)) return false;\n  // Reject system senders\n  if (SYSTEM_RX.test(local)) return false;\n  // Reject UUID Message-IDs (e.g. aa9c4f51-fac3-2499@seznam.cz)\n  if (UUID_RX.test(local)) return false;\n  // Local part: 1–64 chars, no leading/trailing dot\n  if (local.length < 1 || local.length > 64) return false;\n  if (local.startsWith('.') || local.endsWith('.')) return false;\n  // Domain must have at least one dot and a 2–6 char TLD\n  const dotIdx = domain.lastIndexOf('.');\n  if (dotIdx < 1) return false;\n  const tld = domain.slice(dotIdx + 1);\n  if (tld.length < 2 || tld.length > 6) return false;\n  return true;\n}\n\nconst found = new Set();\n\nfor (const item of $input.all()) {\n  const j = item.json;\n  const parts = [];\n\n  // Collect every string field on the item\n  for (const key of Object.keys(j)) {\n    const v = j[key];\n    if (typeof v === 'string' && v.length > 0) parts.push(v);\n  }\n\n  // Attachments: raw content + base64-decoded\n  // (NDR multipart/report part 3 = original message with the To: header)\n  if (Array.isArray(j.attachments)) {\n    for (const att of j.attachments) {\n      if (att.content) {\n        parts.push(String(att.content));\n        try {\n          parts.push(Buffer.from(String(att.content), 'base64').toString('utf8'));\n        } catch (_) {}\n      }\n      if (att.filename) parts.push(String(att.filename));\n    }\n  }\n\n  const big = parts.join(' ');\n  EMAIL_RX.lastIndex = 0;\n  let m;\n  while ((m = EMAIL_RX.exec(big)) !== null) {\n    const raw = m[1].toLowerCase();\n    if (isGoodEmail(raw)) found.add(raw);\n  }\n}\n\nif (!found.size) return [];\n\n// One item per address — Supabase node inserts each as a separate row\nreturn Array.from(found).map(function(e) {\n  return { json: { bounced_email: e } };\n});"
+      },
+      "id": "ndr-spam-0002",
+      "name": "Extract All Email Addresses",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [268, 304]
+    },
+    {
+      "parameters": {
+        "tableId": "email_probe_bounces",
+        "fieldsUi": {
+          "fieldValues": [
+            {
+              "fieldId": "bounced_email",
+              "fieldValue": "={{ $json.bounced_email }}"
+            }
+          ]
+        }
+      },
+      "id": "ndr-spam-0003",
+      "name": "Insert Bounce to DB",
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [548, 304],
+      "credentials": {
+        "supabaseApi": {
+          "id": "5jiriLLD4WxRmRG2",
+          "name": "Outreach Supabase"
+        }
+      }
+    }
+  ],
+  "connections": {
+    "Email Trigger Spam": {
+      "main": [[ { "node": "Extract All Email Addresses", "type": "main", "index": 0 } ]]
+    },
+    "Extract All Email Addresses": {
+      "main": [[ { "node": "Insert Bounce to DB", "type": "main", "index": 0 } ]]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1"
+  }
+}

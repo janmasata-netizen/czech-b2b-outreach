@@ -1,0 +1,270 @@
+{
+  "name": "SUB — Burner Probe",
+  "nodes": [
+    {
+      "parameters": {
+        "content": "## SUB — Burner Probe\n\n**Trigger:** POST /webhook/sub-burner-probe\n\n**Input body:**\n```json\n{ \"domain\": \"firma.cz\", \"candidates\": [\"jan.novak@firma.cz\", ...] }\n```\n\n**Output (after ~4 min):**\n```json\n{ candidates[{email,status,confidence,smtp_result,method}], domain, total, method:\"probe\", probe_start }\n```\n\n**Caller pattern:** HTTP Request with 300s timeout\n```\nPOST http://72.62.53.244:32770/webhook/sub-burner-probe\nContent-Type: application/json\n{ domain, candidates }\n```\n\n**Flow:** Receive → Fan-Out → Send probe emails → Wait 4 min → Query bounce table → Classify\n**Credential:** vyhry-temu@seznam.cz SMTP (id: 3X8mKDvlcXsGRmZS)\n**NDR source:** wf-ndr-monitor writes NDRs to email_probe_bounces table",
+        "height": 260,
+        "width": 620,
+        "color": 6
+      },
+      "id": "sbp-sticky",
+      "name": "Sticky Note",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [-220, 120]
+    },
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "sub-burner-probe",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "id": "sbp-0001",
+      "name": "Webhook Trigger",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [0, 400],
+      "webhookId": "sub-burner-probe"
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "jsCode": "const body = $input.first().json.body || $input.first().json;\nreturn [{ json: { domain: body.domain || '', candidates: body.candidates || [] } }];"
+      },
+      "id": "sbp-0002",
+      "name": "Extract Input",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [240, 400]
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "jsCode": "const data = $input.first().json;\nreturn data.candidates.map(function(email) {\n  return { json: { email_address: email, domain: data.domain } };\n});"
+      },
+      "id": "sbp-0003",
+      "name": "Fan-Out Probe",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [480, 400]
+    },
+    {
+      "parameters": {
+        "fromEmail": "vyhry-temu@seznam.cz",
+        "toEmail": "={{ $json.email_address }}",
+        "subject": "Gratulujeme! Vyhráli jste odměnu na Temu 🎁",
+        "emailType": "text",
+        "message": "Gratulujeme!\n\nByli jste vybráni jako jeden z výherců speciální akce Temu pro Českou republiku.\n\nVaše odměna: voucher v hodnotě 2 500 Kč + doprava zdarma na celý nákup.\n\nPro vyzvednutí výhry klikněte na odkaz níže do 24 hodin:\n\nhttps://temu-vyhry.cz/odmena?id=CZ882910&token=xQp7mK2rT\n\nPokud odkaz nekliknete do 24 hodin, výhra propadá dalšímu výherci.\n\nS pozdravem,\nTým Temu Česká republika",
+        "options": {
+          "appendAttribution": false
+        }
+      },
+      "id": "sbp-0004",
+      "name": "Send Probe Email",
+      "type": "n8n-nodes-base.emailSend",
+      "typeVersion": 2.1,
+      "position": [720, 400],
+      "credentials": {
+        "smtp": {
+          "id": "3X8mKDvlcXsGRmZS",
+          "name": "vyhry-temu@seznam.cz"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "jsCode": "const domain = $('Extract Input').first().json.domain;\nconst candidates = $('Extract Input').first().json.candidates || [];\nreturn [{ json: { candidates, domain, probe_start: new Date().toISOString() } }];"
+      },
+      "id": "sbp-0005",
+      "name": "Aggregate After Send",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [960, 400]
+    },
+    {
+      "parameters": {
+        "amount": 4,
+        "unit": "minutes"
+      },
+      "id": "sbp-0006",
+      "name": "Wait 4 Minutes",
+      "type": "n8n-nodes-base.wait",
+      "typeVersion": 1.1,
+      "position": [1200, 400],
+      "webhookId": "sub-burner-probe-wait"
+    },
+    {
+      "parameters": {
+        "method": "GET",
+        "url": "={{ 'https://cycapkswtucbucyegdsn.supabase.co/rest/v1/email_probe_bounces?select=bounced_email&bounced_email=in.(' + $json.candidates.map(function(c){ return '\"' + c + '\"'; }).join(',') + ')' }}",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "apikey",
+              "value": "SUPABASE_SERVICE_ROLE_KEY_PLACEHOLDER"
+            },
+            {
+              "name": "Authorization",
+              "value": "Bearer SUPABASE_SERVICE_ROLE_KEY_PLACEHOLDER"
+            }
+          ]
+        },
+        "options": {
+          "neverError": true
+        }
+      },
+      "id": "sbp-0007",
+      "name": "Query Bounces",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [1440, 540]
+    },
+    {
+      "parameters": {
+        "mode": "append"
+      },
+      "id": "sbp-0008",
+      "name": "Merge Bounces",
+      "type": "n8n-nodes-base.merge",
+      "typeVersion": 3,
+      "position": [1680, 400]
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "jsCode": "// Input 0 (from Wait): { candidates, domain, probe_start }\n// Input 1 (from Query Bounces): 0..N items with { bounced_email } — may be 0 items\nconst allItems = $input.all().map(function(i) { return i.json; });\n\n// Bounce rows have a bounced_email field\nconst bouncedSet = new Set(\n  allItems\n    .filter(function(r) { return r.bounced_email; })\n    .map(function(r) { return r.bounced_email.toLowerCase(); })\n);\n\n// Candidates/domain come from Aggregate After Send (guaranteed present)\nconst candidates = $('Aggregate After Send').first().json.candidates || [];\nconst domain = $('Aggregate After Send').first().json.domain;\n\nconst results = candidates.map(function(email) {\n  return {\n    email: email,\n    status:      bouncedSet.has(email.toLowerCase()) ? 'invalid'      : 'likely_valid',\n    confidence:  bouncedSet.has(email.toLowerCase()) ? 'high'         : 'medium',\n    smtp_result: bouncedSet.has(email.toLowerCase()) ? 'bounced'      : 'no_bounce',\n    method: 'probe'\n  };\n});\n\nresults.sort(function(a, b) { return a.status === 'likely_valid' ? -1 : 1; });\n\nconst probe_start = $('Aggregate After Send').first().json.probe_start;\nreturn [{ json: { candidates: results, domain: domain, total: results.length, method: 'probe', probe_start } }];"
+      },
+      "id": "sbp-0009",
+      "name": "Build Probe Response",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1920, 400]
+    },
+    {
+      "parameters": {
+        "respondWith": "firstIncomingItem",
+        "options": {
+          "responseCode": 200
+        }
+      },
+      "id": "sbp-0010",
+      "name": "Webhook Response",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1,
+      "position": [2160, 400]
+    }
+  ],
+  "connections": {
+    "Webhook Trigger": {
+      "main": [
+        [
+          {
+            "node": "Extract Input",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Extract Input": {
+      "main": [
+        [
+          {
+            "node": "Fan-Out Probe",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Fan-Out Probe": {
+      "main": [
+        [
+          {
+            "node": "Send Probe Email",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Send Probe Email": {
+      "main": [
+        [
+          {
+            "node": "Aggregate After Send",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Aggregate After Send": {
+      "main": [
+        [
+          {
+            "node": "Wait 4 Minutes",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Wait 4 Minutes": {
+      "main": [
+        [
+          {
+            "node": "Query Bounces",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Merge Bounces",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Query Bounces": {
+      "main": [
+        [
+          {
+            "node": "Merge Bounces",
+            "type": "main",
+            "index": 1
+          }
+        ]
+      ]
+    },
+    "Merge Bounces": {
+      "main": [
+        [
+          {
+            "node": "Build Probe Response",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Build Probe Response": {
+      "main": [
+        [
+          {
+            "node": "Webhook Response",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1"
+  }
+}

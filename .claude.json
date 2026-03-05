@@ -1,0 +1,27 @@
+{
+  "mcpServers": {
+    "n8n-mcp": {
+      "type": "stdio",
+      "command": "npx",
+      "args": [
+        "-y",
+        "supergateway",
+        "--streamableHttp",
+        "http://72.62.53.244:32770/mcp-server/http",
+        "--header",
+        "authorization:Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiI3NTI1ZDYwYS0zZmU3LTQyZmQtOWIwZi0xMDM4MDZlNmQwOWYiLCJpc3MiOiJuOG4iLCJhdWQiOiJtY3Atc2VydmVyLWFwaSIsImp0aSI6IjUzYzUwZmUzLTg2MzYtNDk4MC05MzQ5LTViZDE5ZmUxZWE1NyIsImlhdCI6MTc3MTUyMTk4N30.egFivgHhepor63ILhgONb6TR6vqnqc-G9q2njtHtOHU"
+      ],
+      "env": {}
+    },
+    "hostinger-mcp": {
+      "type": "stdio",
+      "command": "npx",
+      "args": [
+        "hostinger-api-mcp@latest"
+      ],
+      "env": {
+        "API_TOKEN": "ftI0IpuqmGMqiWmD2NvxGRoymnTu04R6pZ2End06d61af665"
+      }
+    }
+  }
+}

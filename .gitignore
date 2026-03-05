@@ -1,0 +1,33 @@
+# Secrets
+.env.local
+.env.*.local
+creds.json
+imap-proxy/config.json
+smtp-proxy/config.json
+
+# Dependencies
+node_modules/
+
+# Build output
+dist/
+dist-ssr/
+
+# Temp files
+exec*.json
+_*.json
+*.log
+
+# IDE
+.idea/
+.vscode/
+*.swp
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Docker
+.docker/
+
+# Claude Code local state
+.claude/

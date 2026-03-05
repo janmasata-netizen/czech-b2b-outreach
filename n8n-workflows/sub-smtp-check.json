@@ -1,0 +1,90 @@
+{
+  "name": "SUB — SMTP Check",
+  "nodes": [
+    {
+      "parameters": {
+        "content": "## SUB — SMTP Check\n\n**Input** (via Execute Workflow — passes `{ domain, candidates, mode }` from orchestrator):\n- `domain` — string, e.g. `firma.cz`\n- `candidates` — string[], email addresses to test\n- `mode` — string (name/verify/probe, passed through for context)\n\n**Output:**\n```\n{ status, is_catch_all, domain, mx_host, candidates[{email,accepted,code}] }\n```\n- `status`: `no_mx` | `smtp_error` | `catch_all` | `partial_match` | `all_rejected`\n- `is_catch_all`: boolean — true means server accepts everything (real probe needed)\n\n**Caller:** `wf-email-finder-v2` node `Execute SMTP Check` (wfefv2-0031)\n**Caller pattern:** n8n-nodes-base.executeWorkflow, waitForSubWorkflow: true",
+        "height": 220,
+        "width": 600,
+        "color": 4
+      },
+      "id": "ssm-sticky",
+      "name": "Sticky Note",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [-220, 140]
+    },
+    {
+      "parameters": {
+        "inputDataMode": "acceptAll"
+      },
+      "id": "ssm-0001",
+      "name": "Trigger",
+      "type": "n8n-nodes-base.executeWorkflowTrigger",
+      "typeVersion": 1,
+      "position": [0, 400]
+    },
+    {
+      "parameters": {
+        "method": "GET",
+        "url": "={{ 'https://cloudflare-dns.com/dns-query?name=' + $json.domain + '&type=MX' }}",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Accept",
+              "value": "application/dns-json"
+            }
+          ]
+        },
+        "options": {
+          "timeout": 10000,
+          "neverError": true
+        }
+      },
+      "id": "ssm-0002",
+      "name": "HTTP MX Lookup",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [240, 400]
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "jsCode": "const net = require('net');\nconst inputData = $('Trigger').first().json;\nconst domain = inputData.domain;\nconst candidates = inputData.candidates || [];\n\n// Parse DNS response — handle dns-json content-type wrapping\nlet dnsResp = $input.first().json;\nif (!dnsResp.Answer && dnsResp.data && typeof dnsResp.data === 'string') {\n  try { dnsResp = JSON.parse(dnsResp.data); } catch(e) {}\n}\n\nconst answers = Array.isArray(dnsResp.Answer) ? dnsResp.Answer : [];\nconst mxRecords = answers\n  .filter(a => a.type === 15)\n  .sort((a, b) => {\n    const pa = parseInt((a.data || '').split(' ')[0]) || 999;\n    const pb = parseInt((b.data || '').split(' ')[0]) || 999;\n    return pa - pb;\n  })\n  .map(a => (a.data || '').split(' ').slice(1).join(' ').replace(/\\.$/, '').trim())\n  .filter(Boolean);\n\nif (!mxRecords.length || !domain) {\n  return [{ json: { status: 'no_mx', is_catch_all: false, domain, mx_host: null, candidates: [] } }];\n}\n\nconst mxHost = mxRecords[0];\nconst fakeEmail = 'xfake' + Math.random().toString(36).slice(2, 8) + '@' + domain;\n// Fake probe goes FIRST — ensures it's always tested even if server closes early\nconst allEmails = [fakeEmail, ...candidates];\n\nconst smtpData = await new Promise((resolve) => {\n  const rcptCodes = {};\n  let buf = '';\n  let step = 0;\n  let idx = 0;\n  let settled = false;\n\n  function finish(val) {\n    if (settled) return;\n    settled = true;\n    clearTimeout(timer);\n    try { socket.destroy(); } catch(e) {}\n    resolve(val);\n  }\n\n  const timer = setTimeout(() => finish({ error: 'timeout', rcptCodes }), 20000);\n  const socket = net.connect({ host: mxHost, port: 25 });\n\n  socket.on('data', (chunk) => {\n    buf += chunk.toString();\n    const lines = buf.split('\\r\\n');\n    buf = lines.pop() || '';\n    for (const line of lines) {\n      if (!line) continue;\n      const code = parseInt(line.slice(0, 3), 10);\n      if (line[3] === '-') continue;\n      if (step === 0 && code === 220) {\n        socket.write('EHLO mf.local\\r\\n'); step = 1;\n      } else if (step === 1 && code === 250) {\n        socket.write('MAIL FROM:<vyhry-temu@seznam.cz>\\r\\n'); step = 2;\n      } else if (step === 1) {\n        finish({ error: 'ehlo_' + code, rcptCodes }); return;\n      } else if (step === 2 && code === 250) {\n        socket.write('RCPT TO:<' + allEmails[idx] + '>\\r\\n'); step = 3;\n      } else if (step === 2) {\n        finish({ error: 'mailfrom_' + code, rcptCodes }); return;\n      } else if (step === 3) {\n        rcptCodes[allEmails[idx]] = code;\n        idx++;\n        if (idx < allEmails.length) {\n          socket.write('RCPT TO:<' + allEmails[idx] + '>\\r\\n');\n        } else {\n          socket.write('QUIT\\r\\n'); step = 4;\n        }\n      } else if (step === 4) {\n        finish({ error: null, rcptCodes }); return;\n      }\n    }\n  });\n\n  socket.on('error', (e) => finish({ error: e.message, rcptCodes }));\n  socket.on('close', () => finish({ error: null, rcptCodes }));\n});\n\nif (smtpData.error && !Object.keys(smtpData.rcptCodes).length) {\n  return [{ json: { status: 'smtp_error', is_catch_all: true, domain, mx_host: mxHost, candidates: [] } }];\n}\n\nconst r = smtpData.rcptCodes;\nconst fakeAccepted = r[fakeEmail] === 250;\nconst candidateResults = candidates.map(e => ({ email: e, accepted: r[e] === 250, code: r[e] || null }));\nconst anyAccepted = candidateResults.some(c => c.accepted);\n\n// Catch-all detection:\n// 1. Fake accepted — server accepts everything\n// 2. All candidates accepted (even single) — suspicious\n// 3. High acceptance ratio (>=60% of 3+ candidates) — deferred rejection signal\n// 4. Partial SMTP data (connection dropped mid-stream) + some accepted — inconclusive\nconst acceptedCount = candidateResults.filter(c => c.accepted).length;\nconst allCandidatesAccepted = candidateResults.length >= 1 && candidateResults.every(c => c.accepted);\nconst highAcceptance = candidates.length >= 3 && (acceptedCount / candidates.length) >= 0.6;\nconst hasPartialData = allEmails.some(e => r[e] === undefined);\nconst is_catch_all = fakeAccepted || allCandidatesAccepted || highAcceptance || (hasPartialData && acceptedCount > 0);\nconst status = is_catch_all ? 'catch_all' : anyAccepted ? 'partial_match' : 'all_rejected';\n\nreturn [{ json: { status, is_catch_all, domain, mx_host: mxHost, candidates: candidateResults } }];"
+      },
+      "id": "ssm-0003",
+      "name": "Bulk SMTP Check",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [480, 400]
+    }
+  ],
+  "connections": {
+    "Trigger": {
+      "main": [
+        [
+          {
+            "node": "HTTP MX Lookup",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "HTTP MX Lookup": {
+      "main": [
+        [
+          {
+            "node": "Bulk SMTP Check",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1"
+  }
+}

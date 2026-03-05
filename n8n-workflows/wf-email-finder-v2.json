@@ -1,0 +1,593 @@
+{
+  "name": "WF: Email Finder V2 (Catch-All Probe)",
+  "nodes": [
+    {
+      "parameters": {
+        "content": "## Email Finder V2 — Orchestrator\n**Trigger:** POST /webhook/wf-email-finder-v2\n\n**Modes:**\n- `mode:name` — generate 10 patterns from first_name + last_name + domain\n- `mode:verify` — verify a single email address\n- `mode:probe` — skip SMTP, directly probe via burner email (same inputs as name)\n- `mode:recheck` — re-query email_probe_bounces for existing candidates (pass candidates[] + domain)\n\n**SMTP path (name/verify):** Execute Workflow → SUB — SMTP Check → if NOT catch-all → return SMTP results\n**Probe fallback:** If catch-all → HTTP Request → SUB — Burner Probe (300s timeout)\n**Direct probe (mode=probe):** Skip SMTP entirely → HTTP Request → SUB — Burner Probe\n**Recheck path:** Query email_probe_bounces directly (no SMTP/probe)\n\n**Sub-workflows:**\n- `SUB — SMTP Check` — executeWorkflow (sync)\n- `SUB — Burner Probe` — webhook at /webhook/sub-burner-probe (HTTP call, ~4 min)",
+        "height": 240,
+        "width": 620,
+        "color": 4
+      },
+      "id": "wfefv2-sticky",
+      "name": "Sticky Note",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        -220,
+        120
+      ]
+    },
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "wf-email-finder-v2",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "id": "wfefv2-0001",
+      "name": "Webhook Trigger",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [
+        0,
+        400
+      ],
+      "webhookId": "wf-email-finder-v2"
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForEachItem",
+        "jsCode": "const body = $input.item.json.body || $input.item.json;\nconst mode = (body.mode || 'name').trim();\n\nfunction normName(s) {\n  return (s || '').normalize('NFD').replace(/[\\u0300-\\u036f]/g, '').toLowerCase().replace(/[^a-z]/g, '');\n}\n\nlet domain = '';\nlet candidates = [];\n\nif (mode === 'recheck') {\n  candidates = Array.isArray(body.candidates) ? body.candidates : [];\n  domain = (body.domain || '').trim().toLowerCase();\n} else if (mode === 'verify') {\n  const email = (body.email || '').trim().toLowerCase();\n  domain = email.split('@')[1] || '';\n  candidates = email ? [email] : [];\n} else {\n  // name or probe mode — generate email patterns from name + domain\n  const raw = (body.domain || body.website || '').trim();\n  domain = raw.replace(/^https?:\\/\\//i, '').replace(/^www\\./i, '').split('/')[0].trim().toLowerCase();\n  const f = normName(body.first_name);\n  const l = normName(body.last_name);\n  if (f && l) {\n    candidates = [\n      f + '.' + l + '@' + domain,\n      f[0] + '.' + l + '@' + domain,\n      f + '@' + domain,\n      l + '@' + domain,\n      f + l + '@' + domain,\n      l + f + '@' + domain,\n      l + '.' + f + '@' + domain,\n      f[0] + '_' + l + '@' + domain,\n      f + '_' + l + '@' + domain,\n      (f[0] + (l[0] || '')) + '@' + domain\n    ];\n  } else if (l) {\n    candidates = [l + '@' + domain];\n  } else if (f) {\n    candidates = [f + '@' + domain];\n  }\n  const seen = new Set();\n  candidates = candidates.filter(c => { if (seen.has(c)) return false; seen.add(c); return true; });\n}\n\nreturn { json: { mode, domain, candidates } };"
+      },
+      "id": "wfefv2-0002",
+      "name": "Extract & Normalize Input",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        240,
+        400
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict"
+          },
+          "conditions": [
+            {
+              "leftValue": "={{ $json.mode }}",
+              "rightValue": "recheck",
+              "operator": {
+                "type": "string",
+                "operation": "equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "wfefv2-0021",
+      "name": "IF Mode Recheck",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [
+        480,
+        400
+      ]
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "jsCode": "// Anchor item — always outputs 1 item with candidates+domain so Merge Recheck is never starved\nconst inputData = $('Extract & Normalize Input').first().json;\nreturn [{ json: { candidates: inputData.candidates || [], domain: inputData.domain } }];"
+      },
+      "id": "wfefv2-0022",
+      "name": "Recheck Anchor",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        720,
+        280
+      ]
+    },
+    {
+      "parameters": {
+        "method": "GET",
+        "url": "={{ 'https://cycapkswtucbucyegdsn.supabase.co/rest/v1/email_probe_bounces?select=bounced_email' + ($json.candidates && $json.candidates.length > 0 ? '&bounced_email=in.(' + $json.candidates.map(function(c){ return '\"' + c + '\"'; }).join(',') + ')' : '&id=eq.-1') }}",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "apikey",
+              "value": "SUPABASE_SERVICE_ROLE_KEY_PLACEHOLDER"
+            },
+            {
+              "name": "Authorization",
+              "value": "Bearer SUPABASE_SERVICE_ROLE_KEY_PLACEHOLDER"
+            }
+          ]
+        },
+        "options": {
+          "neverError": true
+        }
+      },
+      "id": "wfefv2-0023",
+      "name": "Query Bounces Recheck",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        720,
+        480
+      ]
+    },
+    {
+      "parameters": {
+        "mode": "append"
+      },
+      "id": "wfefv2-0024",
+      "name": "Merge Recheck",
+      "type": "n8n-nodes-base.merge",
+      "typeVersion": 3,
+      "position": [
+        960,
+        380
+      ]
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "jsCode": "// Input 0 (Recheck Anchor): { candidates, domain } — always 1 item\n// Input 1 (Query Bounces Recheck): 0..N items with { bounced_email }\nconst allItems = $input.all().map(function(i) { return i.json; });\n\nconst bouncedSet = new Set(\n  allItems\n    .filter(function(r) { return r.bounced_email; })\n    .map(function(r) { return r.bounced_email.toLowerCase(); })\n);\n\nconst anchorData = $('Recheck Anchor').first().json;\nconst candidates = anchorData.candidates || [];\nconst domain = anchorData.domain;\n\nconst results = candidates.map(function(email) {\n  return {\n    email: email,\n    status:      bouncedSet.has(email.toLowerCase()) ? 'invalid'      : 'likely_valid',\n    confidence:  bouncedSet.has(email.toLowerCase()) ? 'high'         : 'medium',\n    smtp_result: bouncedSet.has(email.toLowerCase()) ? 'bounced'      : 'no_bounce',\n    method: 'probe'\n  };\n});\n\nresults.sort(function(a, b) { return a.status === 'likely_valid' ? -1 : 1; });\n\nreturn [{ json: { candidates: results, domain: domain, total: results.length, method: 'probe' } }];"
+      },
+      "id": "wfefv2-0025",
+      "name": "Build Recheck Response",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1200,
+        380
+      ]
+    },
+    {
+      "parameters": {
+        "respondWith": "firstIncomingItem",
+        "options": {
+          "responseCode": 200
+        }
+      },
+      "id": "wfefv2-0026",
+      "name": "Webhook Response Recheck",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1,
+      "position": [
+        1440,
+        380
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict"
+          },
+          "conditions": [
+            {
+              "leftValue": "={{ $json.mode }}",
+              "rightValue": "probe",
+              "operator": {
+                "type": "string",
+                "operation": "equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "wfefv2-0030",
+      "name": "IF Mode Probe",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [
+        720,
+        620
+      ]
+    },
+    {
+      "parameters": {
+        "source": "database",
+        "workflowId": "L6D2HcFYoNorgiom",
+        "waitForSubWorkflow": true
+      },
+      "id": "wfefv2-0031",
+      "name": "Execute SMTP Check",
+      "type": "n8n-nodes-base.executeWorkflow",
+      "typeVersion": 1,
+      "position": [
+        960,
+        720
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict"
+          },
+          "conditions": [
+            {
+              "leftValue": "={{ $json.status }}",
+              "rightValue": "no_mx",
+              "operator": {
+                "type": "string",
+                "operation": "equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "wfefv2-0032",
+      "name": "IF No MX",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [
+        1200,
+        720
+      ]
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "jsCode": "const domain = $('Extract & Normalize Input').first().json.domain;\nreturn [{ json: { candidates: [], domain, total: 0, method: 'smtp', error: 'no_mx' } }];"
+      },
+      "id": "wfefv2-0033",
+      "name": "Build No MX Response",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1440,
+        560
+      ]
+    },
+    {
+      "parameters": {
+        "respondWith": "firstIncomingItem",
+        "options": {
+          "responseCode": 200
+        }
+      },
+      "id": "wfefv2-0034",
+      "name": "Response No MX",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1,
+      "position": [
+        1680,
+        560
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict"
+          },
+          "conditions": [
+            {
+              "leftValue": "={{ $json.is_catch_all ? 'true' : 'false' }}",
+              "rightValue": "false",
+              "operator": {
+                "type": "string",
+                "operation": "equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "wfefv2-0035",
+      "name": "IF Catch-All",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [
+        1440,
+        760
+      ]
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "jsCode": "const smtpData = $input.first().json;\nconst domain = smtpData.domain;\nconst candidates = smtpData.candidates || [];\nconst mode = $('Extract & Normalize Input').first().json.mode;\n\nconst results = candidates.map(c => ({\n  email: c.email,\n  status: c.accepted ? 'valid' : 'invalid',\n  confidence: 'high',\n  smtp_result: String(c.code || 0),\n  method: 'smtp'\n}));\n\nconst filtered = mode === 'name' ? results.filter(r => r.status === 'valid') : results;\n\nreturn [{ json: { candidates: filtered, domain, total: filtered.length, method: 'smtp' } }];"
+      },
+      "id": "wfefv2-0036",
+      "name": "Build SMTP Response",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1680,
+        660
+      ]
+    },
+    {
+      "parameters": {
+        "respondWith": "firstIncomingItem",
+        "options": {
+          "responseCode": 200
+        }
+      },
+      "id": "wfefv2-0037",
+      "name": "Webhook Response SMTP",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1,
+      "position": [
+        1920,
+        660
+      ]
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "jsCode": "const n = $('Extract & Normalize Input').first().json;\nreturn [{ json: { domain: n.domain, candidates: n.candidates || [] } }];"
+      },
+      "id": "wfefv2-0038",
+      "name": "Prepare Probe Body",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1680,
+        880
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "http://72.62.53.244:32770/webhook/sub-burner-probe",
+        "sendBody": true,
+        "contentType": "raw",
+        "rawContentType": "application/json",
+        "body": "={{ JSON.stringify($json) }}",
+        "options": {
+          "timeout": 300000,
+          "neverError": true
+        }
+      },
+      "id": "wfefv2-0039",
+      "name": "Call Burner Probe Sub-WF",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1920,
+        880
+      ]
+    },
+    {
+      "parameters": {
+        "respondWith": "firstIncomingItem",
+        "options": {
+          "responseCode": 200
+        }
+      },
+      "id": "wfefv2-0040",
+      "name": "Webhook Response Probe",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1,
+      "position": [
+        2160,
+        880
+      ]
+    }
+  ],
+  "connections": {
+    "Webhook Trigger": {
+      "main": [
+        [
+          {
+            "node": "Extract & Normalize Input",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Extract & Normalize Input": {
+      "main": [
+        [
+          {
+            "node": "IF Mode Recheck",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "IF Mode Recheck": {
+      "main": [
+        [
+          {
+            "node": "Recheck Anchor",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Query Bounces Recheck",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "IF Mode Probe",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Recheck Anchor": {
+      "main": [
+        [
+          {
+            "node": "Merge Recheck",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Query Bounces Recheck": {
+      "main": [
+        [
+          {
+            "node": "Merge Recheck",
+            "type": "main",
+            "index": 1
+          }
+        ]
+      ]
+    },
+    "Merge Recheck": {
+      "main": [
+        [
+          {
+            "node": "Build Recheck Response",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Build Recheck Response": {
+      "main": [
+        [
+          {
+            "node": "Webhook Response Recheck",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "IF Mode Probe": {
+      "main": [
+        [
+          {
+            "node": "Prepare Probe Body",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Execute SMTP Check",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Execute SMTP Check": {
+      "main": [
+        [
+          {
+            "node": "IF No MX",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "IF No MX": {
+      "main": [
+        [
+          {
+            "node": "Build No MX Response",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "IF Catch-All",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Build No MX Response": {
+      "main": [
+        [
+          {
+            "node": "Response No MX",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "IF Catch-All": {
+      "main": [
+        [
+          {
+            "node": "Build SMTP Response",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Prepare Probe Body",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Build SMTP Response": {
+      "main": [
+        [
+          {
+            "node": "Webhook Response SMTP",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Prepare Probe Body": {
+      "main": [
+        [
+          {
+            "node": "Call Burner Probe Sub-WF",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Call Burner Probe Sub-WF": {
+      "main": [
+        [
+          {
+            "node": "Webhook Response Probe",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1"
+  }
+}

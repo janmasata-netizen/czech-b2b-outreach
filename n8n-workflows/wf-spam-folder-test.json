@@ -1,0 +1,69 @@
+{
+  "name": "TEMP: Spam Folder Name Test",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "GET",
+        "path": "spam-folder-test",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "id": "sft-0001",
+      "name": "Webhook Trigger",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [0, 400],
+      "webhookId": "spam-folder-test"
+    },
+    {
+      "parameters": {
+        "mailbox": "Nevyžádaná",
+        "options": {
+          "customEmailConfig": "[\"ALL\"]",
+          "format": "simple",
+          "downloadAttachments": false,
+          "markSeen": false
+        }
+      },
+      "id": "sft-0002",
+      "name": "Read Spam Folder",
+      "type": "n8n-nodes-base.emailReadImap",
+      "typeVersion": 2,
+      "position": [280, 400],
+      "credentials": {
+        "imap": {
+          "id": "zvcpvsLoAq7WiOzX",
+          "name": "vyhry-temu@seznam.cz"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "jsCode": "const items = $input.all();\nconst bounceRx = /undeliverable|delivery.?fail|returned.?mail|non.?delivery|bounce|mailer.daemon|postmaster/i;\nconst allEmails = items.map(function(i) {\n  return { subject: i.json.subject, from: i.json.from, date: i.json.date };\n});\nconst bounces = allEmails.filter(function(e) {\n  return bounceRx.test((e.subject||'') + ' ' + (e.from||''));\n});\nreturn [{ json: { folder: 'Nevyžádaná', total: items.length, bounce_count: bounces.length, bounces: bounces, all: allEmails.slice(0,20) } }];"
+      },
+      "id": "sft-0003",
+      "name": "Summarise",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [560, 400]
+    },
+    {
+      "parameters": {
+        "respondWith": "firstIncomingItem",
+        "options": { "responseCode": 200 }
+      },
+      "id": "sft-0004",
+      "name": "Respond",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1,
+      "position": [840, 400]
+    }
+  ],
+  "connections": {
+    "Webhook Trigger": { "main": [[ { "node": "Read Spam Folder", "type": "main", "index": 0 } ]] },
+    "Read Spam Folder": { "main": [[ { "node": "Summarise",       "type": "main", "index": 0 } ]] },
+    "Summarise":        { "main": [[ { "node": "Respond",         "type": "main", "index": 0 } ]] }
+  },
+  "settings": { "executionOrder": "v1" }
+}
