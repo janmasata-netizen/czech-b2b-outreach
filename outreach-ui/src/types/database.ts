@@ -172,6 +172,8 @@ export interface Wave {
   send_time_seq1?: string;
   send_time_seq2?: string;
   send_time_seq3?: string;
+  source_wave_id?: string | null;
+  completed_at?: string | null;
   created_at?: string;
   updated_at?: string;
   team?: Team;
@@ -186,6 +188,7 @@ export interface WaveLead {
   jednatel_id?: string | null;
   status: WaveLeadStatus;
   ab_variant: ABVariant | null;
+  retarget_round?: number;
   outreach_account_id?: string | null;
   created_at?: string;
   updated_at?: string;
@@ -322,4 +325,18 @@ export interface MasterLeadFilters {
   master_status?: MasterStatus;
   tag_ids?: string[];
   team_id?: string;
+}
+
+export interface RetargetPoolLead {
+  lead_id: string;
+  company_name: string | null;
+  ico: string | null;
+  domain: string | null;
+  team_id: string | null;
+  last_wave_name: string | null;
+  last_contacted_at: string;
+  retarget_round: number;
+  unlocks_at: string;
+  total_waves_count: number;
+  jednatels: { id: string; full_name: string | null; salutation: string | null }[] | null;
 }

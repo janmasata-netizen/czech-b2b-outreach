@@ -11,6 +11,7 @@ const CONFIG_FIELDS = [
   { key: 'qev_api_key_1', label: 'QEV API klíč #1', placeholder: 'qev_xxxxxxxxxxxx', secret: true },
   { key: 'qev_api_key_2', label: 'QEV API klíč #2', placeholder: 'qev_xxxxxxxxxxxx', secret: true },
   { key: 'qev_api_key_3', label: 'QEV API klíč #3', placeholder: 'qev_xxxxxxxxxxxx', secret: true },
+  { key: 'retarget_lockout_days', label: 'Retarget lockout (dny)', placeholder: '120', secret: false },
 ];
 
 export default function ApiKeysSettings() {

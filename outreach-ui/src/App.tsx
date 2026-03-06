@@ -11,6 +11,7 @@ import WaveDetailPage from '@/pages/WaveDetailPage';
 import SettingsPage from '@/pages/SettingsPage';
 import EmailFinderPage from '@/pages/EmailFinderPage';
 import DatabasePage from '@/pages/DatabasePage';
+import RetargetPoolPage from '@/pages/RetargetPoolPage';
 import TeamsSettings from '@/components/settings/TeamsSettings';
 import OutreachAccountsSettings from '@/components/settings/OutreachAccountsSettings';
 import ApiKeysSettings from '@/components/settings/ApiKeysSettings';
@@ -38,6 +39,7 @@ export default function App() {
           <Route path="/vlny" element={<WavesPage />} />
           <Route path="/vlny/:id" element={<WaveDetailPage />} />
           <Route path="/email-finder" element={<EmailFinderPage />} />
+          <Route path="/retarget" element={<RetargetPoolPage />} />
           <Route path="/nastaveni" element={<SettingsPage />}>
             <Route index element={null} />
             <Route path="tymy" element={<TeamsSettings />} />

@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { Link, useLocation, useSearchParams } from 'react-router-dom';
 import {
-  LayoutDashboard, Users, Send, Search, Database,
+  LayoutDashboard, Users, Send, Search, Database, RefreshCcw,
   Building2, UserCheck, UserCog,
   AtSign, Key, FileText, X,
   LayoutList, Zap, Archive, AlertTriangle, CircleCheck, Plus, Ban,
@@ -15,6 +15,7 @@ const NAV_ITEMS = [
   { to: '/leady',        label: 'Leady',        Icon: Users,           exact: false },
   { to: '/vlny',         label: 'Vlny',         Icon: Send,            exact: false },
   { to: '/email-finder', label: 'Email Finder', Icon: Search,          exact: true  },
+  { to: '/retarget',     label: 'Retarget',     Icon: RefreshCcw,      exact: true  },
 ];
 
 const PEOPLE_ITEMS = [

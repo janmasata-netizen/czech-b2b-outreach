@@ -109,12 +109,31 @@ export function useDeleteWave() {
 export function useAddLeadsToWave() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: async ({ waveId, leadIds }: { waveId: string; leadIds: string[] }) => {
+    mutationFn: async ({ waveId, leadIds, retargetMode }: { waveId: string; leadIds: string[]; retargetMode?: boolean }) => {
+      let retargetRounds: Record<string, number> = {};
+
+      if (retargetMode) {
+        // Fetch the most recent retarget_round for each lead
+        const { data: existing } = await supabase
+          .from('wave_leads')
+          .select('lead_id, retarget_round')
+          .in('lead_id', leadIds)
+          .order('updated_at', { ascending: false });
+        if (existing) {
+          for (const row of existing) {
+            if (!(row.lead_id in retargetRounds)) {
+              retargetRounds[row.lead_id] = (row.retarget_round ?? 0) + 1;
+            }
+          }
+        }
+      }
+
       const rows = leadIds.map((lead_id) => ({
         wave_id: waveId,
         lead_id,
         ab_variant: 'A',
         status: 'pending',
+        ...(retargetMode ? { retarget_round: retargetRounds[lead_id] ?? 1 } : {}),
       }));
       const { error } = await supabase.from('wave_leads').insert(rows);
       if (error) throw error;
@@ -122,6 +141,8 @@ export function useAddLeadsToWave() {
     onSuccess: (_data, { waveId }) => {
       qc.invalidateQueries({ queryKey: ['waves', waveId] });
       qc.invalidateQueries({ queryKey: ['waves'] });
+      qc.invalidateQueries({ queryKey: ['retarget-pool'] });
+      qc.invalidateQueries({ queryKey: ['retarget-pool-count'] });
     },
   });
 }

@@ -2,7 +2,7 @@ import { useState, type FormEvent } from 'react';
 import GlassModal from '@/components/glass/GlassModal';
 import GlassButton from '@/components/glass/GlassButton';
 import GlassInput from '@/components/glass/GlassInput';
-import { useCreateWave } from '@/hooks/useWaves';
+import { useCreateWave, useAddLeadsToWave } from '@/hooks/useWaves';
 import { useTeams } from '@/hooks/useLeads';
 import { toast } from 'sonner';
 
@@ -10,13 +10,17 @@ interface CreateWaveDialogProps {
   open: boolean;
   onClose: () => void;
   onCreated?: (id: string) => void;
+  preselectedLeadIds?: string[];
+  retargetMode?: boolean;
+  sourceWaveId?: string;
 }
 
 const LABEL: React.CSSProperties = { fontSize: 12, fontWeight: 500, color: 'var(--text-dim)' };
 
-export default function CreateWaveDialog({ open, onClose, onCreated }: CreateWaveDialogProps) {
+export default function CreateWaveDialog({ open, onClose, onCreated, preselectedLeadIds, retargetMode, sourceWaveId }: CreateWaveDialogProps) {
   const { data: teams } = useTeams();
   const createWave = useCreateWave();
+  const addLeads = useAddLeadsToWave();
   const [name, setName] = useState('');
   const [teamId, setTeamId] = useState('');
 
@@ -30,8 +34,22 @@ export default function CreateWaveDialog({ open, onClose, onCreated }: CreateWav
         name: name.trim(),
         team_id: resolvedTeam,
         status: 'draft',
+        ...(sourceWaveId ? { source_wave_id: sourceWaveId } : {}),
       });
-      toast.success('Vlna vytvořena');
+
+      // Auto-add preselected leads (retarget flow)
+      if (preselectedLeadIds && preselectedLeadIds.length > 0) {
+        await addLeads.mutateAsync({
+          waveId: wave.id,
+          leadIds: preselectedLeadIds,
+          retargetMode: retargetMode,
+        });
+      }
+
+      toast.success(retargetMode
+        ? `Retarget vlna vytvořena s ${preselectedLeadIds?.length ?? 0} leady`
+        : 'Vlna vytvořena'
+      );
       onCreated?.(wave.id);
       setName('');
       setTeamId('');
@@ -45,7 +63,7 @@ export default function CreateWaveDialog({ open, onClose, onCreated }: CreateWav
     <GlassModal
       open={open}
       onClose={onClose}
-      title="Nová vlna"
+      title={retargetMode ? 'Nová retarget vlna' : 'Nová vlna'}
       width={420}
       footer={
         <>
@@ -71,6 +89,11 @@ export default function CreateWaveDialog({ open, onClose, onCreated }: CreateWav
               {teams.map(t => <option key={t.id} value={t.id}>{t.name}</option>)}
             </select>
           </div>
+        )}
+        {retargetMode && preselectedLeadIds && preselectedLeadIds.length > 0 && (
+          <p style={{ fontSize: 12, color: 'var(--cyan)', margin: 0, padding: '8px 10px', background: 'var(--bg-subtle)', borderRadius: 6, border: '1px solid var(--border)' }}>
+            {preselectedLeadIds.length} lead{preselectedLeadIds.length > 1 ? 'ů' : ''} bude automaticky přidáno do vlny.
+          </p>
         )}
         <p style={{ fontSize: 12, color: 'var(--text-muted)', margin: 0 }}>
           Šablony, datum a leady nastavíte po vytvoření vlny.
