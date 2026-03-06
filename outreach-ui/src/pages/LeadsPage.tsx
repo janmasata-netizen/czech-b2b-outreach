@@ -11,10 +11,10 @@ import BulkActions from '@/components/leads/BulkActions';
 import AddLeadDialog from '@/components/leads/AddLeadDialog';
 import CsvImportDialog from '@/components/leads/CsvImportDialog';
 import GoogleSheetImportDialog from '@/components/leads/GoogleSheetImportDialog';
+import ImportChooserDialog from '@/components/leads/ImportChooserDialog';
 import EmailDiscoveryTab from '@/components/leads/EmailDiscoveryTab';
 import ReadyLeadsTab from '@/components/leads/ReadyLeadsTab';
 import Pagination from '@/components/shared/Pagination';
-import GlassButton from '@/components/glass/GlassButton';
 import { PAGE_SIZE } from '@/lib/constants';
 
 type Tab = 'all' | 'discovery' | 'ready' | 'problematic';
@@ -44,18 +44,24 @@ export default function LeadsPage() {
   const [showAdd, setShowAdd] = useState(false);
   const [showImport, setShowImport] = useState(false);
   const [showGsheetImport, setShowGsheetImport] = useState(false);
+  const [showImportChooser, setShowImportChooser] = useState(false);
   const { data: needsReviewCount = 0 } = useNeedsReviewCount();
 
   useEffect(() => {
-    if (searchParams.get('new') === '1') {
-      setShowAdd(true);
+    const action = searchParams.get('action');
+    const isNew = searchParams.get('new') === '1';
+
+    if (isNew || action === 'import') {
+      if (isNew) setShowAdd(true);
+      if (action === 'import') setShowImportChooser(true);
       setSearchParams(prev => {
         const next = new URLSearchParams(prev);
         next.delete('new');
+        next.delete('action');
         return next;
       }, { replace: true });
     }
-  }, [searchParams]);
+  }, [searchParams, setSearchParams]);
 
   const effectiveFilters: LeadFilters = tab === 'problematic'
     ? { status: 'problematic' }
@@ -84,13 +90,6 @@ export default function LeadsPage() {
       <PageHeader
         title={PAGE_TITLES[tab]}
         subtitle={tab === 'all' || tab === 'problematic' ? `${total.toLocaleString('cs-CZ')} celkem` : undefined}
-        actions={
-          <>
-            <GlassButton variant="secondary" size="sm" onClick={() => setShowGsheetImport(true)}>Google Sheet</GlassButton>
-            <GlassButton variant="secondary" size="sm" onClick={() => setShowImport(true)}>Importovat CSV</GlassButton>
-            <GlassButton variant="primary" size="sm" onClick={() => setShowAdd(true)}>+ Přidat lead</GlassButton>
-          </>
-        }
       />
 
       {tab === 'problematic' && (
@@ -153,6 +152,14 @@ export default function LeadsPage() {
       )}
 
       <AddLeadDialog open={showAdd} onClose={() => setShowAdd(false)} />
+      <ImportChooserDialog
+        open={showImportChooser}
+        onClose={() => setShowImportChooser(false)}
+        onChoose={type => {
+          if (type === 'csv') setShowImport(true);
+          else setShowGsheetImport(true);
+        }}
+      />
       <CsvImportDialog open={showImport} onClose={() => setShowImport(false)} />
       <GoogleSheetImportDialog open={showGsheetImport} onClose={() => setShowGsheetImport(false)} />
     </div>
