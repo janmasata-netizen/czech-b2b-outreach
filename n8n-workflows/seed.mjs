@@ -89,7 +89,7 @@ const steps = [
       'cccccccc-0001-0000-0000-000000000001',
       1, 'A',
       '{{salutation}}, rychlá otázka k {{company_name}}',
-      '<p>Dobrý den {{salutation}},</p>
+      '<p>{{salutation}},</p>
 <p>narazil jsem na {{company_name}} a zaujal mě váš přístup. Pomáháme firmám ve vašem oboru získávat více zákazníků přes digitální kanály — aniž by musely navyšovat tým.</p>
 <p>Měl byste zájem o krátký 15minutový hovor tento týden?</p>
 <p>S pozdravem,<br>Jan</p>'
@@ -105,7 +105,7 @@ const steps = [
       'cccccccc-0001-0000-0000-000000000001',
       1, 'B',
       '{{company_name}} — spolupráce?',
-      '<p>Dobrý den {{salutation}},</p>
+      '<p>{{salutation}},</p>
 <p>pracujeme s několika firmami ve vašem segmentu a pomáháme jim systematicky budovat klientskou základnu. U {{company_name}} vidím konkrétní příležitost.</p>
 <p>Hodí se vám krátký hovor tento nebo příští týden?</p>
 <p>Díky,<br>Jan</p>'
@@ -121,7 +121,7 @@ const steps = [
       'cccccccc-0001-0000-0000-000000000001',
       2, 'A',
       'Re: {{company_name}} — jen se ujišťuji',
-      '<p>Dobrý den {{salutation}},</p>
+      '<p>{{salutation}},</p>
 <p>jen se ujišťuji, zda vám můj předchozí e-mail dorazil. Chápu, že jste zaneprázdněni — proto nabízím jen 15 minut bez závazků.</p>
 <p>Dáte mi vědět, zda to téma pro vás dává smysl?</p>
 <p>S pozdravem,<br>Jan</p>'
@@ -137,7 +137,7 @@ const steps = [
       'cccccccc-0001-0000-0000-000000000001',
       2, 'B',
       'Follow-up: {{company_name}}',
-      '<p>Ahoj {{salutation}},</p>
+      '<p>{{salutation}},</p>
 <p>posílám krátký follow-up. Pokud moje nabídka není relevantní, klidně napište — nechci obtěžovat.</p>
 <p>Pokud ale máte zájem se pobavit o tom, jak jsme podobným firmám pomohli, rád se ozvu.</p>
 <p>Jan</p>'
@@ -153,7 +153,7 @@ const steps = [
       'cccccccc-0001-0000-0000-000000000001',
       3, 'A',
       'Poslední zpráva — {{company_name}}',
-      '<p>Dobrý den {{salutation}},</p>
+      '<p>{{salutation}},</p>
 <p>chápu, že jste velmi vytíženi. Tímto e-mailem zakončím svou snahu — pokud by se však situace v {{company_name}} v budoucnu změnila, rád se ozvu.</p>
 <p>Přeji hodně úspěchů,<br>Jan</p>'
     )
@@ -168,7 +168,7 @@ const steps = [
       'cccccccc-0001-0000-0000-000000000001',
       3, 'B',
       'Závěr — zůstávám k dispozici',
-      '<p>Ahoj {{salutation}},</p>
+      '<p>{{salutation}},</p>
 <p>tohle bude moje poslední zpráva. Pokud se v {{company_name}} situace změní a budete hledat způsob, jak efektivněji oslovovat nové zákazníky, klidně se ozvěte — jsem k dispozici.</p>
 <p>Hodně štěstí,<br>Jan</p>'
     )
