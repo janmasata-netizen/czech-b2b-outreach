@@ -1,0 +1,221 @@
+{
+  "name": "WF: Admin Users API",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "admin-users",
+        "responseMode": "lastNode",
+        "options": {
+          "responseHeaders": {
+            "entries": [
+              {
+                "name": "Access-Control-Allow-Origin",
+                "value": "*"
+              }
+            ]
+          }
+        }
+      },
+      "id": "admin-users-n01",
+      "name": "Webhook Trigger",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [0, 300],
+      "webhookId": "admin-users"
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForEachItem",
+        "jsCode": "// Validate caller is admin via Supabase JWT\nconst authHeader = $input.item.json.headers?.authorization || '';\nconst token = authHeader.replace('Bearer ', '');\n\nif (!token) {\n  return { json: { error: 'Unauthorized', statusCode: 401 } };\n}\n\n// We'll verify the JWT and check admin status in the next node\nconst body = $input.item.json.body || {};\nreturn { json: { action: body.action, token, ...body } };"
+      },
+      "id": "admin-users-n02",
+      "name": "Parse Request",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [240, 300]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $env.SUPABASE_URL || 'https://cycapkswtucbucyegdsn.supabase.co' }}/rest/v1/rpc/current_user_is_admin",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            { "name": "apikey", "value": "={{ $env.SUPABASE_ANON_KEY || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImN5Y2Fwa3N3dHVjYnVjeWVnZHNuIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzE2MDU2NTMsImV4cCI6MjA4NzE4MTY1M30.CndvvOrPtgStuuNajnSfJFR4CufZUx6skblMCEqxlzI' }}" },
+            { "name": "Authorization", "value": "Bearer {{ $json.token }}" }
+          ]
+        },
+        "options": {}
+      },
+      "id": "admin-users-n03",
+      "name": "Check Admin",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [480, 300]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": { "caseSensitive": true, "leftValue": "", "typeValidation": "strict" },
+          "conditions": [
+            {
+              "id": "is-admin",
+              "leftValue": "={{ $json.data === true || $json === true }}",
+              "rightValue": "true",
+              "operator": { "type": "string", "operation": "equals" }
+            }
+          ],
+          "combinator": "and"
+        }
+      },
+      "id": "admin-users-n04",
+      "name": "Is Admin?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [720, 300]
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForEachItem",
+        "jsCode": "return { json: { error: 'Forbidden — admin access required', statusCode: 403 } };"
+      },
+      "id": "admin-users-n05",
+      "name": "Return 403",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [960, 500]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": { "caseSensitive": true, "leftValue": "", "typeValidation": "strict" },
+          "conditions": [
+            { "id": "act-list", "leftValue": "={{ $('Parse Request').first().json.action }}", "rightValue": "list", "operator": { "type": "string", "operation": "equals" } }
+          ],
+          "combinator": "and"
+        }
+      },
+      "id": "admin-users-n06",
+      "name": "Route Action",
+      "type": "n8n-nodes-base.switch",
+      "typeVersion": 3,
+      "position": [960, 300],
+      "parameters2": {
+        "rules": {
+          "rules": [
+            { "value": "list", "output": 0 },
+            { "value": "create", "output": 1 },
+            { "value": "delete", "output": 2 },
+            { "value": "updatePassword", "output": 3 }
+          ]
+        },
+        "dataType": "string",
+        "value1": "={{ $('Parse Request').first().json.action }}"
+      }
+    },
+    {
+      "parameters": {
+        "method": "GET",
+        "url": "={{ $env.SUPABASE_URL || 'https://cycapkswtucbucyegdsn.supabase.co' }}/auth/v1/admin/users?per_page=200",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            { "name": "apikey", "value": "={{ $env.SUPABASE_SERVICE_ROLE_KEY }}" },
+            { "name": "Authorization", "value": "Bearer {{ $env.SUPABASE_SERVICE_ROLE_KEY }}" }
+          ]
+        },
+        "options": {}
+      },
+      "id": "admin-users-n07",
+      "name": "List Users",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [1200, 100]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $env.SUPABASE_URL || 'https://cycapkswtucbucyegdsn.supabase.co' }}/auth/v1/admin/users",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            { "name": "apikey", "value": "={{ $env.SUPABASE_SERVICE_ROLE_KEY }}" },
+            { "name": "Authorization", "value": "Bearer {{ $env.SUPABASE_SERVICE_ROLE_KEY }}" }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ email: $('Parse Request').first().json.email, password: $('Parse Request').first().json.password, email_confirm: true }) }}",
+        "options": {}
+      },
+      "id": "admin-users-n08",
+      "name": "Create User",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [1200, 300]
+    },
+    {
+      "parameters": {
+        "method": "DELETE",
+        "url": "={{ $env.SUPABASE_URL || 'https://cycapkswtucbucyegdsn.supabase.co' }}/auth/v1/admin/users/{{ $('Parse Request').first().json.userId }}",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            { "name": "apikey", "value": "={{ $env.SUPABASE_SERVICE_ROLE_KEY }}" },
+            { "name": "Authorization", "value": "Bearer {{ $env.SUPABASE_SERVICE_ROLE_KEY }}" }
+          ]
+        },
+        "options": {}
+      },
+      "id": "admin-users-n09",
+      "name": "Delete User",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [1200, 500]
+    },
+    {
+      "parameters": {
+        "method": "PUT",
+        "url": "={{ $env.SUPABASE_URL || 'https://cycapkswtucbucyegdsn.supabase.co' }}/auth/v1/admin/users/{{ $('Parse Request').first().json.userId }}",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            { "name": "apikey", "value": "={{ $env.SUPABASE_SERVICE_ROLE_KEY }}" },
+            { "name": "Authorization", "value": "Bearer {{ $env.SUPABASE_SERVICE_ROLE_KEY }}" }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ password: $('Parse Request').first().json.password }) }}",
+        "options": {}
+      },
+      "id": "admin-users-n10",
+      "name": "Update Password",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [1200, 700]
+    }
+  ],
+  "connections": {
+    "Webhook Trigger": { "main": [[{ "node": "Parse Request", "type": "main", "index": 0 }]] },
+    "Parse Request": { "main": [[{ "node": "Check Admin", "type": "main", "index": 0 }]] },
+    "Check Admin": { "main": [[{ "node": "Is Admin?", "type": "main", "index": 0 }]] },
+    "Is Admin?": {
+      "main": [
+        [{ "node": "Route Action", "type": "main", "index": 0 }],
+        [{ "node": "Return 403", "type": "main", "index": 0 }]
+      ]
+    },
+    "Route Action": {
+      "main": [
+        [{ "node": "List Users", "type": "main", "index": 0 }],
+        [{ "node": "Create User", "type": "main", "index": 0 }],
+        [{ "node": "Delete User", "type": "main", "index": 0 }],
+        [{ "node": "Update Password", "type": "main", "index": 0 }]
+      ]
+    }
+  },
+  "settings": { "executionOrder": "v1" },
+  "tags": []
+}

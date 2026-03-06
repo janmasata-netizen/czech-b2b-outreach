@@ -2,6 +2,7 @@ import { Client } from 'ssh2';
 import fs from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
+import { homedir } from 'os';
 import { VPS_IP } from './env.mjs';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -13,7 +14,7 @@ const SSH_CONFIG = {
   host: VPS_IP,
   port: 22,
   username: 'root',
-  password: 'OutreachUI-Deploy2026',
+  privateKey: fs.readFileSync(path.join(homedir(), '.ssh', 'vps_deploy_key')),
   readyTimeout: 20000,
 };
 
