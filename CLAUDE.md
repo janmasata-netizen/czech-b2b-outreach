@@ -63,6 +63,8 @@ DB functions: `reset_daily_sends()`, `handle_lead_reply()` trigger, `get_dashboa
 
 DB trigger: `trg_auto_salutation` on `jednatels` — ALWAYS re-derives `first_name`/`last_name` from `full_name` and regenerates `salutation` (Czech vocative) on INSERT/UPDATE. `full_name` is the source of truth. All male names inflected (no foreign-name exemption).
 
+DB trigger: `trg_refresh_salutations_on_wave_add` on `wave_leads` — AFTER INSERT, touches `jednatels.updated_at` for all jednatels of the added lead, which fires `trg_auto_salutation` to ensure salutations are fresh when leads are assigned to a wave.
+
 ## Vocative salutation system
 - `jednatels.salutation` stores full formal greeting with gendered prefix: `Vážený pane Nováku` (male) / `Vážená paní Nováková` (female)
 - Templates use `{{salutation}},` directly — no greeting prefix in the template

@@ -1,6 +1,6 @@
 import { Link, useLocation, useNavigate, useSearchParams } from 'react-router-dom';
 import {
-  Users, LayoutList, Zap, Archive, AlertTriangle, Plus, Search, CircleCheck, Database, Ban,
+  Users, LayoutList, Zap, Archive, AlertTriangle, Plus, Search, CircleCheck, Database, Ban, Upload,
 } from 'lucide-react';
 import { TOP_H } from './TopBar';
 
@@ -17,10 +17,12 @@ type SubItem = {
 
 type SubGroup = { items: SubItem[] };
 
+type ActionDef = { label: string; href: string; Icon?: React.ElementType };
+
 type Section = {
   title: string;
   groups: SubGroup[];
-  action?: { label: string; href: string };
+  actions?: ActionDef[];
 };
 
 const SECTIONS: Record<string, Section> = {
@@ -36,7 +38,10 @@ const SECTIONS: Record<string, Section> = {
         ],
       },
     ],
-    action: { label: 'Přidat lead', href: '/leady?new=1' },
+    actions: [
+      { label: 'Přidat lead', href: '/leady?new=1' },
+      { label: 'Importovat', href: '/leady?action=import', Icon: Upload },
+    ],
   },
 
   '/vlny': {
@@ -50,7 +55,7 @@ const SECTIONS: Record<string, Section> = {
         ],
       },
     ],
-    action: { label: 'Nová vlna', href: '/vlny?new=1' },
+    actions: [{ label: 'Nová vlna', href: '/vlny?new=1' }],
   },
 
   '/databaze': {
@@ -65,7 +70,7 @@ const SECTIONS: Record<string, Section> = {
         ],
       },
     ],
-    action: { label: 'Přidat záznam', href: '/databaze?new=1' },
+    actions: [{ label: 'Přidat záznam', href: '/databaze?new=1' }],
   },
 };
 
@@ -143,34 +148,52 @@ export default function SubPanel() {
         {section.title}
       </div>
 
-      {/* Action button — sits right below the header, like Supabase "+ New table" */}
-      {section.action && (
-        <div style={{ padding: '8px 10px', borderBottom: '1px solid var(--border)', flexShrink: 0 }}>
-          <button
-            onClick={() => navigate(section.action!.href)}
-            style={{
-              display: 'flex', alignItems: 'center', gap: 7,
-              width: '100%', padding: '6px 10px', borderRadius: 6,
-              border: '1px solid var(--border)', background: 'var(--bg-surface)',
-              color: 'var(--text-dim)', fontSize: 13, fontWeight: 500, cursor: 'pointer',
-              transition: 'background 0.12s, color 0.12s, border-color 0.12s',
-            }}
-            onMouseEnter={e => {
-              const el = e.currentTarget as HTMLButtonElement;
-              el.style.background = 'var(--bg-muted)';
-              el.style.color = 'var(--text)';
-              el.style.borderColor = 'var(--border-strong)';
-            }}
-            onMouseLeave={e => {
-              const el = e.currentTarget as HTMLButtonElement;
-              el.style.background = 'var(--bg-surface)';
-              el.style.color = 'var(--text-dim)';
-              el.style.borderColor = 'var(--border)';
-            }}
-          >
-            <Plus size={13} strokeWidth={2} />
-            {section.action.label}
-          </button>
+      {/* Action buttons — sit right below the header */}
+      {section.actions && section.actions.length > 0 && (
+        <div style={{ padding: '8px 10px', borderBottom: '1px solid var(--border)', flexShrink: 0, display: 'flex', flexDirection: 'column', gap: 6 }}>
+          {section.actions.map(act => {
+            const BtnIcon = act.Icon ?? Plus;
+            return (
+              <button
+                key={act.label}
+                onClick={() => navigate(act.href)}
+                style={{
+                  display: 'flex', alignItems: 'center', gap: 7,
+                  width: '100%', padding: '6px 10px', borderRadius: 6,
+                  border: '1px solid var(--border)', background: 'var(--bg-surface)',
+                  color: 'var(--text-dim)', fontSize: 13, fontWeight: 500, cursor: 'pointer',
+                  transition: 'background 0.12s, color 0.12s, border-color 0.12s',
+                }}
+                onMouseEnter={e => {
+                  const el = e.currentTarget as HTMLButtonElement;
+                  el.style.background = 'var(--bg-muted)';
+                  el.style.color = 'var(--text)';
+                  el.style.borderColor = 'var(--border-strong)';
+                }}
+                onMouseLeave={e => {
+                  const el = e.currentTarget as HTMLButtonElement;
+                  el.style.background = 'var(--bg-surface)';
+                  el.style.color = 'var(--text-dim)';
+                  el.style.borderColor = 'var(--border)';
+                }}
+                onFocus={e => {
+                  const el = e.currentTarget as HTMLButtonElement;
+                  el.style.background = 'var(--bg-muted)';
+                  el.style.color = 'var(--text)';
+                  el.style.borderColor = 'var(--border-strong)';
+                }}
+                onBlur={e => {
+                  const el = e.currentTarget as HTMLButtonElement;
+                  el.style.background = 'var(--bg-surface)';
+                  el.style.color = 'var(--text-dim)';
+                  el.style.borderColor = 'var(--border)';
+                }}
+              >
+                <BtnIcon size={13} strokeWidth={2} />
+                {act.label}
+              </button>
+            );
+          })}
         </div>
       )}
 

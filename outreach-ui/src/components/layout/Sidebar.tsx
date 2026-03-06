@@ -4,7 +4,7 @@ import {
   LayoutDashboard, Users, Send, Search, Database, RefreshCcw,
   Building2, UserCheck, UserCog,
   AtSign, Key, FileText, X,
-  LayoutList, Zap, Archive, AlertTriangle, CircleCheck, Plus, Ban,
+  LayoutList, Zap, Archive, AlertTriangle, CircleCheck, Plus, Ban, Upload,
 } from 'lucide-react';
 import { TOP_H } from './TopBar';
 import { useMobileNav } from '@/hooks/useMobileNav';
@@ -130,7 +130,9 @@ export default function Sidebar() {
     return item.tabParam ? `${item.to}?tab=${item.tabParam}` : item.to;
   }
 
-  const renderSubItems = (items: SubItem[], title: string, actionLabel?: string, actionHref?: string) => (
+  type ActionBtn = { label: string; href: string; Icon?: React.ElementType };
+
+  const renderSubItems = (items: SubItem[], title: string, actions?: ActionBtn[]) => (
     <div style={{ paddingLeft: 16, paddingRight: 8, paddingBottom: 4 }}>
       <div style={{
         fontSize: 10, fontWeight: 700, letterSpacing: '0.08em', textTransform: 'uppercase',
@@ -138,20 +140,24 @@ export default function Sidebar() {
       }}>
         {title}
       </div>
-      {actionLabel && actionHref && (
-        <Link
-          to={actionHref}
-          onClick={handleNav}
-          style={{
-            display: 'flex', alignItems: 'center', gap: 7,
-            padding: '8px 14px', margin: '0 0 4px', borderRadius: 6,
-            border: '1px solid var(--border)', background: 'var(--bg-surface)',
-            color: 'var(--text-dim)', fontSize: 12, fontWeight: 500, textDecoration: 'none',
-          }}
-        >
-          <Plus size={12} strokeWidth={2} /> {actionLabel}
-        </Link>
-      )}
+      {actions && actions.map(act => {
+        const BtnIcon = act.Icon ?? Plus;
+        return (
+          <Link
+            key={act.label}
+            to={act.href}
+            onClick={handleNav}
+            style={{
+              display: 'flex', alignItems: 'center', gap: 7,
+              padding: '8px 14px', margin: '0 0 4px', borderRadius: 6,
+              border: '1px solid var(--border)', background: 'var(--bg-surface)',
+              color: 'var(--text-dim)', fontSize: 12, fontWeight: 500, textDecoration: 'none',
+            }}
+          >
+            <BtnIcon size={12} strokeWidth={2} /> {act.label}
+          </Link>
+        );
+      })}
       {items.map(item => {
         const active = isSubActive(item);
         const { Icon } = item;
@@ -235,9 +241,12 @@ export default function Sidebar() {
               <div key={item.to}>
                 {navLink(item)}
                 {/* Inline sub-items for leads/waves on mobile */}
-                {item.to === '/databaze' && showDbSubs && renderSubItems(DB_SUBS, 'Stav', 'Přidat záznam', '/databaze?new=1')}
-                {item.to === '/leady' && showLeadSubs && renderSubItems(LEAD_SUBS, 'Filtry', 'Přidat lead', '/leady?new=1')}
-                {item.to === '/vlny' && showWaveSubs && renderSubItems(WAVE_SUBS, 'Zobrazení', 'Nová vlna', '/vlny?new=1')}
+                {item.to === '/databaze' && showDbSubs && renderSubItems(DB_SUBS, 'Stav', [{ label: 'Přidat záznam', href: '/databaze?new=1' }])}
+                {item.to === '/leady' && showLeadSubs && renderSubItems(LEAD_SUBS, 'Filtry', [
+                  { label: 'Přidat lead', href: '/leady?new=1' },
+                  { label: 'Importovat', href: '/leady?action=import', Icon: Upload },
+                ])}
+                {item.to === '/vlny' && showWaveSubs && renderSubItems(WAVE_SUBS, 'Zobrazení', [{ label: 'Nová vlna', href: '/vlny?new=1' }])}
               </div>
             ))}
             {divider}
