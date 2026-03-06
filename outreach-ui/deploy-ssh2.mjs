@@ -11,11 +11,11 @@ import { createRequire } from 'module';
 const require = createRequire(import.meta.url);
 const { Client } = require('ssh2');
 
-const VPS_IP   = '72.62.53.244';
+const VPS_IP   = process.env.VPS_IP || '72.62.53.244';
 const VPS_USER = 'root';
 const REMOTE_DIR = '/docker/outreach-ui/dist';
 const DOCKER_CTR = 'outreach-ui-outreach-ui-1';
-const SSH_KEY    = join(fileURLToPath(import.meta.url), '..', '..', '.ssh', 'vps_deploy_key');
+const SSH_KEY    = join(process.env.HOME || process.env.USERPROFILE, '.ssh', 'vps_deploy_key');
 
 const LOCAL_DIST = join(fileURLToPath(import.meta.url), '..', 'dist');
 const VPS_PASS = process.env.VPS_PASS; // optional fallback

@@ -16,6 +16,8 @@ import { simpleParser } from 'mailparser';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const PORT = process.env.PORT || 3001;
+const MAX_BODY_SIZE = 1024 * 1024; // 1MB
+const BEARER_TOKEN = process.env.PROXY_AUTH_TOKEN || '';
 
 // Load credentials from config.json
 let config;
@@ -111,9 +113,36 @@ function flattenHeaders(headers) {
   return obj;
 }
 
+/** Check Bearer token if configured */
+function checkAuth(req) {
+  if (!BEARER_TOKEN) return true;
+  const auth = req.headers['authorization'];
+  return auth === `Bearer ${BEARER_TOKEN}`;
+}
+
+/** Read request body with size limit */
+async function readBody(req) {
+  const contentLength = parseInt(req.headers['content-length'] || '0', 10);
+  if (contentLength > MAX_BODY_SIZE) {
+    throw new Error('Payload too large');
+  }
+  let body = '';
+  let size = 0;
+  for await (const chunk of req) {
+    size += chunk.length;
+    if (size > MAX_BODY_SIZE) throw new Error('Payload too large');
+    body += chunk;
+  }
+  return body;
+}
+
 /** HTTP request handler */
 async function handleRequest(req, res) {
-  // CORS / health
+  // Security headers
+  res.setHeader('X-Content-Type-Options', 'nosniff');
+  res.setHeader('X-Frame-Options', 'DENY');
+
+  // Health check (no auth needed)
   if (req.method === 'GET' && req.url === '/health') {
     res.writeHead(200, { 'Content-Type': 'application/json' });
     res.end(JSON.stringify({ status: 'ok' }));
@@ -121,8 +150,20 @@ async function handleRequest(req, res) {
   }
 
   if (req.method === 'POST' && req.url === '/check-inbox') {
-    let body = '';
-    for await (const chunk of req) body += chunk;
+    if (!checkAuth(req)) {
+      res.writeHead(401, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ success: false, error: 'Unauthorized', emails: [] }));
+      return;
+    }
+
+    let body;
+    try {
+      body = await readBody(req);
+    } catch (e) {
+      res.writeHead(413, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ success: false, error: 'Payload too large', emails: [] }));
+      return;
+    }
 
     let payload;
     try {
@@ -143,20 +184,19 @@ async function handleRequest(req, res) {
     const creds = config.credentials?.[credName];
     if (!creds) {
       res.writeHead(404, { 'Content-Type': 'application/json' });
-      res.end(JSON.stringify({ success: false, error: `Unknown credential: ${credName}`, emails: [] }));
+      res.end(JSON.stringify({ success: false, error: 'Unknown credential', emails: [] }));
       return;
     }
 
     try {
       const emails = await fetchUnseenEmails(creds);
-      console.log(`[${new Date().toISOString()}] ${credName}: ${emails.length} unseen emails`);
+      console.log(`[${new Date().toISOString()}] check-inbox: ${emails.length} unseen emails`);
       res.writeHead(200, { 'Content-Type': 'application/json' });
       res.end(JSON.stringify({ success: true, emails }));
     } catch (err) {
-      const detail = err.responseText || err.code || '';
-      console.error(`[${new Date().toISOString()}] ${credName} ERROR:`, err.message, '| responseStatus:', err.responseStatus, '| responseText:', err.responseText, '| code:', err.code);
+      console.error(`[${new Date().toISOString()}] check-inbox ERROR:`, err.message);
       res.writeHead(500, { 'Content-Type': 'application/json' });
-      res.end(JSON.stringify({ success: false, error: detail ? `${err.message}: ${detail}` : err.message, emails: [] }));
+      res.end(JSON.stringify({ success: false, error: 'Internal server error', emails: [] }));
     }
     return;
   }
@@ -166,7 +206,8 @@ async function handleRequest(req, res) {
 }
 
 const server = http.createServer(handleRequest);
-server.listen(PORT, '0.0.0.0', () => {
-  console.log(`IMAP proxy listening on port ${PORT}`);
-  console.log(`Configured credentials: ${Object.keys(config.credentials || {}).join(', ')}`);
+server.requestTimeout = 30000;
+server.listen(PORT, '127.0.0.1', () => {
+  const credCount = Object.keys(config.credentials || {}).length;
+  console.log(`IMAP proxy listening on 127.0.0.1:${PORT} (${credCount} credentials configured)`);
 });

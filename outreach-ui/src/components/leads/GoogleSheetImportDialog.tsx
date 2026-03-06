@@ -62,7 +62,12 @@ export default function GoogleSheetImportDialog({ open, onClose }: GoogleSheetIm
   }
 
   function isValidSheetUrl(url: string) {
-    return url.includes('docs.google.com/spreadsheets');
+    try {
+      const parsed = new URL(url);
+      return parsed.hostname === 'docs.google.com' && parsed.pathname.startsWith('/spreadsheets/');
+    } catch {
+      return false;
+    }
   }
 
   async function handleFetchSheet() {

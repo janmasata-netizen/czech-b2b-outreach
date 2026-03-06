@@ -111,8 +111,10 @@ export default function CsvImportDialog({ open, onClose }: CsvImportDialogProps)
         continue;
       }
 
+      const validEmail = email && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email) ? email : '';
+
       try {
-        if (email) {
+        if (validEmail) {
           // Full insert: lead + jednatel + email_candidate → status='ready'
           const { data: lead, error: le } = await supabase
             .from('leads')
@@ -143,7 +145,7 @@ export default function CsvImportDialog({ open, onClose }: CsvImportDialogProps)
                 .from('email_candidates')
                 .insert({
                   jednatel_id: jed.id,
-                  email_address: email,
+                  email_address: validEmail,
                   is_verified: true,
                   qev_status: 'manually_verified',
                   seznam_status: 'likely_valid',

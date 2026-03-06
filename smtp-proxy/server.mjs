@@ -4,9 +4,6 @@
  * Sends emails via nodemailer with proper Message-ID, In-Reply-To, References
  * using dedicated mailOptions fields (not headers object).
  *
- * This bypasses the n8n-nodes-better-send-mail bug where protected headers
- * set via mailOptions.headers get overwritten by nodemailer.
- *
  * POST /send-email  { credential_name, from, to, subject, html, replyTo, messageId, inReplyTo, references }
  * GET  /health      → { status: "ok" }
  */
@@ -18,6 +15,8 @@ import { createTransport } from 'nodemailer';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const PORT = process.env.PORT || 3002;
+const MAX_BODY_SIZE = 1024 * 1024; // 1MB
+const BEARER_TOKEN = process.env.PROXY_AUTH_TOKEN || '';
 
 // Load credentials from config.json
 let config;
@@ -28,14 +27,19 @@ try {
   process.exit(1);
 }
 
-// Cache transporter instances per credential name
+// Cache transporter instances per credential name (with 30min TTL)
 const transporters = new Map();
+const TRANSPORTER_TTL = 30 * 60 * 1000;
 
 function getTransporter(credName) {
-  if (transporters.has(credName)) return transporters.get(credName);
+  const cached = transporters.get(credName);
+  if (cached && Date.now() - cached.createdAt < TRANSPORTER_TTL) return cached.transporter;
 
   const creds = config.credentials?.[credName];
   if (!creds) return null;
+
+  // Close old transporter if exists
+  if (cached) try { cached.transporter.close(); } catch (_) {}
 
   const transporter = createTransport({
     host: creds.host,
@@ -50,8 +54,21 @@ function getTransporter(credName) {
     socketTimeout: 30000,
   });
 
-  transporters.set(credName, transporter);
+  transporters.set(credName, { transporter, createdAt: Date.now() });
   return transporter;
+}
+
+/** Validate email format */
+function isValidEmail(email) {
+  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
+}
+
+/** Sanitize subject — reject header injection attempts */
+function sanitizeSubject(subject) {
+  if (!subject) return '';
+  if (/[\r\n]/.test(subject)) throw new Error('Invalid subject (header injection attempt)');
+  if (subject.length > 998) throw new Error('Subject too long');
+  return subject;
 }
 
 /**
@@ -59,6 +76,9 @@ function getTransporter(credName) {
  */
 async function sendEmail(payload) {
   const { credential_name, from, to, subject, html, replyTo, messageId, inReplyTo, references } = payload;
+
+  if (!isValidEmail(to)) throw new Error('Invalid recipient email');
+  const safeSubject = sanitizeSubject(subject);
 
   const transporter = getTransporter(credential_name);
   if (!transporter) {
@@ -69,7 +89,7 @@ async function sendEmail(payload) {
   const mailOptions = {
     from,
     to,
-    subject,
+    subject: safeSubject,
     html,
   };
 
@@ -103,9 +123,36 @@ async function sendEmail(payload) {
   };
 }
 
+/** Check Bearer token if configured */
+function checkAuth(req) {
+  if (!BEARER_TOKEN) return true;
+  const auth = req.headers['authorization'];
+  return auth === `Bearer ${BEARER_TOKEN}`;
+}
+
+/** Read request body with size limit */
+async function readBody(req) {
+  const contentLength = parseInt(req.headers['content-length'] || '0', 10);
+  if (contentLength > MAX_BODY_SIZE) {
+    throw new Error('Payload too large');
+  }
+  let body = '';
+  let size = 0;
+  for await (const chunk of req) {
+    size += chunk.length;
+    if (size > MAX_BODY_SIZE) throw new Error('Payload too large');
+    body += chunk;
+  }
+  return body;
+}
+
 /** HTTP request handler */
 async function handleRequest(req, res) {
-  // Health check
+  // Security headers
+  res.setHeader('X-Content-Type-Options', 'nosniff');
+  res.setHeader('X-Frame-Options', 'DENY');
+
+  // Health check (no auth needed)
   if (req.method === 'GET' && req.url === '/health') {
     res.writeHead(200, { 'Content-Type': 'application/json' });
     res.end(JSON.stringify({ status: 'ok' }));
@@ -113,8 +160,20 @@ async function handleRequest(req, res) {
   }
 
   if (req.method === 'POST' && req.url === '/send-email') {
-    let body = '';
-    for await (const chunk of req) body += chunk;
+    if (!checkAuth(req)) {
+      res.writeHead(401, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ success: false, error: 'Unauthorized' }));
+      return;
+    }
+
+    let body;
+    try {
+      body = await readBody(req);
+    } catch (e) {
+      res.writeHead(413, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ success: false, error: 'Payload too large' }));
+      return;
+    }
 
     let payload;
     try {
@@ -145,7 +204,7 @@ async function handleRequest(req, res) {
     } catch (err) {
       console.error(`[${new Date().toISOString()}] Send FAILED to ${payload.to}:`, err.message);
       res.writeHead(500, { 'Content-Type': 'application/json' });
-      res.end(JSON.stringify({ success: false, error: err.message }));
+      res.end(JSON.stringify({ success: false, error: 'Send failed' }));
     }
     return;
   }
@@ -155,7 +214,8 @@ async function handleRequest(req, res) {
 }
 
 const server = http.createServer(handleRequest);
-server.listen(PORT, '0.0.0.0', () => {
-  console.log(`SMTP proxy listening on port ${PORT}`);
-  console.log(`Configured credentials: ${Object.keys(config.credentials || {}).join(', ')}`);
+server.requestTimeout = 30000;
+server.listen(PORT, '127.0.0.1', () => {
+  const credCount = Object.keys(config.credentials || {}).length;
+  console.log(`SMTP proxy listening on 127.0.0.1:${PORT} (${credCount} credentials configured)`);
 });

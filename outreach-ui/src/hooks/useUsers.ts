@@ -2,6 +2,8 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase, supabaseAuth } from '@/lib/supabase';
 import type { Profile, Team } from '@/types/database';
 
+const N8N = import.meta.env.VITE_N8N_WEBHOOK_URL;
+
 export interface AppUser {
   id: string;
   email: string;
@@ -9,12 +11,26 @@ export interface AppUser {
   profile: Profile & { team?: Team };
 }
 
+async function adminApi(action: string, payload: Record<string, unknown> = {}) {
+  const { data: { session } } = await supabaseAuth.auth.getSession();
+  const res = await fetch(`${N8N}/admin-users`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      ...(session?.access_token ? { 'Authorization': `Bearer ${session.access_token}` } : {}),
+    },
+    body: JSON.stringify({ action, ...payload }),
+  });
+  const data = await res.json();
+  if (!res.ok || data.error) throw new Error(data.error || `Admin API failed (${res.status})`);
+  return data;
+}
+
 export function useUsers() {
   return useQuery<AppUser[]>({
     queryKey: ['users'],
     queryFn: async () => {
-      const { data: authData, error: authError } = await supabase.auth.admin.listUsers({ perPage: 200 });
-      if (authError) throw authError;
+      const data = await adminApi('list');
 
       const { data: profiles, error: profError } = await supabase
         .from('profiles')
@@ -23,7 +39,7 @@ export function useUsers() {
 
       const profileMap = new Map((profiles ?? []).map((p: Profile & { team?: Team }) => [p.id, p]));
 
-      return (authData.users ?? []).map(u => ({
+      return (data.users ?? []).map((u: { id: string; email?: string; created_at: string }) => ({
         id: u.id,
         email: u.email ?? '',
         created_at: u.created_at,
@@ -45,19 +61,13 @@ export function useCreateUser() {
       team_id: string;
       is_admin: boolean;
     }) => {
-      const { data, error } = await supabase.auth.admin.createUser({
-        email,
-        password,
-        email_confirm: true,
-      });
-      if (error) throw error;
+      const data = await adminApi('create', { email, password });
 
       const { error: profError } = await supabase.from('profiles').upsert({
         id: data.user.id,
         full_name,
         team_id,
         is_admin,
-        password_plain: password,
       });
       if (profError) throw profError;
     },
@@ -69,8 +79,7 @@ export function useDeleteUser() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: async (userId: string) => {
-      const { error } = await supabase.auth.admin.deleteUser(userId);
-      if (error) throw error;
+      await adminApi('delete', { userId });
     },
     onSuccess: () => qc.invalidateQueries({ queryKey: ['users'] }),
   });
@@ -80,9 +89,7 @@ export function useUpdateUserPassword() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: async ({ userId, password }: { userId: string; password: string }) => {
-      const { error } = await supabase.auth.admin.updateUserById(userId, { password });
-      if (error) throw error;
-      await supabase.from('profiles').update({ password_plain: password }).eq('id', userId);
+      await adminApi('updatePassword', { userId, password });
     },
     onSuccess: () => qc.invalidateQueries({ queryKey: ['users'] }),
   });
@@ -94,7 +101,6 @@ export function useUpdateOwnPassword() {
     mutationFn: async ({ userId, password }: { userId: string; password: string }) => {
       const { error } = await supabaseAuth.auth.updateUser({ password });
       if (error) throw error;
-      await supabase.from('profiles').update({ password_plain: password }).eq('id', userId);
     },
     onSuccess: () => qc.invalidateQueries({ queryKey: ['users'] }),
   });
