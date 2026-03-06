@@ -1,0 +1,132 @@
+{
+  "name": "WF13: Google Sheet Proxy",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "gsheet-proxy",
+        "responseMode": "lastNode",
+        "options": {
+          "responseHeaders": {
+            "entries": [
+              {
+                "name": "Access-Control-Allow-Origin",
+                "value": "*"
+              }
+            ]
+          }
+        }
+      },
+      "id": "wf13-n01",
+      "name": "Webhook Trigger",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [0, 300],
+      "webhookId": "gsheet-proxy"
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForEachItem",
+        "jsCode": "const url = $input.item.json.body?.url || '';\nconst sheetMatch = url.match(/\\/spreadsheets\\/d\\/([a-zA-Z0-9_-]+)/);\nif (!sheetMatch) {\n  return { json: { error: 'Invalid Google Sheet URL', sheetId: null, gid: '0' } };\n}\nconst sheetId = sheetMatch[1];\nconst gidMatch = url.match(/gid=(\\d+)/);\nconst gid = gidMatch ? gidMatch[1] : '0';\nreturn { json: { sheetId, gid } };"
+      },
+      "id": "wf13-n02",
+      "name": "Extract Sheet ID",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [240, 300]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": { "caseSensitive": true, "leftValue": "", "typeValidation": "strict" },
+          "conditions": [
+            {
+              "id": "has-id",
+              "leftValue": "={{ $json.sheetId }}",
+              "rightValue": "",
+              "operator": { "type": "string", "operation": "notEquals" }
+            }
+          ],
+          "combinator": "and"
+        }
+      },
+      "id": "wf13-n03",
+      "name": "IF Valid URL",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [480, 300]
+    },
+    {
+      "parameters": {
+        "method": "GET",
+        "url": "={{ 'https://docs.google.com/spreadsheets/d/' + $json.sheetId + '/export?format=csv&gid=' + $json.gid }}",
+        "options": {
+          "timeout": 30000,
+          "neverError": true
+        }
+      },
+      "id": "wf13-n04",
+      "name": "Fetch CSV",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [720, 200]
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForEachItem",
+        "jsCode": "const data = $input.item.json;\n// HTTP Request returns the CSV as a string in the data field or body\nconst csv = typeof data === 'string' ? data : (data.data || data.body || '');\nif (!csv || typeof csv !== 'string' || csv.length < 5) {\n  return { json: { success: false, error: 'Sheet not public or invalid URL' } };\n}\nreturn { json: { success: true, csv } };"
+      },
+      "id": "wf13-n05",
+      "name": "Format Response",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [960, 200]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ JSON.stringify({ success: false, error: $json.error || 'Invalid Google Sheet URL' }) }}"
+      },
+      "id": "wf13-n06",
+      "name": "Respond Error",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [720, 400]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ JSON.stringify($json) }}"
+      },
+      "id": "wf13-n07",
+      "name": "Respond OK",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [1200, 200]
+    },
+    {
+      "parameters": {
+        "content": "## WF13: Google Sheet Proxy\n\nBypass CORS — fetches public Google Sheet as CSV.\n\n**Input:** `POST /webhook/gsheet-proxy` with `{ url: string }`\n**Output:** `{ success: true, csv: \"...\" }` or `{ success: false, error: \"...\" }`"
+      },
+      "id": "wf13-sticky",
+      "name": "Sticky Note",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [-200, 100]
+    }
+  ],
+  "connections": {
+    "Webhook Trigger": { "main": [[{ "node": "Extract Sheet ID", "type": "main", "index": 0 }]] },
+    "Extract Sheet ID": { "main": [[{ "node": "IF Valid URL", "type": "main", "index": 0 }]] },
+    "IF Valid URL": {
+      "main": [
+        [{ "node": "Fetch CSV", "type": "main", "index": 0 }],
+        [{ "node": "Respond Error", "type": "main", "index": 0 }]
+      ]
+    },
+    "Fetch CSV": { "main": [[{ "node": "Format Response", "type": "main", "index": 0 }]] },
+    "Format Response": { "main": [[{ "node": "Respond OK", "type": "main", "index": 0 }]] }
+  },
+  "settings": { "executionOrder": "v1" },
+  "active": true
+}

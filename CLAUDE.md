@@ -40,6 +40,8 @@ An automated Czech B2B cold email outreach system built on n8n + Supabase. It en
 | wf9-reply-detection.json | AaHXknYh9egPDxcG | cron:every-1min |
 | wf10-daily-reset.json | 50Odnt5vzIMfSBZE | cron:midnight |
 | wf11-website-fallback | E5QzxzZe4JbSv5lU | webhook:wf11-website-fallback |
+| wf12-ico-scrape.json | LGEe4MTELj5lmOFX | webhook:wf12-ico-scrape |
+| wf13-gsheet-proxy.json | ENcE8iMWLNwIPc5a | webhook:gsheet-proxy |
 | email-verification sub-wf | Aov5PfwmBDv51L0e | executeWorkflowTrigger |
 | wf-verify-wave | ttKdYcbucijqiaSp | — |
 | wf-email-finder | N3cuyKRHS4wEyOwq | webhook:wf-email-finder |

@@ -1,0 +1,123 @@
+{
+  "name": "WF12: Website ICO Scraper",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "wf12-ico-scrape",
+        "responseMode": "lastNode",
+        "options": {
+          "responseHeaders": {
+            "entries": [
+              {
+                "name": "Access-Control-Allow-Origin",
+                "value": "*"
+              }
+            ]
+          }
+        }
+      },
+      "id": "wf12-n01",
+      "name": "Webhook Trigger",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [0, 300],
+      "webhookId": "wf12-ico-scrape"
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForEachItem",
+        "jsCode": "let website = ($input.item.json.body?.website || '').trim();\nif (!website) return { json: { urls: [], error: 'No website provided' } };\nif (!website.match(/^https?:\\/\\//)) website = 'https://' + website;\nwebsite = website.replace(/\\/+$/, '');\nconst urls = [website, website + '/kontakt', website + '/o-nas', website + '/contact', website + '/about'];\nreturn { json: { urls, website } };"
+      },
+      "id": "wf12-n02",
+      "name": "Normalize URLs",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [240, 300]
+    },
+    {
+      "parameters": {
+        "method": "GET",
+        "url": "={{ $json.urls[0] }}",
+        "options": { "timeout": 10000, "neverError": true }
+      },
+      "id": "wf12-n03",
+      "name": "GET Homepage",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [480, 100]
+    },
+    {
+      "parameters": {
+        "method": "GET",
+        "url": "={{ $('Normalize URLs').first().json.urls[1] }}",
+        "options": { "timeout": 10000, "neverError": true }
+      },
+      "id": "wf12-n04",
+      "name": "GET Kontakt",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [480, 300]
+    },
+    {
+      "parameters": {
+        "method": "GET",
+        "url": "={{ $('Normalize URLs').first().json.urls[2] }}",
+        "options": { "timeout": 10000, "neverError": true }
+      },
+      "id": "wf12-n05",
+      "name": "GET O-nas",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [480, 500]
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "jsCode": "// Collect all page bodies\nconst bodies = [];\nfor (const item of $input.all()) {\n  const d = item.json;\n  const body = typeof d === 'string' ? d : (d.data || d.body || '');\n  if (typeof body === 'string') bodies.push(body);\n}\n\nconst allText = bodies.join('\\n');\n\n// Try to find ICO patterns\nconst patterns = [\n  /I[ČC]O\\s*:?\\s*(\\d{8})/gi,\n  /I[ČC]\\s*:?\\s*(\\d{8})/gi,\n  /Identifika[čc]n[ií]\\s+[čc][ií]slo\\s*:?\\s*(\\d{8})/gi\n];\n\nconst candidates = new Set();\nfor (const pat of patterns) {\n  let m;\n  while ((m = pat.exec(allText)) !== null) {\n    candidates.add(m[1]);\n  }\n}\n\n// Czech modulo-11 checksum validation\nfunction isValidCzechICO(ico) {\n  if (!/^\\d{8}$/.test(ico)) return false;\n  const weights = [8, 7, 6, 5, 4, 3, 2];\n  let sum = 0;\n  for (let i = 0; i < 7; i++) {\n    sum += parseInt(ico[i]) * weights[i];\n  }\n  const remainder = sum % 11;\n  let expected;\n  if (remainder === 0) expected = 8;\n  else if (remainder === 1) expected = 0;\n  else expected = 11 - remainder;\n  return parseInt(ico[7]) === expected;\n}\n\nlet foundIco = null;\nfor (const ico of candidates) {\n  if (isValidCzechICO(ico)) {\n    foundIco = ico;\n    break;\n  }\n}\n\nreturn [{ json: { ico: foundIco } }];"
+      },
+      "id": "wf12-n06",
+      "name": "Extract ICO",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [780, 300]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ JSON.stringify({ ico: $json.ico }) }}"
+      },
+      "id": "wf12-n07",
+      "name": "Respond",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [1020, 300]
+    },
+    {
+      "parameters": {
+        "content": "## WF12: Website ICO Scraper\n\nScrapes company website (homepage, /kontakt, /o-nas) for Czech ICO number.\nValidates with modulo-11 checksum.\n\n**Input:** `POST /webhook/wf12-ico-scrape` with `{ website: string }`\n**Output:** `{ ico: \"12345678\" }` or `{ ico: null }`"
+      },
+      "id": "wf12-sticky",
+      "name": "Sticky Note",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [-200, 100]
+    }
+  ],
+  "connections": {
+    "Webhook Trigger": { "main": [[{ "node": "Normalize URLs", "type": "main", "index": 0 }]] },
+    "Normalize URLs": {
+      "main": [[
+        { "node": "GET Homepage", "type": "main", "index": 0 },
+        { "node": "GET Kontakt", "type": "main", "index": 0 },
+        { "node": "GET O-nas", "type": "main", "index": 0 }
+      ]]
+    },
+    "GET Homepage": { "main": [[{ "node": "Extract ICO", "type": "main", "index": 0 }]] },
+    "GET Kontakt": { "main": [[{ "node": "Extract ICO", "type": "main", "index": 0 }]] },
+    "GET O-nas": { "main": [[{ "node": "Extract ICO", "type": "main", "index": 0 }]] },
+    "Extract ICO": { "main": [[{ "node": "Respond", "type": "main", "index": 0 }]] }
+  },
+  "settings": { "executionOrder": "v1" },
+  "active": true
+}
