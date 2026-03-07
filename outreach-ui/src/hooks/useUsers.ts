@@ -1,8 +1,7 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase, supabaseAuth } from '@/lib/supabase';
+import { n8nWebhookUrl, n8nHeaders } from '@/lib/n8n';
 import type { Profile, Team } from '@/types/database';
-
-const N8N = import.meta.env.VITE_N8N_WEBHOOK_URL;
 
 export interface AppUser {
   id: string;
@@ -13,12 +12,11 @@ export interface AppUser {
 
 async function adminApi(action: string, payload: Record<string, unknown> = {}) {
   const { data: { session } } = await supabaseAuth.auth.getSession();
-  const res = await fetch(`${N8N}/admin-users`, {
+  const res = await fetch(n8nWebhookUrl('admin-users'), {
     method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      ...(session?.access_token ? { 'Authorization': `Bearer ${session.access_token}` } : {}),
-    },
+    headers: n8nHeaders(
+      session?.access_token ? { 'Authorization': `Bearer ${session.access_token}` } : {}
+    ),
     body: JSON.stringify({ action, ...payload }),
   });
   const data = await res.json();

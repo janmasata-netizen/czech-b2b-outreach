@@ -18,6 +18,26 @@ const PORT = process.env.PORT || 3002;
 const MAX_BODY_SIZE = 1024 * 1024; // 1MB
 const BEARER_TOKEN = process.env.PROXY_AUTH_TOKEN || '';
 
+// Simple in-memory rate limiter (per IP, sliding window)
+const RATE_LIMIT = parseInt(process.env.RATE_LIMIT || '120', 10); // requests per minute
+const rateBuckets = new Map();
+function checkRateLimit(ip) {
+  const now = Date.now();
+  const windowMs = 60_000;
+  let bucket = rateBuckets.get(ip);
+  if (!bucket) { bucket = []; rateBuckets.set(ip, bucket); }
+  while (bucket.length > 0 && bucket[0] <= now - windowMs) bucket.shift();
+  if (bucket.length >= RATE_LIMIT) return false;
+  bucket.push(now);
+  return true;
+}
+setInterval(() => {
+  const cutoff = Date.now() - 60_000;
+  for (const [ip, bucket] of rateBuckets) {
+    if (bucket.length === 0 || bucket[bucket.length - 1] < cutoff) rateBuckets.delete(ip);
+  }
+}, 300_000);
+
 // Load credentials from config.json
 let config;
 try {
@@ -151,6 +171,14 @@ async function handleRequest(req, res) {
   // Security headers
   res.setHeader('X-Content-Type-Options', 'nosniff');
   res.setHeader('X-Frame-Options', 'DENY');
+
+  // Rate limit check
+  const clientIp = req.socket.remoteAddress || 'unknown';
+  if (!checkRateLimit(clientIp)) {
+    res.writeHead(429, { 'Content-Type': 'application/json', 'Retry-After': '60' });
+    res.end(JSON.stringify({ success: false, error: 'Too many requests' }));
+    return;
+  }
 
   // Health check (no auth needed)
   if (req.method === 'GET' && req.url === '/health') {
