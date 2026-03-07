@@ -98,7 +98,18 @@ async function deploy() {
     done++;
     process.stdout.write(`\r  Uploading ${done}/${files.length}: ${remote.slice(-50).padEnd(50)}`);
   }
-  console.log('\n✓ All files uploaded');
+  console.log('\n✓ All dist files uploaded');
+
+  // Upload nginx.conf (security headers, CSP)
+  const nginxPath = join(fileURLToPath(import.meta.url), '..', 'nginx.conf');
+  const nginxContent = await readFile(nginxPath);
+  await new Promise((resolve, reject) => {
+    const ws = sftp.createWriteStream('/docker/outreach-ui/nginx.conf');
+    ws.on('error', reject);
+    ws.on('close', resolve);
+    ws.end(nginxContent);
+  });
+  console.log('✓ nginx.conf uploaded');
 
   // Restart Docker container
   console.log('Restarting Docker container...');

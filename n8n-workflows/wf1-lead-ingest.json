@@ -13,9 +13,16 @@
       "parameters": {
         "path": "lead-ingest",
         "httpMethod": "POST",
-        "responseMode": "responseNode"
+        "responseMode": "responseNode",
+        "authentication": "headerAuth"
       },
-      "webhookId": "lead-ingest"
+      "webhookId": "lead-ingest",
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "Jvj4HIG7aE6YPKcJ",
+          "name": "Webhook Header Auth"
+        }
+      }
     },
     {
       "id": "wf01-node-rpc",
@@ -265,6 +272,10 @@
             {
               "name": "Content-Type",
               "value": "application/json"
+            },
+            {
+              "name": "X-Webhook-Secret",
+              "value": "reWDUmcjSRPTv3k-0CKdoASO_KY7Z3ux"
             }
           ]
         },
@@ -296,6 +307,10 @@
             {
               "name": "Content-Type",
               "value": "application/json"
+            },
+            {
+              "name": "X-Webhook-Secret",
+              "value": "reWDUmcjSRPTv3k-0CKdoASO_KY7Z3ux"
             }
           ]
         },

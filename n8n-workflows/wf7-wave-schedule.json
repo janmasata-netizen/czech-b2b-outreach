@@ -6,7 +6,8 @@
         "httpMethod": "POST",
         "path": "wf7-wave-schedule",
         "responseMode": "onReceived",
-        "options": {}
+        "options": {},
+        "authentication": "headerAuth"
       },
       "id": "wf07-0000-0000-0000-000000000001",
       "name": "Webhook Trigger",
@@ -16,7 +17,13 @@
         0,
         300
       ],
-      "webhookId": "wf7-wave-schedule"
+      "webhookId": "wf7-wave-schedule",
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "Jvj4HIG7aE6YPKcJ",
+          "name": "Webhook Header Auth"
+        }
+      }
     },
     {
       "parameters": {

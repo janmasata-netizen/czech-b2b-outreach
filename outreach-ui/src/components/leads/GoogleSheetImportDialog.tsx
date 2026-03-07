@@ -8,6 +8,7 @@ import { useTeams } from '@/hooks/useLeads';
 import { supabase } from '@/lib/supabase';
 import { parseCsv, autoDetect } from '@/lib/csv-utils';
 import { toast } from 'sonner';
+import { n8nWebhookUrl, n8nHeaders } from '@/lib/n8n';
 
 interface GoogleSheetImportDialogProps {
   open: boolean;
@@ -25,8 +26,6 @@ interface Progress {
   icosFound: number;
   phase: string;
 }
-
-const N8N = import.meta.env.VITE_N8N_WEBHOOK_URL;
 
 export default function GoogleSheetImportDialog({ open, onClose }: GoogleSheetImportDialogProps) {
   const { data: teams } = useTeams();
@@ -78,9 +77,9 @@ export default function GoogleSheetImportDialog({ open, onClose }: GoogleSheetIm
 
     setFetching(true);
     try {
-      const res = await fetch(`${N8N}/gsheet-proxy`, {
+      const res = await fetch(n8nWebhookUrl('gsheet-proxy'), {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: n8nHeaders(),
         body: JSON.stringify({ url: sheetUrl }),
       });
       const data = await res.json();
@@ -147,9 +146,9 @@ export default function GoogleSheetImportDialog({ open, onClose }: GoogleSheetIm
         for (let idx = 0; idx < rowsNeedingIco.length; idx++) {
           const r = rowsNeedingIco[idx];
           try {
-            const res = await fetch(`${N8N}/wf12-ico-scrape`, {
+            const res = await fetch(n8nWebhookUrl('wf12-ico-scrape'), {
               method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
+              headers: n8nHeaders(),
               body: JSON.stringify({ website: r.website }),
             });
             const data = await res.json();
@@ -260,9 +259,9 @@ export default function GoogleSheetImportDialog({ open, onClose }: GoogleSheetIm
           if (contact_name) payload.contact_name = contact_name;
           if (Object.keys(custom_fields).length > 0) payload.custom_fields = custom_fields;
 
-          const res = await fetch(`${N8N}/lead-ingest`, {
+          const res = await fetch(n8nWebhookUrl('lead-ingest'), {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
+            headers: n8nHeaders(),
             body: JSON.stringify(payload),
           });
 

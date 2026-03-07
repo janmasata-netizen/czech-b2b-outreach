@@ -6,30 +6,52 @@
       "name": "Webhook Trigger",
       "type": "n8n-nodes-base.webhook",
       "typeVersion": 2,
-      "position": [240, 300],
+      "position": [
+        240,
+        300
+      ],
       "parameters": {
         "path": "backfill-salutations",
         "httpMethod": "POST",
         "responseMode": "responseNode",
-        "options": {}
+        "options": {},
+        "authentication": "headerAuth"
       },
-      "webhookId": "backfill-salutations"
+      "webhookId": "backfill-salutations",
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "Jvj4HIG7aE6YPKcJ",
+          "name": "Webhook Header Auth"
+        }
+      }
     },
     {
       "id": "bs-node-rpc",
       "name": "Call Backfill RPC",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
-      "position": [480, 300],
+      "position": [
+        480,
+        300
+      ],
       "parameters": {
         "method": "POST",
         "url": "https://cycapkswtucbucyegdsn.supabase.co/rest/v1/rpc/backfill_salutations",
         "sendHeaders": true,
         "headerParameters": {
           "parameters": [
-            { "name": "apikey", "value": "SUPABASE_SERVICE_ROLE_KEY_PLACEHOLDER" },
-            { "name": "Authorization", "value": "Bearer SUPABASE_SERVICE_ROLE_KEY_PLACEHOLDER" },
-            { "name": "Content-Type", "value": "application/json" }
+            {
+              "name": "apikey",
+              "value": "SUPABASE_SERVICE_ROLE_KEY_PLACEHOLDER"
+            },
+            {
+              "name": "Authorization",
+              "value": "Bearer SUPABASE_SERVICE_ROLE_KEY_PLACEHOLDER"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
           ]
         },
         "sendBody": true,
@@ -46,7 +68,10 @@
       "name": "Shape Response",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
-      "position": [620, 300],
+      "position": [
+        620,
+        300
+      ],
       "parameters": {
         "mode": "runOnceForEachItem",
         "jsCode": "return { json: { success: true, data: $input.item.json } };"
@@ -57,7 +82,10 @@
       "name": "Respond Success",
       "type": "n8n-nodes-base.respondToWebhook",
       "typeVersion": 1,
-      "position": [860, 300],
+      "position": [
+        860,
+        300
+      ],
       "parameters": {
         "respondWith": "firstIncomingItem",
         "options": {
@@ -70,7 +98,10 @@
       "name": "Sticky Note",
       "type": "n8n-nodes-base.stickyNote",
       "typeVersion": 1,
-      "position": [200, 120],
+      "position": [
+        200,
+        120
+      ],
       "parameters": {
         "content": "## Backfill Salutations\n\n**Trigger:** POST /webhook/backfill-salutations (no body required)\n\n**What it does:**\n1. Parses full_name → first_name + last_name for jednatels missing them\n2. Strips old \"Dobrý den\" prefix from WF3-era salutations\n3. Generates Czech vocative salutations for jednatels missing them\n\n**Returns:** `{ success: true, data: { names_parsed, salutations_generated, prefixes_fixed } }`"
       }
@@ -78,13 +109,37 @@
   ],
   "connections": {
     "Webhook Trigger": {
-      "main": [[{ "node": "Call Backfill RPC", "type": "main", "index": 0 }]]
+      "main": [
+        [
+          {
+            "node": "Call Backfill RPC",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
     },
     "Call Backfill RPC": {
-      "main": [[{ "node": "Shape Response", "type": "main", "index": 0 }]]
+      "main": [
+        [
+          {
+            "node": "Shape Response",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
     },
     "Shape Response": {
-      "main": [[{ "node": "Respond Success", "type": "main", "index": 0 }]]
+      "main": [
+        [
+          {
+            "node": "Respond Success",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
     }
   },
   "settings": {

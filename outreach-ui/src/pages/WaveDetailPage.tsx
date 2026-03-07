@@ -4,6 +4,7 @@ import { useQueryClient } from '@tanstack/react-query';
 import { useWave, useTemplateSets, useDeleteWave, useUpdateWave } from '@/hooks/useWaves';
 import { useForceSendSequence } from '@/hooks/useForceSend';
 import { supabase } from '@/lib/supabase';
+import { n8nWebhookUrl, n8nHeaders } from '@/lib/n8n';
 import PageHeader from '@/components/layout/PageHeader';
 import GlassButton from '@/components/glass/GlassButton';
 import GlassCard from '@/components/glass/GlassCard';
@@ -208,9 +209,9 @@ export default function WaveDetailPage() {
           send_window_start: seqTimes[1] || '08:00',
         } as any,
       });
-      const res = await fetch(`${import.meta.env.VITE_N8N_WEBHOOK_URL}/wf7-wave-schedule`, {
+      const res = await fetch(n8nWebhookUrl('wf7-wave-schedule'), {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: n8nHeaders(),
         body: JSON.stringify({ wave_id: wave.id }),
       });
       if (!res.ok) throw new Error(`WF7 vrátil ${res.status}`);
@@ -267,9 +268,9 @@ export default function WaveDetailPage() {
           status: 'scheduled',
         } as any,
       });
-      const res = await fetch(`${import.meta.env.VITE_N8N_WEBHOOK_URL}/wf7-wave-schedule`, {
+      const res = await fetch(n8nWebhookUrl('wf7-wave-schedule'), {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: n8nHeaders(),
         body: JSON.stringify({ wave_id: wave.id }),
       });
       if (!res.ok) throw new Error(`WF7 vrátil ${res.status}`);
@@ -321,9 +322,9 @@ export default function WaveDetailPage() {
         } as any,
       });
 
-      const res = await fetch(`${import.meta.env.VITE_N8N_WEBHOOK_URL}/wf7-wave-schedule`, {
+      const res = await fetch(n8nWebhookUrl('wf7-wave-schedule'), {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: n8nHeaders(),
         body: JSON.stringify({ wave_id: wave.id }),
       });
       if (!res.ok) throw new Error(`WF7 vrátil ${res.status}`);

@@ -5,6 +5,7 @@ import GlassButton from '@/components/glass/GlassButton';
 import GlassInput from '@/components/glass/GlassInput';
 import GlassModal from '@/components/glass/GlassModal';
 import { toast } from 'sonner';
+import { n8nWebhookUrl, n8nHeaders } from '@/lib/n8n';
 
 type Mode = 'ico' | 'name' | 'verify' | 'probe';
 
@@ -100,9 +101,9 @@ export default function EmailFinderPage() {
     };
     setRecheckLoading(true);
     try {
-      const res = await fetch(`${import.meta.env.VITE_N8N_WEBHOOK_URL}/wf-email-finder-v2`, {
+      const res = await fetch(n8nWebhookUrl('wf-email-finder-v2'), {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: n8nHeaders(),
         body: JSON.stringify(recheckPayload),
       });
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
@@ -143,9 +144,9 @@ export default function EmailFinderPage() {
         const payload: Record<string, string> = { mode, website };
         if (ico) payload.ico = ico;
         setModalTitle('');
-        const res = await fetch(`${import.meta.env.VITE_N8N_WEBHOOK_URL}/wf-email-finder`, {
+        const res = await fetch(n8nWebhookUrl('wf-email-finder'), {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
+          headers: n8nHeaders(),
           body: JSON.stringify(payload),
           signal: controller.signal,
         });
@@ -196,9 +197,9 @@ export default function EmailFinderPage() {
     probeTimer = setTimeout(() => setProbeActive(true), mode === 'probe' ? 5_000 : 20_000);
 
     try {
-      const res = await fetch(`${import.meta.env.VITE_N8N_WEBHOOK_URL}/wf-email-finder-v2`, {
+      const res = await fetch(n8nWebhookUrl('wf-email-finder-v2'), {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: n8nHeaders(),
         body: JSON.stringify(payload),
         signal: controller.signal,
       });

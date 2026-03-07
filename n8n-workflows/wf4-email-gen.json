@@ -6,7 +6,8 @@
         "httpMethod": "POST",
         "path": "wf4-email-gen",
         "responseMode": "onReceived",
-        "options": {}
+        "options": {},
+        "authentication": "headerAuth"
       },
       "id": "wf04-0000-0000-0000-000000000001",
       "name": "Webhook Trigger",
@@ -16,7 +17,13 @@
         0,
         300
       ],
-      "webhookId": "wf4-email-gen"
+      "webhookId": "wf4-email-gen",
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "Jvj4HIG7aE6YPKcJ",
+          "name": "Webhook Header Auth"
+        }
+      }
     },
     {
       "parameters": {
@@ -335,6 +342,10 @@
             {
               "name": "Content-Type",
               "value": "application/json"
+            },
+            {
+              "name": "X-Webhook-Secret",
+              "value": "reWDUmcjSRPTv3k-0CKdoASO_KY7Z3ux"
             }
           ]
         },

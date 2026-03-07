@@ -19,6 +19,28 @@ const PORT = process.env.PORT || 3001;
 const MAX_BODY_SIZE = 1024 * 1024; // 1MB
 const BEARER_TOKEN = process.env.PROXY_AUTH_TOKEN || '';
 
+// Simple in-memory rate limiter (per IP, sliding window)
+const RATE_LIMIT = parseInt(process.env.RATE_LIMIT || '60', 10); // requests per minute
+const rateBuckets = new Map();
+function checkRateLimit(ip) {
+  const now = Date.now();
+  const windowMs = 60_000;
+  let bucket = rateBuckets.get(ip);
+  if (!bucket) { bucket = []; rateBuckets.set(ip, bucket); }
+  // Remove expired entries
+  while (bucket.length > 0 && bucket[0] <= now - windowMs) bucket.shift();
+  if (bucket.length >= RATE_LIMIT) return false;
+  bucket.push(now);
+  return true;
+}
+// Clean up old IPs every 5 minutes
+setInterval(() => {
+  const cutoff = Date.now() - 60_000;
+  for (const [ip, bucket] of rateBuckets) {
+    if (bucket.length === 0 || bucket[bucket.length - 1] < cutoff) rateBuckets.delete(ip);
+  }
+}, 300_000);
+
 // Load credentials from config.json
 let config;
 try {
@@ -142,6 +164,14 @@ async function handleRequest(req, res) {
   res.setHeader('X-Content-Type-Options', 'nosniff');
   res.setHeader('X-Frame-Options', 'DENY');
 
+  // Rate limit check
+  const clientIp = req.socket.remoteAddress || 'unknown';
+  if (!checkRateLimit(clientIp)) {
+    res.writeHead(429, { 'Content-Type': 'application/json', 'Retry-After': '60' });
+    res.end(JSON.stringify({ success: false, error: 'Too many requests' }));
+    return;
+  }
+
   // Health check (no auth needed)
   if (req.method === 'GET' && req.url === '/health') {
     res.writeHead(200, { 'Content-Type': 'application/json' });
@@ -207,7 +237,9 @@ async function handleRequest(req, res) {
 
 const server = http.createServer(handleRequest);
 server.requestTimeout = 30000;
-server.listen(PORT, '127.0.0.1', () => {
+// Bind 0.0.0.0 inside container — Docker port mapping restricts to host 127.0.0.1
+const BIND_HOST = process.env.BIND_HOST || '0.0.0.0';
+server.listen(PORT, BIND_HOST, () => {
   const credCount = Object.keys(config.credentials || {}).length;
   console.log(`IMAP proxy listening on 127.0.0.1:${PORT} (${credCount} credentials configured)`);
 });

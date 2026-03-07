@@ -53,6 +53,7 @@ An automated Czech B2B cold email outreach system built on n8n + Supabase. It en
 | sub-reply-check | WjbYMqMXDxkjIssL | executeWorkflowTrigger |
 | backfill-salutations | xbJfPwwNRIBtFtAX | webhook:backfill-salutations |
 | wf-force-send | DPmnV2dRsbBMLAmz | webhook:wf-force-send |
+| wf-admin-users | JeP8whw3jNtL6VJ1 | webhook:admin-users |
 
 ## Database schema (Supabase)
 19 tables: `teams`, `outreach_accounts` (1 per team, UNIQUE(team_id)), `leads`, `enrichment_log`, `jednatels`, `email_candidates`, `template_sets`, `email_templates`, `waves`, `wave_leads`, `email_queue`, `sent_emails`, `lead_replies`, `config`, `salesmen`, `email_verifications`, `email_probe_bounces`, `profiles`, `processed_reply_emails`

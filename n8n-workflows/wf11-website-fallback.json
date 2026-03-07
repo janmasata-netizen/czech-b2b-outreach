@@ -6,7 +6,8 @@
         "httpMethod": "POST",
         "path": "wf11-website-fallback",
         "responseMode": "onReceived",
-        "options": {}
+        "options": {},
+        "authentication": "headerAuth"
       },
       "id": "wf11-n01",
       "name": "Webhook Trigger",
@@ -16,7 +17,13 @@
         0,
         480
       ],
-      "webhookId": "wf11-website-fallback"
+      "webhookId": "wf11-website-fallback",
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "Jvj4HIG7aE6YPKcJ",
+          "name": "Webhook Header Auth"
+        }
+      }
     },
     {
       "parameters": {
@@ -682,6 +689,10 @@
             {
               "name": "Content-Type",
               "value": "application/json"
+            },
+            {
+              "name": "X-Webhook-Secret",
+              "value": "reWDUmcjSRPTv3k-0CKdoASO_KY7Z3ux"
             }
           ]
         },

@@ -1,4 +1,5 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query';
+import { n8nWebhookUrl, n8nHeaders } from '@/lib/n8n';
 
 interface ForceSendResult {
   success: boolean;
@@ -10,9 +11,9 @@ export function useForceSendSequence(waveId: string) {
   const qc = useQueryClient();
   return useMutation<ForceSendResult, Error, { queueIds: string[] }>({
     mutationFn: async ({ queueIds }) => {
-      const res = await fetch(`${import.meta.env.VITE_N8N_WEBHOOK_URL}/wf-force-send`, {
+      const res = await fetch(n8nWebhookUrl('wf-force-send'), {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: n8nHeaders(),
         body: JSON.stringify({ queue_ids: queueIds }),
       });
       if (!res.ok) {

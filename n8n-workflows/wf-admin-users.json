@@ -15,14 +15,24 @@
               }
             ]
           }
-        }
+        },
+        "authentication": "headerAuth"
       },
       "id": "admin-users-n01",
       "name": "Webhook Trigger",
       "type": "n8n-nodes-base.webhook",
       "typeVersion": 2,
-      "position": [0, 300],
-      "webhookId": "admin-users"
+      "position": [
+        0,
+        300
+      ],
+      "webhookId": "admin-users",
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "Jvj4HIG7aE6YPKcJ",
+          "name": "Webhook Header Auth"
+        }
+      }
     },
     {
       "parameters": {
@@ -33,7 +43,10 @@
       "name": "Parse Request",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
-      "position": [240, 300]
+      "position": [
+        240,
+        300
+      ]
     },
     {
       "parameters": {
@@ -42,8 +55,14 @@
         "sendHeaders": true,
         "headerParameters": {
           "parameters": [
-            { "name": "apikey", "value": "={{ $env.SUPABASE_ANON_KEY || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImN5Y2Fwa3N3dHVjYnVjeWVnZHNuIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzE2MDU2NTMsImV4cCI6MjA4NzE4MTY1M30.CndvvOrPtgStuuNajnSfJFR4CufZUx6skblMCEqxlzI' }}" },
-            { "name": "Authorization", "value": "Bearer {{ $json.token }}" }
+            {
+              "name": "apikey",
+              "value": "={{ $env.SUPABASE_ANON_KEY || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImN5Y2Fwa3N3dHVjYnVjeWVnZHNuIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzE2MDU2NTMsImV4cCI6MjA4NzE4MTY1M30.CndvvOrPtgStuuNajnSfJFR4CufZUx6skblMCEqxlzI' }}"
+            },
+            {
+              "name": "Authorization",
+              "value": "Bearer {{ $json.token }}"
+            }
           ]
         },
         "options": {}
@@ -52,18 +71,28 @@
       "name": "Check Admin",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
-      "position": [480, 300]
+      "position": [
+        480,
+        300
+      ]
     },
     {
       "parameters": {
         "conditions": {
-          "options": { "caseSensitive": true, "leftValue": "", "typeValidation": "strict" },
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict"
+          },
           "conditions": [
             {
               "id": "is-admin",
               "leftValue": "={{ $json.data === true || $json === true }}",
               "rightValue": "true",
-              "operator": { "type": "string", "operation": "equals" }
+              "operator": {
+                "type": "string",
+                "operation": "equals"
+              }
             }
           ],
           "combinator": "and"
@@ -73,7 +102,10 @@
       "name": "Is Admin?",
       "type": "n8n-nodes-base.if",
       "typeVersion": 2,
-      "position": [720, 300]
+      "position": [
+        720,
+        300
+      ]
     },
     {
       "parameters": {
@@ -84,35 +116,115 @@
       "name": "Return 403",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
-      "position": [960, 500]
+      "position": [
+        960,
+        500
+      ]
     },
     {
       "parameters": {
-        "conditions": {
-          "options": { "caseSensitive": true, "leftValue": "", "typeValidation": "strict" },
-          "conditions": [
-            { "id": "act-list", "leftValue": "={{ $('Parse Request').first().json.action }}", "rightValue": "list", "operator": { "type": "string", "operation": "equals" } }
-          ],
-          "combinator": "and"
-        }
+        "rules": {
+          "values": [
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict"
+                },
+                "conditions": [
+                  {
+                    "leftValue": "={{ $('Parse Request').first().json.action }}",
+                    "rightValue": "list",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "list"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict"
+                },
+                "conditions": [
+                  {
+                    "leftValue": "={{ $('Parse Request').first().json.action }}",
+                    "rightValue": "create",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "create"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict"
+                },
+                "conditions": [
+                  {
+                    "leftValue": "={{ $('Parse Request').first().json.action }}",
+                    "rightValue": "delete",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "delete"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict"
+                },
+                "conditions": [
+                  {
+                    "leftValue": "={{ $('Parse Request').first().json.action }}",
+                    "rightValue": "updatePassword",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "updatePassword"
+            }
+          ]
+        },
+        "options": {}
       },
       "id": "admin-users-n06",
       "name": "Route Action",
       "type": "n8n-nodes-base.switch",
       "typeVersion": 3,
-      "position": [960, 300],
-      "parameters2": {
-        "rules": {
-          "rules": [
-            { "value": "list", "output": 0 },
-            { "value": "create", "output": 1 },
-            { "value": "delete", "output": 2 },
-            { "value": "updatePassword", "output": 3 }
-          ]
-        },
-        "dataType": "string",
-        "value1": "={{ $('Parse Request').first().json.action }}"
-      }
+      "position": [
+        960,
+        300
+      ]
     },
     {
       "parameters": {
@@ -121,8 +233,14 @@
         "sendHeaders": true,
         "headerParameters": {
           "parameters": [
-            { "name": "apikey", "value": "={{ $env.SUPABASE_SERVICE_ROLE_KEY }}" },
-            { "name": "Authorization", "value": "Bearer {{ $env.SUPABASE_SERVICE_ROLE_KEY }}" }
+            {
+              "name": "apikey",
+              "value": "={{ $env.SUPABASE_SERVICE_ROLE_KEY }}"
+            },
+            {
+              "name": "Authorization",
+              "value": "Bearer {{ $env.SUPABASE_SERVICE_ROLE_KEY }}"
+            }
           ]
         },
         "options": {}
@@ -131,7 +249,10 @@
       "name": "List Users",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
-      "position": [1200, 100]
+      "position": [
+        1200,
+        100
+      ]
     },
     {
       "parameters": {
@@ -140,8 +261,14 @@
         "sendHeaders": true,
         "headerParameters": {
           "parameters": [
-            { "name": "apikey", "value": "={{ $env.SUPABASE_SERVICE_ROLE_KEY }}" },
-            { "name": "Authorization", "value": "Bearer {{ $env.SUPABASE_SERVICE_ROLE_KEY }}" }
+            {
+              "name": "apikey",
+              "value": "={{ $env.SUPABASE_SERVICE_ROLE_KEY }}"
+            },
+            {
+              "name": "Authorization",
+              "value": "Bearer {{ $env.SUPABASE_SERVICE_ROLE_KEY }}"
+            }
           ]
         },
         "sendBody": true,
@@ -153,7 +280,10 @@
       "name": "Create User",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
-      "position": [1200, 300]
+      "position": [
+        1200,
+        300
+      ]
     },
     {
       "parameters": {
@@ -162,8 +292,14 @@
         "sendHeaders": true,
         "headerParameters": {
           "parameters": [
-            { "name": "apikey", "value": "={{ $env.SUPABASE_SERVICE_ROLE_KEY }}" },
-            { "name": "Authorization", "value": "Bearer {{ $env.SUPABASE_SERVICE_ROLE_KEY }}" }
+            {
+              "name": "apikey",
+              "value": "={{ $env.SUPABASE_SERVICE_ROLE_KEY }}"
+            },
+            {
+              "name": "Authorization",
+              "value": "Bearer {{ $env.SUPABASE_SERVICE_ROLE_KEY }}"
+            }
           ]
         },
         "options": {}
@@ -172,7 +308,10 @@
       "name": "Delete User",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
-      "position": [1200, 500]
+      "position": [
+        1200,
+        500
+      ]
     },
     {
       "parameters": {
@@ -181,8 +320,14 @@
         "sendHeaders": true,
         "headerParameters": {
           "parameters": [
-            { "name": "apikey", "value": "={{ $env.SUPABASE_SERVICE_ROLE_KEY }}" },
-            { "name": "Authorization", "value": "Bearer {{ $env.SUPABASE_SERVICE_ROLE_KEY }}" }
+            {
+              "name": "apikey",
+              "value": "={{ $env.SUPABASE_SERVICE_ROLE_KEY }}"
+            },
+            {
+              "name": "Authorization",
+              "value": "Bearer {{ $env.SUPABASE_SERVICE_ROLE_KEY }}"
+            }
           ]
         },
         "sendBody": true,
@@ -194,28 +339,99 @@
       "name": "Update Password",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
-      "position": [1200, 700]
+      "position": [
+        1200,
+        700
+      ]
     }
   ],
   "connections": {
-    "Webhook Trigger": { "main": [[{ "node": "Parse Request", "type": "main", "index": 0 }]] },
-    "Parse Request": { "main": [[{ "node": "Check Admin", "type": "main", "index": 0 }]] },
-    "Check Admin": { "main": [[{ "node": "Is Admin?", "type": "main", "index": 0 }]] },
+    "Webhook Trigger": {
+      "main": [
+        [
+          {
+            "node": "Parse Request",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Parse Request": {
+      "main": [
+        [
+          {
+            "node": "Check Admin",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Check Admin": {
+      "main": [
+        [
+          {
+            "node": "Is Admin?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
     "Is Admin?": {
       "main": [
-        [{ "node": "Route Action", "type": "main", "index": 0 }],
-        [{ "node": "Return 403", "type": "main", "index": 0 }]
+        [
+          {
+            "node": "Route Action",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Return 403",
+            "type": "main",
+            "index": 0
+          }
+        ]
       ]
     },
     "Route Action": {
       "main": [
-        [{ "node": "List Users", "type": "main", "index": 0 }],
-        [{ "node": "Create User", "type": "main", "index": 0 }],
-        [{ "node": "Delete User", "type": "main", "index": 0 }],
-        [{ "node": "Update Password", "type": "main", "index": 0 }]
+        [
+          {
+            "node": "List Users",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Create User",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Delete User",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Update Password",
+            "type": "main",
+            "index": 0
+          }
+        ]
       ]
     }
   },
-  "settings": { "executionOrder": "v1" },
+  "settings": {
+    "executionOrder": "v1"
+  },
   "tags": []
 }

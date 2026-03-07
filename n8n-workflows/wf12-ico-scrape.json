@@ -15,14 +15,24 @@
               }
             ]
           }
-        }
+        },
+        "authentication": "headerAuth"
       },
       "id": "wf12-n01",
       "name": "Webhook Trigger",
       "type": "n8n-nodes-base.webhook",
       "typeVersion": 2,
-      "position": [0, 300],
-      "webhookId": "wf12-ico-scrape"
+      "position": [
+        0,
+        300
+      ],
+      "webhookId": "wf12-ico-scrape",
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "Jvj4HIG7aE6YPKcJ",
+          "name": "Webhook Header Auth"
+        }
+      }
     },
     {
       "parameters": {
@@ -33,43 +43,64 @@
       "name": "Normalize URLs",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
-      "position": [240, 300]
+      "position": [
+        240,
+        300
+      ]
     },
     {
       "parameters": {
         "method": "GET",
         "url": "={{ $json.urls[0] }}",
-        "options": { "timeout": 10000, "neverError": true }
+        "options": {
+          "timeout": 10000,
+          "neverError": true
+        }
       },
       "id": "wf12-n03",
       "name": "GET Homepage",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
-      "position": [480, 100]
+      "position": [
+        480,
+        100
+      ]
     },
     {
       "parameters": {
         "method": "GET",
         "url": "={{ $('Normalize URLs').first().json.urls[1] }}",
-        "options": { "timeout": 10000, "neverError": true }
+        "options": {
+          "timeout": 10000,
+          "neverError": true
+        }
       },
       "id": "wf12-n04",
       "name": "GET Kontakt",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
-      "position": [480, 300]
+      "position": [
+        480,
+        300
+      ]
     },
     {
       "parameters": {
         "method": "GET",
         "url": "={{ $('Normalize URLs').first().json.urls[2] }}",
-        "options": { "timeout": 10000, "neverError": true }
+        "options": {
+          "timeout": 10000,
+          "neverError": true
+        }
       },
       "id": "wf12-n05",
       "name": "GET O-nas",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
-      "position": [480, 500]
+      "position": [
+        480,
+        500
+      ]
     },
     {
       "parameters": {
@@ -80,7 +111,10 @@
       "name": "Extract ICO",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
-      "position": [780, 300]
+      "position": [
+        780,
+        300
+      ]
     },
     {
       "parameters": {
@@ -91,7 +125,10 @@
       "name": "Respond",
       "type": "n8n-nodes-base.respondToWebhook",
       "typeVersion": 1.1,
-      "position": [1020, 300]
+      "position": [
+        1020,
+        300
+      ]
     },
     {
       "parameters": {
@@ -101,23 +138,92 @@
       "name": "Sticky Note",
       "type": "n8n-nodes-base.stickyNote",
       "typeVersion": 1,
-      "position": [-200, 100]
+      "position": [
+        -200,
+        100
+      ]
     }
   ],
   "connections": {
-    "Webhook Trigger": { "main": [[{ "node": "Normalize URLs", "type": "main", "index": 0 }]] },
-    "Normalize URLs": {
-      "main": [[
-        { "node": "GET Homepage", "type": "main", "index": 0 },
-        { "node": "GET Kontakt", "type": "main", "index": 0 },
-        { "node": "GET O-nas", "type": "main", "index": 0 }
-      ]]
+    "Webhook Trigger": {
+      "main": [
+        [
+          {
+            "node": "Normalize URLs",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
     },
-    "GET Homepage": { "main": [[{ "node": "Extract ICO", "type": "main", "index": 0 }]] },
-    "GET Kontakt": { "main": [[{ "node": "Extract ICO", "type": "main", "index": 0 }]] },
-    "GET O-nas": { "main": [[{ "node": "Extract ICO", "type": "main", "index": 0 }]] },
-    "Extract ICO": { "main": [[{ "node": "Respond", "type": "main", "index": 0 }]] }
+    "Normalize URLs": {
+      "main": [
+        [
+          {
+            "node": "GET Homepage",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "GET Kontakt",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "GET O-nas",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "GET Homepage": {
+      "main": [
+        [
+          {
+            "node": "Extract ICO",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "GET Kontakt": {
+      "main": [
+        [
+          {
+            "node": "Extract ICO",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "GET O-nas": {
+      "main": [
+        [
+          {
+            "node": "Extract ICO",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Extract ICO": {
+      "main": [
+        [
+          {
+            "node": "Respond",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
   },
-  "settings": { "executionOrder": "v1" },
+  "settings": {
+    "executionOrder": "v1"
+  },
   "active": true
 }
