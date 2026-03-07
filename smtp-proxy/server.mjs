@@ -243,7 +243,9 @@ async function handleRequest(req, res) {
 
 const server = http.createServer(handleRequest);
 server.requestTimeout = 30000;
-server.listen(PORT, '127.0.0.1', () => {
+// Bind 0.0.0.0 inside container — Docker port mapping restricts to host 127.0.0.1
+const BIND_HOST = process.env.BIND_HOST || '0.0.0.0';
+server.listen(PORT, BIND_HOST, () => {
   const credCount = Object.keys(config.credentials || {}).length;
   console.log(`SMTP proxy listening on 127.0.0.1:${PORT} (${credCount} credentials configured)`);
 });

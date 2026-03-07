@@ -12,21 +12,34 @@
       "name": "Sticky Note",
       "type": "n8n-nodes-base.stickyNote",
       "typeVersion": 1,
-      "position": [-220, 120]
+      "position": [
+        -220,
+        120
+      ]
     },
     {
       "parameters": {
         "httpMethod": "POST",
         "path": "sub-burner-probe",
         "responseMode": "responseNode",
-        "options": {}
+        "options": {},
+        "authentication": "headerAuth"
       },
       "id": "sbp-0001",
       "name": "Webhook Trigger",
       "type": "n8n-nodes-base.webhook",
       "typeVersion": 2,
-      "position": [0, 400],
-      "webhookId": "sub-burner-probe"
+      "position": [
+        0,
+        400
+      ],
+      "webhookId": "sub-burner-probe",
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "Jvj4HIG7aE6YPKcJ",
+          "name": "Webhook Header Auth"
+        }
+      }
     },
     {
       "parameters": {
@@ -37,7 +50,10 @@
       "name": "Extract Input",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
-      "position": [240, 400]
+      "position": [
+        240,
+        400
+      ]
     },
     {
       "parameters": {
@@ -48,7 +64,10 @@
       "name": "Fan-Out Probe",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
-      "position": [480, 400]
+      "position": [
+        480,
+        400
+      ]
     },
     {
       "parameters": {
@@ -65,7 +84,10 @@
       "name": "Send Probe Email",
       "type": "n8n-nodes-base.emailSend",
       "typeVersion": 2.1,
-      "position": [720, 400],
+      "position": [
+        720,
+        400
+      ],
       "credentials": {
         "smtp": {
           "id": "3X8mKDvlcXsGRmZS",
@@ -82,7 +104,10 @@
       "name": "Aggregate After Send",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
-      "position": [960, 400]
+      "position": [
+        960,
+        400
+      ]
     },
     {
       "parameters": {
@@ -93,7 +118,10 @@
       "name": "Wait 4 Minutes",
       "type": "n8n-nodes-base.wait",
       "typeVersion": 1.1,
-      "position": [1200, 400],
+      "position": [
+        1200,
+        400
+      ],
       "webhookId": "sub-burner-probe-wait"
     },
     {
@@ -121,7 +149,10 @@
       "name": "Query Bounces",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
-      "position": [1440, 540]
+      "position": [
+        1440,
+        540
+      ]
     },
     {
       "parameters": {
@@ -131,7 +162,10 @@
       "name": "Merge Bounces",
       "type": "n8n-nodes-base.merge",
       "typeVersion": 3,
-      "position": [1680, 400]
+      "position": [
+        1680,
+        400
+      ]
     },
     {
       "parameters": {
@@ -142,7 +176,10 @@
       "name": "Build Probe Response",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
-      "position": [1920, 400]
+      "position": [
+        1920,
+        400
+      ]
     },
     {
       "parameters": {
@@ -155,7 +192,10 @@
       "name": "Webhook Response",
       "type": "n8n-nodes-base.respondToWebhook",
       "typeVersion": 1,
-      "position": [2160, 400]
+      "position": [
+        2160,
+        400
+      ]
     }
   ],
   "connections": {

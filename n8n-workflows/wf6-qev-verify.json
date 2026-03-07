@@ -7,7 +7,8 @@
         "httpMethod": "POST",
         "path": "wf6-qev",
         "responseMode": "onReceived",
-        "options": {}
+        "options": {},
+        "authentication": "headerAuth"
       },
       "id": "wf06-0000-0000-0000-000000000001",
       "name": "Webhook Trigger",
@@ -17,7 +18,13 @@
         0,
         300
       ],
-      "webhookId": "wf6-qev"
+      "webhookId": "wf6-qev",
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "Jvj4HIG7aE6YPKcJ",
+          "name": "Webhook Header Auth"
+        }
+      }
     },
     {
       "parameters": {

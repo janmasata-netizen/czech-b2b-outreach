@@ -38,6 +38,7 @@ async function main() {
   delete raw.pinData;
   delete raw.active;
   delete raw.id;
+  delete raw.tags;
 
   console.log('Importing wf-admin-users.json...');
   const importRes = await apiCall('POST', '/api/v1/workflows', JSON.stringify(raw));

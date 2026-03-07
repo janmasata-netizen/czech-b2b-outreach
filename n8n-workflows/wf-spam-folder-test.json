@@ -6,14 +6,24 @@
         "httpMethod": "GET",
         "path": "spam-folder-test",
         "responseMode": "responseNode",
-        "options": {}
+        "options": {},
+        "authentication": "headerAuth"
       },
       "id": "sft-0001",
       "name": "Webhook Trigger",
       "type": "n8n-nodes-base.webhook",
       "typeVersion": 2,
-      "position": [0, 400],
-      "webhookId": "spam-folder-test"
+      "position": [
+        0,
+        400
+      ],
+      "webhookId": "spam-folder-test",
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "Jvj4HIG7aE6YPKcJ",
+          "name": "Webhook Header Auth"
+        }
+      }
     },
     {
       "parameters": {
@@ -29,7 +39,10 @@
       "name": "Read Spam Folder",
       "type": "n8n-nodes-base.emailReadImap",
       "typeVersion": 2,
-      "position": [280, 400],
+      "position": [
+        280,
+        400
+      ],
       "credentials": {
         "imap": {
           "id": "zvcpvsLoAq7WiOzX",
@@ -46,24 +59,64 @@
       "name": "Summarise",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
-      "position": [560, 400]
+      "position": [
+        560,
+        400
+      ]
     },
     {
       "parameters": {
         "respondWith": "firstIncomingItem",
-        "options": { "responseCode": 200 }
+        "options": {
+          "responseCode": 200
+        }
       },
       "id": "sft-0004",
       "name": "Respond",
       "type": "n8n-nodes-base.respondToWebhook",
       "typeVersion": 1,
-      "position": [840, 400]
+      "position": [
+        840,
+        400
+      ]
     }
   ],
   "connections": {
-    "Webhook Trigger": { "main": [[ { "node": "Read Spam Folder", "type": "main", "index": 0 } ]] },
-    "Read Spam Folder": { "main": [[ { "node": "Summarise",       "type": "main", "index": 0 } ]] },
-    "Summarise":        { "main": [[ { "node": "Respond",         "type": "main", "index": 0 } ]] }
+    "Webhook Trigger": {
+      "main": [
+        [
+          {
+            "node": "Read Spam Folder",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Read Spam Folder": {
+      "main": [
+        [
+          {
+            "node": "Summarise",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Summarise": {
+      "main": [
+        [
+          {
+            "node": "Respond",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
   },
-  "settings": { "executionOrder": "v1" }
+  "settings": {
+    "executionOrder": "v1"
+  }
 }

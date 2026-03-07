@@ -22,7 +22,8 @@
         "httpMethod": "POST",
         "path": "wf-email-finder-v2",
         "responseMode": "responseNode",
-        "options": {}
+        "options": {},
+        "authentication": "headerAuth"
       },
       "id": "wfefv2-0001",
       "name": "Webhook Trigger",
@@ -32,7 +33,13 @@
         0,
         400
       ],
-      "webhookId": "wf-email-finder-v2"
+      "webhookId": "wf-email-finder-v2",
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "Jvj4HIG7aE6YPKcJ",
+          "name": "Webhook Header Auth"
+        }
+      }
     },
     {
       "parameters": {
@@ -359,6 +366,15 @@
         "options": {
           "timeout": 300000,
           "neverError": true
+        },
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "X-Webhook-Secret",
+              "value": "reWDUmcjSRPTv3k-0CKdoASO_KY7Z3ux"
+            }
+          ]
         }
       },
       "id": "wfefv2-0039",

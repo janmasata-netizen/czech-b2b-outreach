@@ -16,7 +16,7 @@ const { Client } = require('ssh2');
 
 const VPS_USER   = 'root';
 const REMOTE_DIR = '/docker/imap-proxy';
-const SSH_KEY    = join(fileURLToPath(import.meta.url), '..', '..', '.ssh', 'vps_deploy_key');
+const SSH_KEY    = join(process.env.HOME || process.env.USERPROFILE, '.ssh', 'vps_deploy_key');
 
 const LOCAL_DIR = join(fileURLToPath(import.meta.url), '..');
 
@@ -68,9 +68,11 @@ async function deploy() {
   // Create remote directory
   await execSSH(conn, `mkdir -p ${REMOTE_DIR}`).catch(() => {});
 
-  // Upload files
+  // Upload files (skip config.json if not present locally — it stays on VPS)
   for (const file of FILES) {
-    const content = readFileSync(join(LOCAL_DIR, file));
+    let content;
+    try { content = readFileSync(join(LOCAL_DIR, file)); }
+    catch { console.log(`  Skipped: ${file} (not found locally, using existing on VPS)`); continue; }
     await new Promise((resolve, reject) => {
       const ws = sftp.createWriteStream(`${REMOTE_DIR}/${file}`);
       ws.on('error', reject);

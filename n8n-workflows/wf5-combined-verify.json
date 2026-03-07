@@ -6,14 +6,24 @@
         "httpMethod": "POST",
         "path": "wf5-seznam",
         "responseMode": "onReceived",
-        "options": {}
+        "options": {},
+        "authentication": "headerAuth"
       },
       "id": "wf05c-n01",
       "name": "Webhook Trigger",
       "type": "n8n-nodes-base.webhook",
       "typeVersion": 2,
-      "position": [0, 300],
-      "webhookId": "wf5-seznam"
+      "position": [
+        0,
+        300
+      ],
+      "webhookId": "wf5-seznam",
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "Jvj4HIG7aE6YPKcJ",
+          "name": "Webhook Header Auth"
+        }
+      }
     },
     {
       "parameters": {
@@ -24,7 +34,10 @@
       "name": "Extract Lead ID",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
-      "position": [240, 300]
+      "position": [
+        240,
+        300
+      ]
     },
     {
       "parameters": {
@@ -33,24 +46,42 @@
         "sendHeaders": true,
         "headerParameters": {
           "parameters": [
-            { "name": "apikey", "value": "SUPABASE_SERVICE_ROLE_KEY_PLACEHOLDER" },
-            { "name": "Authorization", "value": "Bearer SUPABASE_SERVICE_ROLE_KEY_PLACEHOLDER" }
+            {
+              "name": "apikey",
+              "value": "SUPABASE_SERVICE_ROLE_KEY_PLACEHOLDER"
+            },
+            {
+              "name": "Authorization",
+              "value": "Bearer SUPABASE_SERVICE_ROLE_KEY_PLACEHOLDER"
+            }
           ]
         },
         "sendQuery": true,
         "queryParameters": {
           "parameters": [
-            { "name": "key", "value": "in.(seznam_from_email,qev_api_key_1,qev_api_key_2,qev_api_key_3)" },
-            { "name": "select", "value": "key,value" }
+            {
+              "name": "key",
+              "value": "in.(seznam_from_email,qev_api_key_1,qev_api_key_2,qev_api_key_3)"
+            },
+            {
+              "name": "select",
+              "value": "key,value"
+            }
           ]
         },
-        "options": { "timeout": 30000, "neverError": true }
+        "options": {
+          "timeout": 30000,
+          "neverError": true
+        }
       },
       "id": "wf05c-n03",
       "name": "Get Config",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
-      "position": [480, 300]
+      "position": [
+        480,
+        300
+      ]
     },
     {
       "parameters": {
@@ -61,7 +92,10 @@
       "name": "Extract Config",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
-      "position": [720, 300]
+      "position": [
+        720,
+        300
+      ]
     },
     {
       "parameters": {
@@ -83,7 +117,10 @@
       "name": "Get Jednatels",
       "type": "n8n-nodes-base.supabase",
       "typeVersion": 1,
-      "position": [960, 300],
+      "position": [
+        960,
+        300
+      ],
       "credentials": {
         "supabaseApi": {
           "id": "8fUZtVEFmt5y101f",
@@ -100,7 +137,10 @@
       "name": "Build Jednatel IDs",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
-      "position": [1200, 300]
+      "position": [
+        1200,
+        300
+      ]
     },
     {
       "parameters": {
@@ -109,25 +149,46 @@
         "sendHeaders": true,
         "headerParameters": {
           "parameters": [
-            { "name": "apikey", "value": "SUPABASE_SERVICE_ROLE_KEY_PLACEHOLDER" },
-            { "name": "Authorization", "value": "Bearer SUPABASE_SERVICE_ROLE_KEY_PLACEHOLDER" }
+            {
+              "name": "apikey",
+              "value": "SUPABASE_SERVICE_ROLE_KEY_PLACEHOLDER"
+            },
+            {
+              "name": "Authorization",
+              "value": "Bearer SUPABASE_SERVICE_ROLE_KEY_PLACEHOLDER"
+            }
           ]
         },
         "sendQuery": true,
         "queryParameters": {
           "parameters": [
-            { "name": "jednatel_id", "value": "={{ 'in.(' + $json.jednatel_ids.join(',') + ')' }}" },
-            { "name": "seznam_status", "value": "eq.pending" },
-            { "name": "select", "value": "id,email_address,jednatel_id" }
+            {
+              "name": "jednatel_id",
+              "value": "={{ 'in.(' + $json.jednatel_ids.join(',') + ')' }}"
+            },
+            {
+              "name": "seznam_status",
+              "value": "eq.pending"
+            },
+            {
+              "name": "select",
+              "value": "id,email_address,jednatel_id"
+            }
           ]
         },
-        "options": { "timeout": 30000, "neverError": true }
+        "options": {
+          "timeout": 30000,
+          "neverError": true
+        }
       },
       "id": "wf05c-n07",
       "name": "Get Pending Cands",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
-      "position": [1440, 300]
+      "position": [
+        1440,
+        300
+      ]
     },
     {
       "parameters": {
@@ -138,7 +199,10 @@
       "name": "Add Config",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
-      "position": [1680, 300]
+      "position": [
+        1680,
+        300
+      ]
     },
     {
       "parameters": {
@@ -151,7 +215,10 @@
       "name": "Call Email Verify",
       "type": "n8n-nodes-base.executeWorkflow",
       "typeVersion": 1,
-      "position": [1920, 300]
+      "position": [
+        1920,
+        300
+      ]
     },
     {
       "parameters": {
@@ -162,7 +229,10 @@
       "name": "Classify Candidates",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
-      "position": [2160, 300]
+      "position": [
+        2160,
+        300
+      ]
     },
     {
       "parameters": {
@@ -171,27 +241,45 @@
         "sendHeaders": true,
         "headerParameters": {
           "parameters": [
-            { "name": "apikey",        "value": "SUPABASE_SERVICE_ROLE_KEY_PLACEHOLDER" },
-            { "name": "Authorization", "value": "Bearer SUPABASE_SERVICE_ROLE_KEY_PLACEHOLDER" },
-            { "name": "Content-Type",  "value": "application/json" }
+            {
+              "name": "apikey",
+              "value": "SUPABASE_SERVICE_ROLE_KEY_PLACEHOLDER"
+            },
+            {
+              "name": "Authorization",
+              "value": "Bearer SUPABASE_SERVICE_ROLE_KEY_PLACEHOLDER"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
           ]
         },
         "sendQuery": true,
         "queryParameters": {
           "parameters": [
-            { "name": "id", "value": "={{ 'eq.' + $json.id }}" }
+            {
+              "name": "id",
+              "value": "={{ 'eq.' + $json.id }}"
+            }
           ]
         },
         "sendBody": true,
         "specifyBody": "json",
         "jsonBody": "={{ JSON.stringify({ seznam_status: $json.seznam_status, verified_at: new Date().toISOString() }) }}",
-        "options": { "timeout": 30000, "neverError": true }
+        "options": {
+          "timeout": 30000,
+          "neverError": true
+        }
       },
       "id": "wf05c-nC",
       "name": "Update Status",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
-      "position": [2400, 300]
+      "position": [
+        2400,
+        300
+      ]
     },
     {
       "parameters": {
@@ -202,7 +290,10 @@
       "name": "Prepare QEV Items",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
-      "position": [3840, 300]
+      "position": [
+        3840,
+        300
+      ]
     },
     {
       "parameters": {
@@ -226,7 +317,10 @@
       "name": "IF Has Likely Valid",
       "type": "n8n-nodes-base.if",
       "typeVersion": 2,
-      "position": [4080, 300]
+      "position": [
+        4080,
+        300
+      ]
     },
     {
       "parameters": {
@@ -235,17 +329,29 @@
         "sendQuery": true,
         "queryParameters": {
           "parameters": [
-            { "name": "email", "value": "={{ $json.email_address }}" },
-            { "name": "apikey", "value": "={{ $json.qev_key }}" }
+            {
+              "name": "email",
+              "value": "={{ $json.email_address }}"
+            },
+            {
+              "name": "apikey",
+              "value": "={{ $json.qev_key }}"
+            }
           ]
         },
-        "options": { "timeout": 30000, "neverError": true }
+        "options": {
+          "timeout": 30000,
+          "neverError": true
+        }
       },
       "id": "wf05c-n19",
       "name": "QEV API Call",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
-      "position": [4320, 180]
+      "position": [
+        4320,
+        180
+      ]
     },
     {
       "parameters": {
@@ -256,7 +362,10 @@
       "name": "Evaluate QEV",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
-      "position": [4560, 180]
+      "position": [
+        4560,
+        180
+      ]
     },
     {
       "parameters": {
@@ -265,27 +374,45 @@
         "sendHeaders": true,
         "headerParameters": {
           "parameters": [
-            { "name": "apikey", "value": "SUPABASE_SERVICE_ROLE_KEY_PLACEHOLDER" },
-            { "name": "Authorization", "value": "Bearer SUPABASE_SERVICE_ROLE_KEY_PLACEHOLDER" },
-            { "name": "Content-Type", "value": "application/json" }
+            {
+              "name": "apikey",
+              "value": "SUPABASE_SERVICE_ROLE_KEY_PLACEHOLDER"
+            },
+            {
+              "name": "Authorization",
+              "value": "Bearer SUPABASE_SERVICE_ROLE_KEY_PLACEHOLDER"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
           ]
         },
         "sendQuery": true,
         "queryParameters": {
           "parameters": [
-            { "name": "id", "value": "={{ 'eq.' + $json.id }}" }
+            {
+              "name": "id",
+              "value": "={{ 'eq.' + $json.id }}"
+            }
           ]
         },
         "sendBody": true,
         "specifyBody": "json",
         "jsonBody": "={{ JSON.stringify({ qev_status: $json.qev_status, is_verified: $json.is_verified, qev_checked_at: new Date().toISOString() }) }}",
-        "options": { "timeout": 30000, "neverError": true }
+        "options": {
+          "timeout": 30000,
+          "neverError": true
+        }
       },
       "id": "wf05c-n21",
       "name": "Update Cand QEV",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
-      "position": [4800, 180]
+      "position": [
+        4800,
+        180
+      ]
     },
     {
       "parameters": {
@@ -296,7 +423,10 @@
       "name": "Consolidate QEV",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
-      "position": [5040, 180]
+      "position": [
+        5040,
+        180
+      ]
     },
     {
       "parameters": {
@@ -305,21 +435,36 @@
         "sendHeaders": true,
         "headerParameters": {
           "parameters": [
-            { "name": "apikey", "value": "SUPABASE_SERVICE_ROLE_KEY_PLACEHOLDER" },
-            { "name": "Authorization", "value": "Bearer SUPABASE_SERVICE_ROLE_KEY_PLACEHOLDER" },
-            { "name": "Content-Type", "value": "application/json" }
+            {
+              "name": "apikey",
+              "value": "SUPABASE_SERVICE_ROLE_KEY_PLACEHOLDER"
+            },
+            {
+              "name": "Authorization",
+              "value": "Bearer SUPABASE_SERVICE_ROLE_KEY_PLACEHOLDER"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
           ]
         },
         "sendBody": true,
         "specifyBody": "json",
         "jsonBody": "={{ JSON.stringify({ p_lead_id: $('Extract Lead ID').first().json.lead_id }) }}",
-        "options": { "timeout": 30000, "neverError": true }
+        "options": {
+          "timeout": 30000,
+          "neverError": true
+        }
       },
       "id": "wf05c-n23",
       "name": "Mark Jednatels",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
-      "position": [5280, 180]
+      "position": [
+        5280,
+        180
+      ]
     },
     {
       "parameters": {
@@ -343,7 +488,10 @@
       "name": "IF Has Verified",
       "type": "n8n-nodes-base.if",
       "typeVersion": 2,
-      "position": [5520, 180]
+      "position": [
+        5520,
+        180
+      ]
     },
     {
       "parameters": {
@@ -352,27 +500,45 @@
         "sendHeaders": true,
         "headerParameters": {
           "parameters": [
-            { "name": "apikey", "value": "SUPABASE_SERVICE_ROLE_KEY_PLACEHOLDER" },
-            { "name": "Authorization", "value": "Bearer SUPABASE_SERVICE_ROLE_KEY_PLACEHOLDER" },
-            { "name": "Content-Type", "value": "application/json" }
+            {
+              "name": "apikey",
+              "value": "SUPABASE_SERVICE_ROLE_KEY_PLACEHOLDER"
+            },
+            {
+              "name": "Authorization",
+              "value": "Bearer SUPABASE_SERVICE_ROLE_KEY_PLACEHOLDER"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
           ]
         },
         "sendQuery": true,
         "queryParameters": {
           "parameters": [
-            { "name": "id", "value": "={{ 'eq.' + $('Extract Lead ID').first().json.lead_id }}" }
+            {
+              "name": "id",
+              "value": "={{ 'eq.' + $('Extract Lead ID').first().json.lead_id }}"
+            }
           ]
         },
         "sendBody": true,
         "specifyBody": "json",
         "jsonBody": "={ \"status\": \"ready\" }",
-        "options": { "timeout": 30000, "neverError": true }
+        "options": {
+          "timeout": 30000,
+          "neverError": true
+        }
       },
       "id": "wf05c-n25",
       "name": "Set Lead Ready",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
-      "position": [5760, 60]
+      "position": [
+        5760,
+        60
+      ]
     },
     {
       "parameters": {
@@ -381,21 +547,36 @@
         "sendHeaders": true,
         "headerParameters": {
           "parameters": [
-            { "name": "apikey", "value": "SUPABASE_SERVICE_ROLE_KEY_PLACEHOLDER" },
-            { "name": "Authorization", "value": "Bearer SUPABASE_SERVICE_ROLE_KEY_PLACEHOLDER" },
-            { "name": "Content-Type", "value": "application/json" }
+            {
+              "name": "apikey",
+              "value": "SUPABASE_SERVICE_ROLE_KEY_PLACEHOLDER"
+            },
+            {
+              "name": "Authorization",
+              "value": "Bearer SUPABASE_SERVICE_ROLE_KEY_PLACEHOLDER"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
           ]
         },
         "sendBody": true,
         "specifyBody": "json",
         "jsonBody": "={{ JSON.stringify({ lead_id: $('Extract Lead ID').first().json.lead_id, step: 'combined_verify', status: 'success', completed_at: new Date().toISOString(), details: JSON.stringify({ verified_count: $('Consolidate QEV').first().json.verified_count }) }) }}",
-        "options": { "timeout": 30000, "neverError": true }
+        "options": {
+          "timeout": 30000,
+          "neverError": true
+        }
       },
       "id": "wf05c-n26",
       "name": "Log Success",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
-      "position": [6000, 60]
+      "position": [
+        6000,
+        60
+      ]
     },
     {
       "parameters": {
@@ -404,27 +585,45 @@
         "sendHeaders": true,
         "headerParameters": {
           "parameters": [
-            { "name": "apikey", "value": "SUPABASE_SERVICE_ROLE_KEY_PLACEHOLDER" },
-            { "name": "Authorization", "value": "Bearer SUPABASE_SERVICE_ROLE_KEY_PLACEHOLDER" },
-            { "name": "Content-Type", "value": "application/json" }
+            {
+              "name": "apikey",
+              "value": "SUPABASE_SERVICE_ROLE_KEY_PLACEHOLDER"
+            },
+            {
+              "name": "Authorization",
+              "value": "Bearer SUPABASE_SERVICE_ROLE_KEY_PLACEHOLDER"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
           ]
         },
         "sendQuery": true,
         "queryParameters": {
           "parameters": [
-            { "name": "id", "value": "={{ 'eq.' + $('Extract Lead ID').first().json.lead_id }}" }
+            {
+              "name": "id",
+              "value": "={{ 'eq.' + $('Extract Lead ID').first().json.lead_id }}"
+            }
           ]
         },
         "sendBody": true,
         "specifyBody": "json",
         "jsonBody": "={ \"status\": \"failed\", \"enrichment_error\": \"No verified emails found after QEV check\" }",
-        "options": { "timeout": 30000, "neverError": true }
+        "options": {
+          "timeout": 30000,
+          "neverError": true
+        }
       },
       "id": "wf05c-n27",
       "name": "Set Lead Failed QEV",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
-      "position": [5760, 300]
+      "position": [
+        5760,
+        300
+      ]
     },
     {
       "parameters": {
@@ -433,27 +632,45 @@
         "sendHeaders": true,
         "headerParameters": {
           "parameters": [
-            { "name": "apikey", "value": "SUPABASE_SERVICE_ROLE_KEY_PLACEHOLDER" },
-            { "name": "Authorization", "value": "Bearer SUPABASE_SERVICE_ROLE_KEY_PLACEHOLDER" },
-            { "name": "Content-Type", "value": "application/json" }
+            {
+              "name": "apikey",
+              "value": "SUPABASE_SERVICE_ROLE_KEY_PLACEHOLDER"
+            },
+            {
+              "name": "Authorization",
+              "value": "Bearer SUPABASE_SERVICE_ROLE_KEY_PLACEHOLDER"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
           ]
         },
         "sendQuery": true,
         "queryParameters": {
           "parameters": [
-            { "name": "id", "value": "={{ 'eq.' + $('Extract Lead ID').first().json.lead_id }}" }
+            {
+              "name": "id",
+              "value": "={{ 'eq.' + $('Extract Lead ID').first().json.lead_id }}"
+            }
           ]
         },
         "sendBody": true,
         "specifyBody": "json",
         "jsonBody": "={ \"status\": \"failed\", \"enrichment_error\": \"No emails passed bounce check\" }",
-        "options": { "timeout": 30000, "neverError": true }
+        "options": {
+          "timeout": 30000,
+          "neverError": true
+        }
       },
       "id": "wf05c-n28",
       "name": "Set Lead Failed NoCands",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
-      "position": [4560, 600]
+      "position": [
+        4560,
+        600
+      ]
     },
     {
       "parameters": {
@@ -462,20 +679,33 @@
         "sendHeaders": true,
         "headerParameters": {
           "parameters": [
-            { "name": "Content-Type", "value": "application/json" }
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            },
+            {
+              "name": "X-Webhook-Secret",
+              "value": "reWDUmcjSRPTv3k-0CKdoASO_KY7Z3ux"
+            }
           ]
         },
         "sendBody": true,
         "contentType": "raw",
         "rawContentType": "application/json",
         "body": "={{ JSON.stringify({ lead_id: $json.lead_id }) }}",
-        "options": { "timeout": 30000, "neverError": true }
+        "options": {
+          "timeout": 30000,
+          "neverError": true
+        }
       },
       "id": "wf05c-n30",
       "name": "Trigger WF11",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
-      "position": [4320, 480]
+      "position": [
+        4320,
+        480
+      ]
     },
     {
       "parameters": {
@@ -484,100 +714,303 @@
         "sendHeaders": true,
         "headerParameters": {
           "parameters": [
-            { "name": "apikey", "value": "SUPABASE_SERVICE_ROLE_KEY_PLACEHOLDER" },
-            { "name": "Authorization", "value": "Bearer SUPABASE_SERVICE_ROLE_KEY_PLACEHOLDER" },
-            { "name": "Content-Type", "value": "application/json" }
+            {
+              "name": "apikey",
+              "value": "SUPABASE_SERVICE_ROLE_KEY_PLACEHOLDER"
+            },
+            {
+              "name": "Authorization",
+              "value": "Bearer SUPABASE_SERVICE_ROLE_KEY_PLACEHOLDER"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
           ]
         },
         "sendBody": true,
         "specifyBody": "json",
         "jsonBody": "={{ JSON.stringify({ lead_id: $('Extract Lead ID').first().json.lead_id, step: 'combined_verify', status: 'failed', completed_at: new Date().toISOString() }) }}",
-        "options": { "timeout": 30000, "neverError": true }
+        "options": {
+          "timeout": 30000,
+          "neverError": true
+        }
       },
       "id": "wf05c-n29",
       "name": "Log Failed",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
-      "position": [6000, 390]
+      "position": [
+        6000,
+        390
+      ]
     }
   ],
   "connections": {
     "Webhook Trigger": {
-      "main": [[{ "node": "Extract Lead ID", "type": "main", "index": 0 }]]
+      "main": [
+        [
+          {
+            "node": "Extract Lead ID",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
     },
     "Extract Lead ID": {
-      "main": [[{ "node": "Get Config", "type": "main", "index": 0 }]]
+      "main": [
+        [
+          {
+            "node": "Get Config",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
     },
     "Get Config": {
-      "main": [[{ "node": "Extract Config", "type": "main", "index": 0 }]]
+      "main": [
+        [
+          {
+            "node": "Extract Config",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
     },
     "Extract Config": {
-      "main": [[{ "node": "Get Jednatels", "type": "main", "index": 0 }]]
+      "main": [
+        [
+          {
+            "node": "Get Jednatels",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
     },
     "Get Jednatels": {
-      "main": [[{ "node": "Build Jednatel IDs", "type": "main", "index": 0 }]]
+      "main": [
+        [
+          {
+            "node": "Build Jednatel IDs",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
     },
     "Build Jednatel IDs": {
-      "main": [[{ "node": "Get Pending Cands", "type": "main", "index": 0 }]]
+      "main": [
+        [
+          {
+            "node": "Get Pending Cands",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
     },
     "Get Pending Cands": {
-      "main": [[{ "node": "Add Config", "type": "main", "index": 0 }]]
+      "main": [
+        [
+          {
+            "node": "Add Config",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
     },
     "Add Config": {
-      "main": [[{ "node": "Call Email Verify", "type": "main", "index": 0 }]]
+      "main": [
+        [
+          {
+            "node": "Call Email Verify",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
     },
     "Call Email Verify": {
-      "main": [[{ "node": "Classify Candidates", "type": "main", "index": 0 }]]
+      "main": [
+        [
+          {
+            "node": "Classify Candidates",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
     },
     "Classify Candidates": {
-      "main": [[{ "node": "Update Status", "type": "main", "index": 0 }]]
+      "main": [
+        [
+          {
+            "node": "Update Status",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
     },
     "Update Status": {
-      "main": [[{ "node": "Prepare QEV Items", "type": "main", "index": 0 }]]
+      "main": [
+        [
+          {
+            "node": "Prepare QEV Items",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
     },
     "Prepare QEV Items": {
-      "main": [[{ "node": "IF Has Likely Valid", "type": "main", "index": 0 }]]
+      "main": [
+        [
+          {
+            "node": "IF Has Likely Valid",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
     },
     "IF Has Likely Valid": {
       "main": [
-        [{ "node": "QEV API Call", "type": "main", "index": 0 }],
-        [{ "node": "Trigger WF11", "type": "main", "index": 0 }]
+        [
+          {
+            "node": "QEV API Call",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Trigger WF11",
+            "type": "main",
+            "index": 0
+          }
+        ]
       ]
     },
     "Trigger WF11": {
-      "main": [[]]
+      "main": [
+        []
+      ]
     },
     "QEV API Call": {
-      "main": [[{ "node": "Evaluate QEV", "type": "main", "index": 0 }]]
+      "main": [
+        [
+          {
+            "node": "Evaluate QEV",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
     },
     "Evaluate QEV": {
-      "main": [[{ "node": "Update Cand QEV", "type": "main", "index": 0 }]]
+      "main": [
+        [
+          {
+            "node": "Update Cand QEV",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
     },
     "Update Cand QEV": {
-      "main": [[{ "node": "Consolidate QEV", "type": "main", "index": 0 }]]
+      "main": [
+        [
+          {
+            "node": "Consolidate QEV",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
     },
     "Consolidate QEV": {
-      "main": [[{ "node": "Mark Jednatels", "type": "main", "index": 0 }]]
+      "main": [
+        [
+          {
+            "node": "Mark Jednatels",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
     },
     "Mark Jednatels": {
-      "main": [[{ "node": "IF Has Verified", "type": "main", "index": 0 }]]
+      "main": [
+        [
+          {
+            "node": "IF Has Verified",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
     },
     "IF Has Verified": {
       "main": [
-        [{ "node": "Set Lead Ready", "type": "main", "index": 0 }],
-        [{ "node": "Set Lead Failed QEV", "type": "main", "index": 0 }]
+        [
+          {
+            "node": "Set Lead Ready",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Set Lead Failed QEV",
+            "type": "main",
+            "index": 0
+          }
+        ]
       ]
     },
     "Set Lead Ready": {
-      "main": [[{ "node": "Log Success", "type": "main", "index": 0 }]]
+      "main": [
+        [
+          {
+            "node": "Log Success",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
     },
     "Set Lead Failed QEV": {
-      "main": [[{ "node": "Log Failed", "type": "main", "index": 0 }]]
+      "main": [
+        [
+          {
+            "node": "Log Failed",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
     },
-    "Log Success": { "main": [[]] },
-    "Log Failed": { "main": [[]] }
+    "Log Success": {
+      "main": [
+        []
+      ]
+    },
+    "Log Failed": {
+      "main": [
+        []
+      ]
+    }
   },
   "active": true,
-  "settings": { "executionOrder": "v1" },
+  "settings": {
+    "executionOrder": "v1"
+  },
   "pinData": {}
 }
