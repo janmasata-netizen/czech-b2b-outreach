@@ -17,6 +17,7 @@ import WaveConfigForm from '@/components/waves/WaveConfigForm';
 import WaveLeadsManager from '@/components/waves/WaveLeadsManager';
 import WaveResults from '@/components/waves/WaveResults';
 import { extractVariables, buildTemplateContext, findMissingVariables } from '@/lib/templateRenderer';
+import Breadcrumb from '@/components/shared/Breadcrumb';
 import { toast } from 'sonner';
 
 const LABEL: React.CSSProperties = { fontSize: 12, fontWeight: 500, color: 'var(--text-dim)' };
@@ -419,6 +420,10 @@ export default function WaveDetailPage() {
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
+      <Breadcrumb items={[
+        { label: 'Vlny', to: '/vlny' },
+        { label: wave.name ?? 'Vlna' },
+      ]} />
       <PageHeader
         title={wave.name ?? 'Vlna'}
         subtitle={

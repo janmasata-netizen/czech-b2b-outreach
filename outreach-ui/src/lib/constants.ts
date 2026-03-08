@@ -107,6 +107,20 @@ export const PIPELINE_STEPS = [
 ];
 
 // ================================================================
+// EMAIL STATUS STYLES
+// ================================================================
+export const EMAIL_STATUS_STYLES: Record<string, { color: string; bg: string; label: string }> = {
+  valid:             { color: '#3ecf8e', bg: 'rgba(62,207,142,0.12)', label: 'valid' },
+  manually_verified: { color: '#3ecf8e', bg: 'rgba(62,207,142,0.12)', label: 'verified' },
+  likely_valid:      { color: '#f0b429', bg: 'rgba(240,180,41,0.12)',  label: 'likely valid' },
+  bounced:           { color: '#f87171', bg: 'rgba(248,113,113,0.12)', label: 'bounced' },
+  invalid:           { color: '#f87171', bg: 'rgba(248,113,113,0.12)', label: 'invalid' },
+  pending:           { color: '#94a3b8', bg: 'rgba(148,163,184,0.12)', label: 'pending' },
+  unknown:           { color: '#94a3b8', bg: 'rgba(148,163,184,0.12)', label: 'unknown' },
+  info_email:        { color: '#22d3ee', bg: 'rgba(34,211,238,0.12)',  label: 'info email' },
+};
+
+// ================================================================
 // PAGE SIZE
 // ================================================================
 export const PAGE_SIZE = 20;

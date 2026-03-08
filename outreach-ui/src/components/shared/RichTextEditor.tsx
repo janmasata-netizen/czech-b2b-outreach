@@ -1,4 +1,4 @@
-import { useRef, useEffect, forwardRef, useImperativeHandle } from 'react';
+import { useState, useRef, useEffect, forwardRef, useImperativeHandle } from 'react';
 import { useEditor, EditorContent } from '@tiptap/react';
 import StarterKit from '@tiptap/starter-kit';
 import Underline from '@tiptap/extension-underline';
@@ -8,6 +8,9 @@ import {
   Bold, Italic, Underline as UnderlineIcon, Link as LinkIcon,
   List, ListOrdered, Undo2, Redo2,
 } from 'lucide-react';
+import GlassModal from '@/components/glass/GlassModal';
+import GlassButton from '@/components/glass/GlassButton';
+import GlassInput from '@/components/glass/GlassInput';
 import type { TemplateVariable } from '@/types/database';
 
 interface RichTextEditorProps {
@@ -68,6 +71,9 @@ const RichTextEditor = forwardRef<RichTextEditorRef, RichTextEditorProps>(
       },
     }));
 
+    const [linkModalOpen, setLinkModalOpen] = useState(false);
+    const [linkUrl, setLinkUrl] = useState('');
+
     if (!editor) return null;
 
     function handleLink() {
@@ -76,10 +82,16 @@ const RichTextEditor = forwardRef<RichTextEditorRef, RichTextEditorProps>(
         editor.chain().focus().unsetLink().run();
         return;
       }
-      const url = window.prompt('URL odkazu:');
-      if (url) {
-        editor.chain().focus().setLink({ href: url }).run();
-      }
+      setLinkUrl('');
+      setLinkModalOpen(true);
+    }
+
+    function applyLink() {
+      if (!editor || !linkUrl.trim()) return;
+      const url = linkUrl.trim().startsWith('http') ? linkUrl.trim() : `https://${linkUrl.trim()}`;
+      editor.chain().focus().setLink({ href: url }).run();
+      setLinkModalOpen(false);
+      setLinkUrl('');
     }
 
     const customVars = variables?.filter(v => !AUTO_VARS.includes(v.name)) ?? [];
@@ -182,6 +194,28 @@ const RichTextEditor = forwardRef<RichTextEditorRef, RichTextEditorProps>(
 
         {/* Editor content */}
         <EditorContent editor={editor} style={{ flex: 1, display: 'flex', flexDirection: 'column' }} />
+
+        <GlassModal
+          open={linkModalOpen}
+          onClose={() => setLinkModalOpen(false)}
+          title="Vložit odkaz"
+          width={400}
+          footer={
+            <>
+              <GlassButton variant="secondary" onClick={() => setLinkModalOpen(false)}>Zrušit</GlassButton>
+              <GlassButton variant="primary" onClick={applyLink} disabled={!linkUrl.trim()}>Vložit</GlassButton>
+            </>
+          }
+        >
+          <GlassInput
+            label="URL odkazu"
+            placeholder="https://www.example.com"
+            value={linkUrl}
+            onChange={e => setLinkUrl(e.target.value)}
+            onKeyDown={e => { if (e.key === 'Enter') applyLink(); }}
+            autoFocus
+          />
+        </GlassModal>
       </div>
     );
   }
