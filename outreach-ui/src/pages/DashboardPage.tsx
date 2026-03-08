@@ -6,6 +6,7 @@ import SentEmailsAreaChart from '@/components/dashboard/SentEmailsAreaChart';
 import WaveRepliesChart from '@/components/dashboard/WaveRepliesChart';
 import TemplateRepliesChart from '@/components/dashboard/TemplateRepliesChart';
 import ActiveWavesTable from '@/components/dashboard/ActiveWavesTable';
+import OnboardingChecklist from '@/components/dashboard/OnboardingChecklist';
 import { formatPercent } from '@/lib/utils';
 
 export default function DashboardPage() {
@@ -25,6 +26,8 @@ export default function DashboardPage() {
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 24 }}>
       <PageHeader title="Přehled" subtitle="Realtime monitoring outreach kampaně" />
+
+      <OnboardingChecklist />
 
       <StatsGrid cols={4}>
         <StatCard label="Celkem leadů" value={stats?.totalLeads.toLocaleString('cs-CZ') ?? '—'} icon="◈" color="var(--accent)" />
