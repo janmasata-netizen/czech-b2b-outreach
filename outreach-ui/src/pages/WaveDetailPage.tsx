@@ -18,6 +18,7 @@ import WaveLeadsManager from '@/components/waves/WaveLeadsManager';
 import WaveResults from '@/components/waves/WaveResults';
 import { extractVariables, buildTemplateContext, findMissingVariables } from '@/lib/templateRenderer';
 import Breadcrumb from '@/components/shared/Breadcrumb';
+import { exportCsv } from '@/lib/export';
 import { toast } from 'sonner';
 
 const LABEL: React.CSSProperties = { fontSize: 12, fontWeight: 500, color: 'var(--text-dim)' };
@@ -406,6 +407,29 @@ export default function WaveDetailPage() {
           title={hasSentEmails ? 'Nelze smazat — alespoň jeden e-mail byl odeslán' : undefined}
         >
           Smazat
+        </GlassButton>
+      );
+    }
+
+    if (waveLeads.length > 0) {
+      buttons.push(
+        <GlassButton key="export" variant="secondary" onClick={() => {
+          const rows = waveLeads.map((wl: any) => {
+            const lead = wl.leads ?? wl.lead ?? {};
+            const sent = wl.sent_emails ?? [];
+            return {
+              company_name: lead.company_name ?? '',
+              ico: lead.ico ?? '',
+              email: wl.email_address ?? '',
+              status: wl.status ?? '',
+              seq1_sent: sent.find((s: any) => s.sequence_number === 1) ? 'ano' : 'ne',
+              seq2_sent: sent.find((s: any) => s.sequence_number === 2) ? 'ano' : 'ne',
+              seq3_sent: sent.find((s: any) => s.sequence_number === 3) ? 'ano' : 'ne',
+            };
+          });
+          exportCsv(`vlna-${wave.name ?? wave.id}.csv`, ['company_name', 'ico', 'email', 'status', 'seq1_sent', 'seq2_sent', 'seq3_sent'], rows);
+        }}>
+          Export CSV
         </GlassButton>
       );
     }

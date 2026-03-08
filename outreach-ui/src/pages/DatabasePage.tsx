@@ -11,6 +11,8 @@ import Pagination from '@/components/shared/Pagination';
 import AddLeadDialog from '@/components/leads/AddLeadDialog';
 import GlassButton from '@/components/glass/GlassButton';
 import { PAGE_SIZE } from '@/lib/constants';
+import { exportCsv } from '@/lib/export';
+import { supabase } from '@/lib/supabase';
 
 export default function DatabasePage() {
   const [sp, setSp] = useSearchParams();
@@ -70,9 +72,22 @@ export default function DatabasePage() {
         title="Databáze"
         subtitle={`${totalCount} záznamů`}
         actions={
-          <GlassButton variant="primary" size="sm" onClick={() => setShowAdd(true)}>
-            + Přidat záznam
-          </GlassButton>
+          <div style={{ display: 'flex', gap: 8 }}>
+            <GlassButton size="sm" variant="secondary" onClick={async () => {
+              const { data } = await supabase
+                .from('leads')
+                .select('company_name, ico, website, domain, status, master_status, created_at')
+                .order('created_at', { ascending: false })
+                .limit(5000);
+              if (!data?.length) return;
+              exportCsv('databaze.csv', ['company_name', 'ico', 'website', 'domain', 'status', 'master_status', 'created_at'], data);
+            }}>
+              Export CSV
+            </GlassButton>
+            <GlassButton variant="primary" size="sm" onClick={() => setShowAdd(true)}>
+              + Přidat záznam
+            </GlassButton>
+          </div>
         }
       />
 
