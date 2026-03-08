@@ -30,5 +30,6 @@ Thumbs.db
 .docker/
 
 # Claude Code local state
-.claude/
+.claude/*
 !.claude/active-work.md
+!.claude/skills/

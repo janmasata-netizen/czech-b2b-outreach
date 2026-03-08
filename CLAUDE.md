@@ -127,6 +127,16 @@ All scripts read secrets from `../env.mjs` (which reads `.env.local`). No hardco
 
 ---
 
+## HARD RULE — Keep Documentation Updated
+
+After ANY change to code, workflows, config, DB schema, or UI:
+- Update the affected file(s) in `docs/` to reflect the change
+- If unsure which doc to update, update all three via `/generate-docs`
+- Docs must be committed alongside the code changes, not separately
+- The three doc files: `docs/architecture.md`, `docs/setup-guide.md`, `docs/operations-manual.md`
+
+---
+
 # n8n Automation Builder Rules
 
 ## PHASE 0: UNDERSTAND BEFORE YOU BUILD
