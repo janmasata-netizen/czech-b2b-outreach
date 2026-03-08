@@ -57,7 +57,7 @@
           "parameters": [
             {
               "name": "apikey",
-              "value": "={{ $env.SUPABASE_ANON_KEY || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImN5Y2Fwa3N3dHVjYnVjeWVnZHNuIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzE2MDU2NTMsImV4cCI6MjA4NzE4MTY1M30.CndvvOrPtgStuuNajnSfJFR4CufZUx6skblMCEqxlzI' }}"
+              "value": "={{ $env.SUPABASE_ANON_KEY }}"
             },
             {
               "name": "Authorization",
