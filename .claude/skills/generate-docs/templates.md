@@ -1,83 +1,111 @@
-# Documentation Templates
+# Sablony dokumentace
 
-These templates define the structure for each generated doc file. Fill in every section with accurate, current data from the codebase.
+Tyto sablony definuji strukturu pro kazdy generovany dokumentacni soubor. Vsechny texty v cestine. Vyplnte kazdou sekci aktualnimi a presnymi daty z codebase.
 
 ---
 
 ## architecture.md
 
 ```markdown
-# Architecture Overview
+# Architektura systemu
 
-## System Overview
-[1-2 paragraph summary of what the system does and how the components fit together]
+> Tento dokument popisuje technickou architekturu systemu.
+> **Cast 1** obsahuje rychly prehled. **Cast 2** je detailni reference.
 
-## Architecture Diagram
-[ASCII diagram showing: User -> React UI -> Supabase -> n8n workflows -> SMTP/IMAP proxies -> Email providers]
+---
 
-## Components
+## Navigace
 
-### n8n (Workflow Engine)
-- Hosting, URL, how workflows are managed
-- Webhook auth model
+| Jsem... | Chci... | Prejdete na... |
+|---------|---------|----------------|
+| Novy clen tymu | Pochopit, jak system funguje | [Prehled systemu](#cast-1--rychly-prehled) |
+| Vyvojar | Videt architekturu a komponenty | [Diagram](#diagram-architektury), [Komponenty](#komponenty) |
+| Vyvojar | Najit konkretni workflow | [Reference workflow](#reference-workflow) |
+| Spravce DB | Videt databazove schema | [Databazove schema](#databazove-schema) |
+| Kdokoliv | Vysvetleni technickych pojmu | [Slovnicek](#slovnicek) |
 
-### Supabase (Database + Auth)
-- Project details, what it handles (data, auth, RLS)
+---
 
-### React UI (outreach-ui/)
-- Tech stack, key dependencies
-- Route table with all paths and their purpose
+# Cast 1 — Rychly prehled
 
-### IMAP Proxy (imap-proxy/)
-- Why it exists (n8n IMAP bugs)
-- API endpoints
-- Config format
+## Co system dela
+[1-2 odstavce — co system dela, hlavni komponenty]
 
-### SMTP Proxy (smtp-proxy/)
-- Why it exists (threading header support)
-- API endpoints
-- Config format
+## Ctyri hlavni komponenty
+[Tabulka: # | Komponenta | Co dela | Kde bezi]
 
-## Data Flow
-[Step-by-step data flow from lead ingestion through email sending and reply detection]
+---
 
-### Lead Pipeline
-1. Ingestion (WF1)
-2. ARES lookup (WF2)
-3. Kurzy.cz scraping (WF3)
-4. Email generation (WF4)
-5. Verification (WF5/WF6)
-6. Ready for outreach
+# Cast 2 — Detailni reference
 
-### Email Sending Pipeline
-1. Wave creation and scheduling (WF7)
-2. Cron-based sending (WF8)
-3. Reply detection (WF9)
-4. Daily reset (WF10)
+## Diagram architektury
+[ASCII diagram s ceskou legendou: Operator -> React UI -> Supabase + n8n -> SMTP/IMAP proxy -> E-mailove servery]
 
-## Workflow Reference
-[Table: File name | n8n ID | Trigger type | Purpose — for ALL workflows]
+## Komponenty
 
-## Database Schema
+### 1. n8n (Workflow Engine)
+- Hosting, URL, jak se workflow spravuji
+- Model autentizace webhooku
 
-### Tables
-[Table: Name | Purpose | Key columns — for all 19 tables]
+### 2. Supabase (Databaze + Auth)
+- Detail projektu, co zajistuje (data, auth, RLS, realtime)
+[Tabulka: Sluzba | Popis]
 
-### Key Relationships
-[Describe foreign keys and how tables relate]
+### 3. React UI (outreach-ui/)
+- Technologicky stack [Tabulka: Technologie | Ucel]
+- Stranky aplikace [Tabulka: Cesta | Stranka | Pristup | Ucel]
+- React hooky [Tabulka: Hook | Ucel]
 
-### Database Functions
-[Table: Function name | Purpose — for all RPC functions]
+> Pouze pro roli Admin: Vsechny stranky v sekci /nastaveni vyzaduji roli administratora.
 
-### Database Triggers
-[List triggers with their behavior]
+### 4. IMAP Proxy (imap-proxy/)
+- Proc existuje (n8n IMAP bugy)
+- API endpointy [Tabulka: Metoda | Cesta | Pozadavek | Odpoved]
+- Format konfigurace
 
-## Security Model
-- Webhook authentication
-- Admin role checks in UI
-- Supabase RLS
-- Proxy access (localhost-only)
-- No hardcoded secrets rule
+### 5. SMTP Proxy (smtp-proxy/)
+- Proc existuje (podpora threading hlavicek)
+- API endpointy [Tabulka]
+- Format konfigurace
+
+## Datove toky
+
+### Pipeline obohaceni leadu
+[Krok-po-kroku diagram: ICO/rucni zadani -> WF1 -> WF2 -> WF3 -> WF4 -> WF5 -> WF6 -> ready]
+
+### Pipeline odesilani e-mailu
+[Krok-po-kroku diagram: vlna -> WF7 -> WF8 -> WF9 -> WF10]
+
+### Doplnkove workflow
+[Tabulka: Workflow | Ucel]
+
+## Reference workflow
+[Tabulka: Soubor | n8n ID | Spoustec | Ucel — pro VSECHNY workflow]
+
+## Databazove schema
+
+### Prehled tabulek
+[Tabulka: Tabulka | Ucel | Klicove sloupce — pro vsech 19 tabulek]
+
+### Klicove vztahy mezi tabulkami
+[Popis cizich klicu a vztahu]
+
+### Databazove funkce
+[Tabulka: Funkce | Ucel]
+
+### Databazove triggery
+[Tabulka: Trigger | Tabulka | Udalost | Chovani]
+
+### Pravidla ceskeho vokativu
+[Tabulka pravidel sklonovani]
+
+## Model zabezpeceni
+[Tabulka: Oblast | Mechanismus]
+
+> POZOR: Kazdy novy workflow odesilajici e-maily musi mit options.appendAttribution: false.
+
+## Slovnicek
+[Tabulka: Pojem | Vysvetleni — vsechny technicke pojmy v cestine]
 ```
 
 ---
@@ -85,70 +113,104 @@ These templates define the structure for each generated doc file. Fill in every 
 ## setup-guide.md
 
 ```markdown
-# Setup Guide
+# Pruvodce nastavenim
 
-## Prerequisites
-- Node.js (version)
-- Docker & Docker Compose
-- GitHub CLI (`gh`)
-- SSH access to VPS
-- Supabase account
-- n8n self-hosted instance
+> **Cast 1** je rychly checklist pro prvni den. **Cast 2** obsahuje detailni kroky.
 
-## 1. Clone and Configure
+---
 
-### Clone the repository
-[git clone command]
+## Navigace
+| Jsem... | Chci... | Prejdete na... |
+|---------|---------|----------------|
+[Navigacni tabulka pro ruzne role a ukoly]
 
-### Environment setup
-[Copy .env.example, list all variables and where to get them]
+---
 
-## 2. Local Development
+# Cast 1 — Checklist prvniho dne
+[Checkbox seznam kroku v poradi]
 
-### UI Development
-[npm install, npm run dev, what URL]
+> TIP: Pokud nastavujete system od nuly, zacnete sekci Supabase Setup.
 
-### Working with Workflows
-[How to edit workflow JSON, push to n8n]
+---
 
-## 3. Deploying Workflows to n8n
+# Cast 2 — Detailni kroky
 
-### Push scripts
-[How push-*.mjs scripts work, which to use]
+## 1. Klonovani a konfigurace
 
-### Importing all workflows
-[import.mjs usage]
+### Krok 1.1 — Klonovat repozitar
+**Cil:** [...]
+**Predpoklady:** [...]
+[prikazy]
+**Vysledek:** [...]
 
-### Updating specific workflows
-[update.mjs usage]
+### Krok 1.2 — Nastavit promenne prostredi
+**Cil:** [...]
+[Tabulka: Promenna | Popis | Kde ji najdete]
 
-## 4. VPS Deployment
+> POZOR: Nikdy necommitujte .env.local do Gitu.
+> Caste chyby: [seznam castych chyb]
 
-### UI Deployment
-[Build + deploy-ssh2.mjs process]
+## 2. Lokalni vyvoj
 
-### IMAP Proxy Deployment
-[config.json setup, deploy.mjs]
+### Krok 2.1 — Spustit UI lokalne
+**Cil:** [...]
+**Predpoklady:** [...]
+[prikazy]
+**Vysledek:** [...]
 
-### SMTP Proxy Deployment
-[config.json setup, deploy.mjs]
+> TIP: [uzitecna rada]
 
-## 5. Supabase Setup (Fresh Install)
+### Krok 2.2 — Prace s workflow
+[postup]
 
-### Database schema
-[db-setup.mjs, then migrations]
+## 3. Nasazeni workflow do n8n
 
-### Seed data
-[seed.mjs]
+### Krok 3.1 — Push jednotlivych workflow
+**Pouze pro roli Admin:** [...]
+[prikazy, vysvetleni]
 
-### Create admin user
-[create-admin.mjs]
+### Krok 3.2 — Import vsech workflow (nova instance)
+**Pouze pro roli Admin:** [...]
 
-### Combined setup
-[setup-all.mjs]
+### Krok 3.3 — Aktualizace nejcasteji menenych workflow
+### Krok 3.4 — Organizace workflow
 
-## 6. Environment Variables Reference
-[Full table of all env vars from .env.example with descriptions]
+## 4. Nasazeni na VPS
+
+### Krok 4.1 — Nasadit UI
+**Pouze pro roli Admin:** [...]
+**Predpoklady:** [...]
+[prikazy]
+
+> TIP: [fallback pro SSH klic]
+
+### Krok 4.2 — Nasadit IMAP Proxy
+**Pouze pro roli Admin:** [...]
+[konfigurace + deploy]
+
+> POZOR: Nazev klice v config.json musi presne odpovidat nazvu credential v databazi.
+
+### Krok 4.3 — Nasadit SMTP Proxy
+[stejna struktura]
+
+## 5. Supabase Setup (nova instalace)
+
+> Pouze pro roli Admin: Tato sekce je urcena pouze pro uplne novou instalaci.
+
+### Krok 5.1 — Databazove schema
+### Krok 5.2 — Migrace
+
+> POZOR: Migraci spoustejte vzdy v poradi.
+
+### Krok 5.3 — Seedovani dat
+### Krok 5.4 — Vytvoreni admin uzivatele
+### Alternativa — Kompletni setup jednim prikazem
+
+## 6. Prehled promennych prostredi
+[Tabulka: Promenna | Pouziva | Popis]
+
+## Slovnicek
+[Tabulka: Pojem | Vysvetleni]
 ```
 
 ---
@@ -156,81 +218,110 @@ These templates define the structure for each generated doc file. Fill in every 
 ## operations-manual.md
 
 ```markdown
-# Operations Manual
+# Provozni prirucka
 
-## Adding a New Salesman / IMAP Account
-1. Add IMAP credentials to imap-proxy config.json on VPS
-2. Restart imap-proxy container
-3. Add SMTP credentials to smtp-proxy config.json on VPS
-4. Restart smtp-proxy container
-5. Add salesman record in UI (Settings > Salesmen)
-6. Update team's outreach account if needed
+> **Cast 1** je rychly prehled. **Cast 2** obsahuje detailni postupy.
 
-## Creating and Scheduling Email Waves
-1. Prepare leads (must be in 'ready' status)
-2. Create wave in UI (Waves page)
-3. Configure wave settings (template set, scheduling)
-4. Add leads to wave
-5. Schedule wave (triggers WF7)
-6. Monitor sending (WF8 runs every 5 min)
+---
 
-## Template Management
-- Template sets and individual templates
-- A/B variant support
-- Sequence ordering (seq1, seq2, seq3)
-- Template variables available ({{salutation}}, etc.)
+## Navigace
+| Jsem... | Chci... | Prejdete na... |
+|---------|---------|----------------|
+[Navigacni tabulka — operator, admin, kdokoliv]
 
-## Retarget Pool
-- What it is
-- How to use it
-- When leads enter the retarget pool
+## Referencni tabulka — stavy
 
-## User Management
-- Admin panel (Settings > Users)
-- Role-based access (admin vs regular user)
-- Supabase auth integration
+### Stavy leadu
+[Tabulka: Stav | Barva | Vyznam]
 
-## Monitoring
+### Stavy vlny
+[Tabulka: Stav | Barva | Vyznam]
 
-### Reply Detection
-- WF9 runs every minute via IMAP proxy
-- Replies linked to sent_emails via Message-ID threading
-- Check lead_replies table or UI
+---
 
-### Bounce / NDR Monitoring
-- wf-ndr-monitor checks INBOX
-- wf-ndr-monitor-spam checks spam folder
-- email_probe_bounces table
+# Cast 1 — Prehled dennich operaci
+[Typicky den operatora — 5 bodu]
 
-### Daily Reset
-- WF10 runs at midnight
-- Resets daily send counts
-- Cleans old probe bounces
+---
 
-## Config Table Keys
-[Table: Key | Purpose | Example value — for all config entries]
+# Cast 2 — Detailni postupy
 
-## Troubleshooting
+## 1. Pridani noveho obchodnika / e-mailoveho uctu
 
-### Emails not sending
-- Check email_queue for stuck items
-- Verify SMTP proxy is running (health endpoint)
-- Check daily send limits
-- Review WF8 execution logs in n8n
+### Krok 1.1 — Pridat IMAP credentials
+**Cil:** [...]
+**Pouze pro roli Admin:** [...]
+**Predpoklady:** [...]
+**Postup:** [cislovane kroky]
+**Vysledek:** [...]
 
-### Replies not detected
-- Check IMAP proxy health
-- Verify credential_name matches config.json
-- Check WF9 execution logs
-- Verify Message-ID threading headers
+> POZOR: [dulezite upozorneni na presny nazev credential]
 
-### Lead enrichment stuck
-- Check enrichment_log for the lead
-- Verify n8n workflow is active
-- Check webhook endpoints are reachable
+### Krok 1.2 — Pridat SMTP credentials
+[stejna struktura]
 
-### Wave not completing
-- Verify auto_complete_waves() is being called
-- Check for failed emails in wave_leads
-- Manual completion via UI if needed
+### Krok 1.3 — Pridat obchodnika v UI
+### Krok 1.4 — Nastavit outreach ucet
+
+> Caste chyby: [seznam]
+
+## 2. Vytvareni a planovani e-mailovych vln
+
+### Krok 2.1 — Pripravit leady
+### Krok 2.2 — Vytvorit vlnu
+### Krok 2.3 — Pridat leady do vlny
+### Krok 2.4 — Naplanovani vlny
+### Krok 2.5 — Sledovani odesilani
+
+> TIP: Sequence timing...
+
+## 3. Sprava sablon
+- Sady sablon, editor, promenne
+[Tabulka dostupnych promennych: Promenna | Zdroj | Priklad]
+
+> TIP: {{salutation}} uz obsahuje predponu...
+
+## 4. Retarget pool
+[Co to je, jak pouzit, postup]
+
+## 5. Sprava uzivatelu
+**Pouze pro roli Admin:**
+[Tabulka roli: Role | Pristup]
+[Postup pridani uzivatele]
+
+## 6. Monitoring
+
+### 6.1 — Detekce odpovedi
+### 6.2 — Monitorovani bouncu / NDR
+### 6.3 — Denni reset (WF10)
+### 6.4 — Health checky
+[Tabulka: Sluzba | Endpoint | Overeni z VPS]
+
+### 6.5 — Konfiguracni tabulka
+[Tabulka: Klic | Ucel | Priklad]
+
+> TIP: QEV klice se rotuji automaticky...
+
+## 7. Reseni problemu (FAQ)
+
+### E-maily se neodessilaji
+[Tabulka: Mozna pricina | Jak overit | Reseni]
+
+### Odpovedi se nedetekuji
+[Tabulka: Mozna pricina | Jak overit | Reseni]
+
+### Obohaceni leadu uvaznulo
+[Tabulka: Mozna pricina | Jak overit | Reseni]
+
+### Vlna se nedokonci
+[Tabulka: Mozna pricina | Jak overit | Reseni]
+
+### Docker kontejnery nefunguji
+[Diagnosticky postup s prikazy]
+
+### Problemy s pripojenim k databazi
+[Tabulka: Mozna pricina | Jak overit | Reseni]
+
+## Slovnicek
+[Tabulka: Pojem | Vysvetleni — vsechny provozni pojmy]
 ```
