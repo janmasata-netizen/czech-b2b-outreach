@@ -1,243 +1,479 @@
-# Operations Manual
+# Provozni prirucka
 
-## Adding a New Salesman / Email Account
+> Tato prirucka popisuje kazdodenni operace se systemem Czech B2B Email Outreach.
+> **Cast 1** je rychly prehled. **Cast 2** obsahuje detailni postupy.
 
-### 1. Add IMAP credentials
+---
 
-On the VPS, edit `/docker/imap-proxy/config.json` and add a new entry:
+## Navigace
+
+| Jsem... | Chci... | Prejdete na... |
+|---------|---------|----------------|
+| Operator | Pridat noveho obchodnika | [Pridani obchodnika](#1-pridani-noveho-obchodnika--e-mailoveho-uctu) |
+| Operator | Vytvorit a odeslat vlnu | [Vytvareni vln](#2-vytvareni-a-planovani-e-mailovych-vln) |
+| Operator | Spravovat sablony | [Sprava sablon](#3-sprava-sablon) |
+| Operator | Pouzit retarget pool | [Retarget pool](#4-retarget-pool) |
+| Admin | Spravovat uzivatele | [Sprava uzivatelu](#5-sprava-uzivatelu) |
+| Admin | Sledovat stav systemu | [Monitoring](#6-monitoring) |
+| Kdokoliv | Resit problem | [Reseni problemu](#7-reseni-problemu-faq) |
+| Kdokoliv | Vysvetleni pojmu | [Slovnicek](#slovnicek) |
+
+---
+
+## Referencni tabulka — stavy
+
+### Stavy leadu
+
+| Stav | Barva | Vyznam |
+|------|-------|--------|
+| `new` | Seda | Nove pridany lead, ceka na obohaceni |
+| `enriching` | Zluta | Probiha dohledani v ARES |
+| `enriched` | Zluta | Jednatele nalezeni, ceka na generovani e-mailu |
+| `email_discovery` | Modra | Probiha generovani e-mailovych adres |
+| `email_verified` | Modra | E-maily overeny, ceka na rozhodnuti QEV |
+| `ready` | Zelena | Lead pripraveny k zarazeni do vlny |
+| `in_wave` | Fialova | Lead je soucasti aktivni vlny |
+| `completed` | Zelena tmava | Vsechny e-maily odeslany |
+| `replied` | Zelena jasna | Odpoved prijata |
+| `bounced` | Cervena | E-mail nedorucitelny |
+| `failed` | Cervena tmava | Obohaceni selhalo |
+| `needs_review` | Oranzova | Vyzaduje rucni kontrolu (catch-all domena) |
+
+### Stavy vlny
+
+| Stav | Barva | Vyznam |
+|------|-------|--------|
+| `draft` | Seda | Koncept — pripravuje se |
+| `verifying` | Zluta | Probiha overovani e-mailu leadu |
+| `verified` | Modra | Vsechny e-maily overeny, pripraveno k planovani |
+| `scheduled` | Modra tmava | Naplanovano, ceka na odeslani |
+| `sending` | Fialova | Probiha odesilani |
+| `done` / `completed` | Zelena | Vsechny e-maily odeslany |
+| `paused` | Oranzova | Pozastaveno operatorem |
+
+---
+
+# Cast 1 — Prehled dennich operaci
+
+Typicky den operatora:
+
+1. **Rano:** Zkontrolovat dashboard (`/prehled`) — nove odpovedi, stav vln
+2. **Leady:** Pridat nove leady (`/leady`) — system je automaticky obohati
+3. **Vlny:** Zkontrolovat prubeh aktivnich vln (`/vlny`) — odeslane/cekajici/chyby
+4. **Odpovedi:** Zpracovat nove odpovedi — viditelne na detailu vlny i leadu
+5. **Retarget:** Presunout leady bez odpovedi do retarget poolu pro opetovne osloveni
+
+---
+
+# Cast 2 — Detailni postupy
+
+## 1. Pridani noveho obchodnika / e-mailoveho uctu
+
+### Krok 1.1 — Pridat IMAP credentials
+
+**Cil:** Umoznit systemu cist prichozi e-maily noveho obchodnika.
+
+**Pouze pro roli Admin:** Vyzaduje SSH pristup k VPS.
+
+**Predpoklady:**
+- IMAP pristupove udaje noveho obchodnika (host, port, uzivatel, heslo)
+- SSH pristup k VPS
+
+**Postup:**
+
+1. Pripojte se na VPS a otevrete soubor `/docker/imap-proxy/config.json`
+2. Pridejte novy zaznam:
 
 ```json
 {
   "credentials": {
-    "Salesman IMAP 1": { ... },
+    "Salesman IMAP 1": { "..." },
     "Salesman IMAP 2": {
       "host": "imap.example.com",
       "port": 993,
-      "user": "new-salesman@example.com",
-      "pass": "password"
+      "user": "novy-obchodnik@example.com",
+      "pass": "heslo"
     }
   }
 }
 ```
 
-Restart the container: `docker restart imap-proxy`
+3. Restartujte kontejner:
 
-### 2. Add SMTP credentials
+```bash
+docker restart imap-proxy
+```
 
-Edit `/docker/smtp-proxy/config.json` similarly:
+**Vysledek:** IMAP proxy nyni kontroluje schranku noveho obchodnika.
+
+> POZOR: Nazev klice (napr. `"Salesman IMAP 2"`) musi presne odpovidat tomu, co pozdeji zadane do databaze v poli `salesmen.imap_credential_name`.
+
+### Krok 1.2 — Pridat SMTP credentials
+
+**Cil:** Umoznit systemu odesilat e-maily z noveho uctu.
+
+**Pouze pro roli Admin:** Vyzaduje SSH pristup k VPS.
+
+**Postup:**
+
+1. Otevrete `/docker/smtp-proxy/config.json` na VPS
+2. Pridejte novy zaznam:
 
 ```json
 {
   "credentials": {
-    "Burner SMTP": { ... },
+    "Burner SMTP": { "..." },
     "Salesman SMTP 2": {
       "host": "smtp.example.com",
       "port": 465,
       "secure": true,
-      "user": "new-salesman@example.com",
-      "pass": "password"
+      "user": "novy-obchodnik@example.com",
+      "pass": "heslo"
     }
   }
 }
 ```
 
-Restart: `docker restart smtp-proxy`
+3. Restartujte:
 
-### 3. Add salesman in the UI
+```bash
+docker restart smtp-proxy
+```
 
-Go to **Settings > Salesmen** (`/nastaveni/obchodnici`) and create a new salesman record with their name, email, and team assignment.
+**Vysledek:** SMTP proxy nyni umi odesilat z noveho uctu.
 
-### 4. Update outreach account
+### Krok 1.3 — Pridat obchodnika v UI
 
-If this is a new sending account, go to **Settings > Outreach Accounts** (`/nastaveni/ucty`) and configure the team's outreach account with the matching credential name.
+**Cil:** Zaregistrovat obchodnika v systemu.
 
-Note: Each team can have exactly **one** outreach account (UNIQUE constraint).
+**Predpoklady:** Kroky 1.1 a 1.2 dokonceny.
 
-## Creating and Scheduling Email Waves
+**Postup:**
 
-### 1. Prepare leads
+1. Prejdete na **Nastaveni > Obchodnici** (`/nastaveni/obchodnici`)
+2. Kliknete na "Pridat obchodnika"
+3. Vyplnte jmeno, e-mail a prirazeni k tymu
 
-Leads must be in `ready` status (enriched with verified email addresses). Check in **Leads** (`/leady`) — filter by status "ready".
+**Vysledek:** Obchodnik vytvoren v tabulce `salesmen`.
 
-### 2. Create a wave
+### Krok 1.4 — Nastavit outreach ucet
 
-Go to **Waves** (`/vlny`) and click "Create Wave":
-- Select a **team**
-- Select a **template set** (the email sequence to use)
-- Configure wave settings (daily send limit, scheduling)
+**Cil:** Propojit odesilaci ucet s tymem.
 
-### 3. Add leads to the wave
+**Predpoklady:** Obchodnik pridan v kroku 1.3.
 
-In the wave detail page (`/vlny/:id`), add leads using the "Add Leads" dialog. Only leads with verified emails and `ready` status can be added.
+**Postup:**
 
-### 4. Schedule the wave
+1. Prejdete na **Nastaveni > Outreach ucty** (`/nastaveni/ucty`)
+2. Nastavte nazev credential presne podle `config.json`
 
-Click "Schedule" in the wave detail page. This triggers **WF7** (wave-schedule) which:
-- Creates entries in `email_queue` for each lead × sequence step
-- Sets the wave status to `scheduled`
+**Vysledek:** Tym muze odesilat e-maily.
 
-### 5. Monitor sending
+> POZOR: Kazdy tym muze mit prave **jeden** outreach ucet (UNIQUE constraint v databazi). Pokud se pokusite pridat druhy, system vrati chybu.
 
-**WF8** (send-cron) runs every 5 minutes:
-- Claims a batch of queued emails via `claim_queued_emails()` (atomic)
-- Checks daily send limits via `increment_and_check_sends()`
-- Sends via SMTP proxy
-- Records in `sent_emails`
-- Calls `auto_complete_waves()` when done
+> Caste chyby:
+> - Preklep v nazvu credential — musi presne odpovidat (case-sensitive, vcetne mezer)
+> - Zapomenuti restartovat Docker kontejner po zmene config.json
+> - Pridani vice nez 5 aktivnich obchodniku (limit enforced triggerem `check_max_salesmen`)
 
-Monitor progress in the wave detail page — it shows sent/pending/failed counts in real-time (via Supabase realtime subscriptions).
+---
 
-## Template Management
+## 2. Vytvareni a planovani e-mailovych vln
 
-### Template sets
+### Krok 2.1 — Pripravit leady
 
-A **template set** is a group of email templates used by a wave. Manage them in **Settings > Templates** (`/nastaveni/sablony`).
+**Cil:** Overit, ze leady jsou pripraveny k osloveni.
 
-### Email templates
+**Predpoklady:** Leady musi byt ve stavu `ready` (obohacene s overenou e-mailovou adresou).
 
-Each template set contains templates organized by:
-- **Sequence** (seq1, seq2, seq3) — the email in the multi-touch sequence
-- **A/B variant** (A or B) — for split testing
+**Postup:**
 
-### Template variables
+1. Prejdete na **Leady** (`/leady`)
+2. Filtrujte podle stavu "ready"
+3. Zkontrolujte, ze leady maji overeny e-mail
 
-Available variables in email subject and body:
+> TIP: Pokud lead "uvaznul" v nejakem stavu, zkontrolujte sekci [Reseni problemu](#obohaceni-leadu-uvaznulo).
 
-| Variable | Source | Example |
-|----------|--------|---------|
+### Krok 2.2 — Vytvorit vlnu
+
+**Cil:** Zalozit novou e-mailovou kampan.
+
+**Postup:**
+
+1. Prejdete na **Vlny** (`/vlny`)
+2. Kliknete na "Vytvorit vlnu"
+3. Vyplnte:
+   - **Tym** — ktery tym vlnu odesila
+   - **Sada sablon** — e-mailova sekvence k pouziti
+   - **Nastaveni** — denni limit odesilani, casovani
+
+**Vysledek:** Vlna ve stavu `draft`.
+
+### Krok 2.3 — Pridat leady do vlny
+
+**Cil:** Prirazit leady ke kampani.
+
+**Predpoklady:** Vlna ve stavu `draft`.
+
+**Postup:**
+
+1. Otevrete detail vlny (`/vlny/:id`)
+2. Kliknete na "Pridat leady"
+3. Vyberte leady ze seznamu (pouze leady se stavem `ready` a overenym e-mailem)
+
+**Vysledek:** Leady prirazeny do vlny, jejich stav se zmeni na `in_wave`.
+
+### Krok 2.4 — Naplanovani vlny
+
+**Cil:** Spustit odesilani.
+
+**Predpoklady:** Leady pridany a overeny.
+
+**Postup:**
+
+1. Na detailu vlny kliknete "Naplanovat"
+2. System spusti **WF7** (planovani vlny), ktery:
+   - Vytvori zaznamy v `email_queue` pro kazdy lead x sekvenci
+   - Nastavi stav vlny na `scheduled`
+
+**Vysledek:** Vlna naplanovana, e-maily se zacnou odesilat automaticky.
+
+### Krok 2.5 — Sledovani odesilani
+
+**Cil:** Monitorovat prubeh kampane.
+
+**WF8** (odesilaci cron) bezi kazdych 5 minut:
+- Prevezme davku e-mailu z fronty pres `claim_queued_emails()` (atomicky)
+- Zkontroluje denni limit pres `increment_and_check_sends()`
+- Odesle pres SMTP proxy
+- Zaznamenavdo `sent_emails`
+- Zavola `auto_complete_waves()` po dokonceni
+
+**Jak sledovat:** Na detailu vlny vidite pocty odeslanych/cekajicich/chybnych e-mailu v realnem case (pres Supabase realtime subscriptions).
+
+> TIP: Sequence timing — po seq1 se seq2 planuje s 3dennim odstupem, po seq2 se seq3 planuje s 5dennim odstupem. Tyto intervaly lze nastavit na vlne.
+
+---
+
+## 3. Sprava sablon
+
+### Sady sablon (Template sets)
+
+**Cil:** Spravovat skupiny e-mailovych sablon.
+
+**Pouze pro roli Admin:** Pristupne v **Nastaveni > Sablony** (`/nastaveni/sablony`).
+
+Kazda sada sablon obsahuje sablony organizovane podle:
+- **Sekvence** (seq1, seq2, seq3) — poradi e-mailu v kampani
+- **A/B varianta** (A nebo B) — pro split testovani
+
+### Dostupne promenne v sablonach
+
+| Promenna | Zdroj | Priklad |
+|----------|-------|---------|
 | `{{salutation}}` | `jednatels.salutation` | `Vazeny pane Novaku` |
 | `{{company_name}}` | `leads.company_name` | `ACME s.r.o.` |
 | `{{first_name}}` | `jednatels.first_name` | `Jan` |
 | `{{last_name}}` | `jednatels.last_name` | `Novak` |
 
-Templates use `{{salutation}},` directly — the greeting prefix is included in the salutation field (no need to add "Vazeny pane" in the template).
+> TIP: Pouzivejte `{{salutation}},` primo v sablone — osloveni uz obsahuje predponu "Vazeny pane" / "Vazena pani". Nepridavejte predponu znovu.
 
-### Template editing
+### Editor sablon
 
-The template editor uses **Tiptap** (rich text editor). You can use HTML formatting. Templates support drag-and-drop reordering of sequences.
+Editor pouziva **Tiptap** (rich text editor). Podporuje:
+- HTML formatovani
+- Drag-and-drop razeni sekvenci
+- Nahled pred odeslanim
 
-## Retarget Pool
+---
 
-The retarget pool (`/retarget`) contains leads that can be re-engaged in new waves. Leads enter the retarget pool when:
-- A wave completes without getting a reply
-- They are manually moved to the pool
+## 4. Retarget pool
 
-Use the retarget pool to create follow-up campaigns targeting leads that didn't respond to initial outreach.
+**Cil:** Opetovne oslovit leady, ktere neodpovedly.
 
-## User Management
+**Pristupne na:** `/retarget`
 
-### Admin panel
+Lead se dostane do retarget poolu, kdyz:
+- Vlna skonci bez odpovedi od leadu
+- Operator lead rucne presune do poolu
 
-Go to **Settings > Users** (`/nastaveni/uzivatele`) to manage users.
+**Postup pro opetovne osloveni:**
 
-### Roles
+1. Prejdete na retarget pool (`/retarget`)
+2. Vyberte leady k opetovnemu osloveni
+3. Vytvorte novou vlnu s jinou sadou sablon
+4. Pridejte vybrane leady do nove vlny
 
-- **Admin** — Full access to all settings, teams, users, templates
-- **Regular user** — Access to leads, waves, dashboard, email finder (no settings)
+> TIP: Pouzijte jinou sadu sablon nez pri prvnim osloveni — zmenena komunikace zvysuje sanci na odpoved.
 
-### Adding users
+---
 
-Users authenticate via Supabase Auth (email/password). Create new users in the admin panel — this creates both a Supabase Auth user and a `profiles` record with the assigned role.
+## 5. Sprava uzivatelu
 
-The **wf-admin-users** webhook handles user management operations from the UI.
+### Role v systemu
 
-## Monitoring
+| Role | Pristup |
+|------|---------|
+| **Admin** | Plny pristup — nastaveni, tymy, uzivatele, sablony, vsechny operace |
+| **Bezny uzivatel** | Leady, vlny, dashboard, email finder (bez pristupu k nastaveni) |
 
-### Reply Detection
+### Pridani uzivatele
 
-**WF9** runs every minute:
-1. Calls IMAP proxy (`/check-inbox`) for each salesman credential
-2. Matches replies to sent emails via Message-ID threading (In-Reply-To / References headers)
-3. Records in `lead_replies` table
-4. Updates wave_lead status to `replied`
-5. Deduplicates via `processed_reply_emails` table
+**Pouze pro roli Admin:** Pristupne v **Nastaveni > Uzivatele** (`/nastaveni/uzivatele`).
 
-Check replies in the UI on the wave detail page or lead detail page.
+**Postup:**
 
-### Bounce / NDR Monitoring
+1. Prejdete na stranku spravy uzivatelu
+2. Kliknete "Pridat uzivatele"
+3. Vyplnte e-mail, heslo a roli (admin / bezny uzivatel)
 
-Two workflows monitor for bounces:
-- **wf-ndr-monitor** — Checks INBOX for NDR (Non-Delivery Report) messages
-- **wf-ndr-monitor-spam** — Checks spam folder for bounced NDRs
+**Vysledek:** System vytvori uzivatele v Supabase Auth i zaznam v tabulce `profiles`.
 
-Bounces are recorded in `email_probe_bounces`. Old bounce records are cleaned daily by WF10.
+> TIP: Sprava uzivatelu probehne pres webhook `wf-admin-users` — zmeny se projevi okamzite.
 
-### Daily Reset (WF10)
+---
 
-Runs at midnight:
-- Calls `reset_daily_sends()` to reset all daily send counters
-- Deletes old `email_probe_bounces` records
+## 6. Monitoring
 
-### Health Checks
+### 6.1 — Detekce odpovedi
 
-Both proxies expose health endpoints:
-- IMAP: `GET http://imap-proxy:3001/health`
-- SMTP: `GET http://smtp-proxy:3002/health`
+**WF9** bezi kazdou minutu:
 
-From the VPS, you can check: `curl http://localhost:3001/health` and `curl http://localhost:3002/health`.
+1. Zavola IMAP proxy (`/check-inbox`) pro kazdy obchodnicky credential
+2. Sparuje odpovedi s odeslanyimi e-maily pres Message-ID threading (In-Reply-To / References)
+3. Zaznamenavdo tabulky `lead_replies`
+4. Aktualizuje `wave_lead` stav na `replied`
+5. Deduplikuje pres tabulku `processed_reply_emails`
 
-## Config Table Keys
+**Kde zkontrolovat odpovedi:** Na detailu vlny nebo detailu leadu v UI.
 
-The `config` table in Supabase stores runtime configuration:
+### 6.2 — Monitorovani bouncu / NDR
 
-| Key | Purpose | Example |
-|-----|---------|---------|
-| `seznam_from_email` | Sender email for Seznam verification (WF5) | `verify@example.com` |
-| `qev_api_key_1` | QEV API key (1st rotation slot) | `qev_abc123...` |
-| `qev_api_key_2` | QEV API key (2nd rotation slot) | `qev_def456...` |
-| `qev_api_key_3` | QEV API key (3rd rotation slot) | `qev_ghi789...` |
+Dva workflow monitoruji bouncy:
 
-QEV keys rotate automatically — WF6 cycles through all three to distribute API usage.
+| Workflow | Co kontroluje |
+|----------|--------------|
+| **wf-ndr-monitor** | INBOX — Non-Delivery Report zpravy |
+| **wf-ndr-monitor-spam** | Spam slozka — bounce zpravy presmerovane do spamu |
 
-## Troubleshooting
+Bouncy se zaznamenavaji do `email_probe_bounces`. Stare zaznamy maze WF10 kazdy den.
 
-### Emails not sending
+### 6.3 — Denni reset (WF10)
 
-1. **Check email_queue** — Look for items stuck in `queued` or `sending` status in Supabase
-2. **Verify SMTP proxy** — SSH to VPS, run `curl http://localhost:3002/health`
-3. **Check daily send limits** — `increment_and_check_sends()` may be blocking. Reset manually or wait for midnight reset
-4. **Review WF8 logs** — Open n8n UI, check WF8 execution history for errors
-5. **Check credential_name** — Ensure the outreach account's credential name matches an entry in `smtp-proxy/config.json`
+Bezi v pulnoci:
+- Zavola `reset_daily_sends()` — vynuluje vsechna pocitadla denniho odesilani
+- Smaze stare zaznamy z `email_probe_bounces`
 
-### Replies not detected
+### 6.4 — Health checky
 
-1. **Check IMAP proxy** — `curl http://localhost:3001/health`
-2. **Verify credential_name** — The credential name in WF9 must match `imap-proxy/config.json`
-3. **Check WF9 logs** — Look for IMAP connection errors in n8n
-4. **Verify threading** — Replies must have `In-Reply-To` or `References` headers matching a `sent_emails.message_id`
-5. **Check deduplication** — Reply may already be in `processed_reply_emails`
+Obe proxy maji health endpointy:
 
-### Lead enrichment stuck
+| Sluzba | Endpoint | Overeni z VPS |
+|--------|----------|---------------|
+| IMAP Proxy | `GET http://imap-proxy:3001/health` | `curl http://localhost:3001/health` |
+| SMTP Proxy | `GET http://smtp-proxy:3002/health` | `curl http://localhost:3002/health` |
 
-1. **Check enrichment_log** — Query for the lead_id to see which step failed
-2. **Verify workflow is active** — In n8n UI, ensure the relevant workflow (WF2-WF6) is active
-3. **Check webhook endpoints** — UI triggers enrichment via webhooks; ensure n8n is reachable
-4. **ARES API issues** — The ARES API may be temporarily down; check enrichment_log error details
-5. **Kurzy.cz scraping** — Site structure may have changed; check WF3 for scraping errors
+### 6.5 — Konfiguracni tabulka
 
-### Wave not completing
+Tabulka `config` v Supabase obsahuje runtime konfiguraci:
 
-1. **Check wave_leads** — Look for items stuck in non-terminal status
-2. **Verify auto_complete_waves()** — WF8 calls this after each send loop; check n8n logs
-3. **Failed emails** — Some wave_leads may be in `failed` status; investigate and retry or skip
-4. **Manual completion** — Use the wave detail page in the UI to manually mark as completed if needed
+| Klic | Ucel | Priklad |
+|------|------|---------|
+| `seznam_from_email` | Odesaci e-mail pro SMTP VRFY dotazy (WF5) | `verify@example.com` |
+| `qev_api_key_1` | QEV API klic (1. rotacni slot) | `qev_abc123...` |
+| `qev_api_key_2` | QEV API klic (2. rotacni slot) | `qev_def456...` |
+| `qev_api_key_3` | QEV API klic (3. rotacni slot) | `qev_ghi789...` |
 
-### Docker container issues
+> TIP: QEV klice se rotují automaticky — WF6 cykluje pres vsechny tri, aby rozlozil zatez API.
+
+---
+
+## 7. Reseni problemu (FAQ)
+
+### E-maily se neodessilaji
+
+| Mozna pricina | Jak overit | Reseni |
+|---------------|-----------|--------|
+| E-maily uvazly ve fronte | Zkontrolujte `email_queue` v Supabase — hledejte stav `queued` nebo `sending` | Pockejte na dalsi beh WF8 (kazdych 5 min) |
+| SMTP proxy nefunguje | SSH na VPS: `curl http://localhost:3002/health` | Restartujte: `docker restart smtp-proxy` |
+| Dosazeny denni limit | Funkce `increment_and_check_sends()` blokuje | Pockejte na pulnocni reset, nebo rucne vynulujte v databazi |
+| Chyba ve WF8 | Otevrete n8n UI, zkontrolujte historii spusteni WF8 | Opravte chybu podle logu |
+| Nesedi nazev credential | `outreach_accounts.smtp_credential_name` nesouhlasi s `smtp-proxy/config.json` | Opravte nazev tak, aby presne odpovidal |
+
+### Odpovedi se nedetekuji
+
+| Mozna pricina | Jak overit | Reseni |
+|---------------|-----------|--------|
+| IMAP proxy nefunguje | SSH na VPS: `curl http://localhost:3001/health` | Restartujte: `docker restart imap-proxy` |
+| Nesedi nazev credential | `salesmen.imap_credential_name` nesouhlasi s `imap-proxy/config.json` | Opravte nazev |
+| Chyba pripojeni v WF9 | Zkontrolujte historii spusteni WF9 v n8n | Opravte IMAP nastaveni |
+| Chybi threading hlavicky | Odpoved nema `In-Reply-To` nebo `References` odpovidajici `sent_emails.message_id` | Nelze resit — zavisí na e-mailovem klientu odesílatele |
+| Uz zpracovano | Odpoved je v tabulce `processed_reply_emails` | Ocekavane chovani — deduplikace funguje spravne |
+
+### Obohaceni leadu uvaznulo
+
+| Mozna pricina | Jak overit | Reseni |
+|---------------|-----------|--------|
+| Workflow neni aktivni | Zkontrolujte v n8n UI, ze WF2-WF6 jsou aktivni | Aktivujte prislusny workflow |
+| Webhook nedostupny | UI vola n8n pres webhook — zkontrolujte, ze n8n je dostupne | Restartujte n8n kontejner |
+| ARES API nedostupne | Zkontrolujte `enrichment_log` pro dany lead | Pockejte a zkuste znovu (docasny vypadek) |
+| Zmena struktury kurzy.cz | WF3 scrapuje HTML — zmena webu zpusobi chybu | Aktualizujte scrapovaci logiku ve WF3 |
+| Konkretni krok selhal | Podivejte se na `enrichment_log` pro lead_id | Opravte podle chybove zpravy v logu |
+
+### Vlna se nedokonci
+
+| Mozna pricina | Jak overit | Reseni |
+|---------------|-----------|--------|
+| Uvazle wave_leads | Zkontrolujte `wave_leads` — hledejte neterminalní stavy | Opravte stav rucne |
+| auto_complete_waves() nefunguje | WF8 tuto funkci vola po kazdem behu — zkontrolujte logy | Zkontrolujte chybu ve funkci |
+| Chybne e-maily | Nektere `wave_leads` jsou ve stavu `failed` | Prozkoumejte pricinu a zkuste znovu nebo preskocte |
+| Rucni dokonceni | — | Na detailu vlny v UI oznacte jako dokoncene |
+
+### Docker kontejnery nefunguji
+
+**Postup diagnostiky:**
 
 ```bash
-# Check container status
+# 1. Zkontrolujte stav kontejneru
 docker ps -a | grep -E "imap-proxy|smtp-proxy|outreach-ui"
 
-# View logs
+# 2. Podivejte se na logy
 docker logs imap-proxy --tail 50
 docker logs smtp-proxy --tail 50
 
-# Restart
+# 3. Restartujte
 docker restart imap-proxy smtp-proxy
 ```
 
-### Database connection issues
+### Problemy s pripojenim k databazi
 
-1. **Check Supabase status** — Visit Supabase dashboard for project health
-2. **Verify service role key** — Ensure `SUPABASE_SERVICE_ROLE_KEY` in `.env.local` is current
-3. **RLS policies** — If queries return empty, check that RLS policies allow the operation
+| Mozna pricina | Jak overit | Reseni |
+|---------------|-----------|--------|
+| Supabase vypadek | Navstivte Supabase dashboard | Pockejte na obnovu |
+| Neplatny service role klic | Zkontrolujte `SUPABASE_SERVICE_ROLE_KEY` v `.env.local` | Aktualizujte klic |
+| RLS politiky blokuji dotaz | Dotaz vraci prazdne vysledky | Zkontrolujte RLS politiky v Supabase |
+
+---
+
+## Slovnicek
+
+| Pojem | Vysvetleni |
+|-------|-----------|
+| **Lead** | Firma nebo kontakt urceny k osloveni — identifikovan ICO, nazvem nebo jmenem |
+| **Jednatel** | Statutarni organ firmy (reditel, jednatel) — osoba, ktere se odesila e-mail |
+| **Vlna (Wave)** | E-mailova kampan — seskupeni leadu, kteri dostanou sekvenci az 3 e-mailu |
+| **Sekvence** | Poradi e-mailu v kampani: seq1 (prvni osloveni) → seq2 (+3 dny) → seq3 (+5 dni) |
+| **Template set** | Sada e-mailovych sablon — 3 sekvence x 2 A/B varianty |
+| **Obohaceni** | Automaticky proces doplneni dat: ARES → jednatele → e-maily → overeni |
+| **Retarget pool** | Sbirka leadu bez odpovedi, pripravenych k opetovnemu osloveni |
+| **Bounce / NDR** | Nedorucitelny e-mail — adresa neexistuje nebo server odmitl zpravou |
+| **Claim** | Atomicke prevzeti e-mailu z fronty — zabranni duplicitnimu odeslani |
+| **Threading** | Provazani e-mailu v konverzaci pres hlavicky Message-ID, In-Reply-To, References |
+| **Health check** | Kontrola, ze sluzba (proxy) bezi a odpovida spravne |
+| **RLS** | Row-Level Security — zabezpeceni pristpupu k datum na urovni radku v databazi |
+| **Credential** | Pristupove udaje (login, heslo) ulozene v konfiguraci proxy nebo n8n |
+| **Cron** | Casovy planovac — workflow bezi automaticky v nastavenych intervalech |
+
+---
+
+*Posledni aktualizace: brezen 2026*
