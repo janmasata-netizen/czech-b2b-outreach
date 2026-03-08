@@ -101,24 +101,21 @@ function CreateUserModal({ open, onClose, teamOptions }: {
 }
 
 // ── Change password modal ────────────────────────────────────────────────────
-function ChangePasswordModal({ user, open, onClose, canViewCurrent }: {
+function ChangePasswordModal({ user, open, onClose }: {
   user: AppUser | null;
   open: boolean;
   onClose: () => void;
-  canViewCurrent: boolean;   // admin viewing non-admin other user
 }) {
   const { user: me } = useAuthContext();
   const updateOther = useUpdateUserPassword();
   const updateSelf  = useUpdateOwnPassword();
 
   const isSelf = user?.id === me?.id;
-  const storedPw = user?.profile.password_plain ?? '';
 
   const [password, setPassword] = useState('');
   const [showPw, setShowPw] = useState(false);
-  const [showCurrent, setShowCurrent] = useState(false);
 
-  function handleClose() { setPassword(''); setShowPw(false); setShowCurrent(false); onClose(); }
+  function handleClose() { setPassword(''); setShowPw(false); onClose(); }
 
   async function handleSave() {
     if (!password.trim()) { toast.error('Zadejte nové heslo'); return; }
@@ -152,22 +149,6 @@ function ChangePasswordModal({ user, open, onClose, canViewCurrent }: {
       }
     >
       <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
-        {canViewCurrent && storedPw && (
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 5 }}>
-            <label style={LABEL}>Aktuální heslo</label>
-            <div style={{ position: 'relative' }}>
-              <input className="glass-input" readOnly type={showCurrent ? 'text' : 'password'}
-                value={storedPw}
-                style={{ paddingRight: 36, fontFamily: 'inherit', width: '100%', boxSizing: 'border-box', color: 'var(--text-dim)' }}
-              />
-              <button type="button" onClick={() => setShowCurrent(v => !v)}
-                style={{ position: 'absolute', right: 10, top: '50%', transform: 'translateY(-50%)', background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-muted)', padding: 0, display: 'flex' }}>
-                {showCurrent ? <EyeOff size={14} /> : <Eye size={14} />}
-              </button>
-            </div>
-          </div>
-        )}
-
         <div style={{ display: 'flex', flexDirection: 'column', gap: 5 }}>
           <label style={LABEL}>Nové heslo *</label>
           <div style={{ position: 'relative' }}>
@@ -181,7 +162,7 @@ function ChangePasswordModal({ user, open, onClose, canViewCurrent }: {
               {showPw ? <EyeOff size={14} /> : <Eye size={14} />}
             </button>
           </div>
-          {!isSelf && <p style={HINT}>Nové heslo bude uloženo i jako čitelná kopie.</p>}
+          {!isSelf && <p style={HINT}>Heslo bude změněno pro tohoto uživatele.</p>}
         </div>
       </div>
     </GlassModal>
@@ -228,7 +209,6 @@ export default function UsersSettings() {
         <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
           {(users ?? []).map(u => {
             const isSelf = u.id === me?.id;
-            const canViewPw = isAdmin && !u.profile.is_admin && !isSelf;
             const canDelete = isAdmin && !isSelf;
             const initials = (u.profile.full_name ?? u.email).split(' ').map((s: string) => s[0]).slice(0, 2).join('').toUpperCase();
 
@@ -273,9 +253,9 @@ export default function UsersSettings() {
 
                 {/* Actions */}
                 <div style={{ display: 'flex', gap: 6, flexShrink: 0 }}>
-                  {(isSelf || canViewPw) && (
+                  {(isSelf || isAdmin) && (
                     <GlassButton size="sm" onClick={() => setPwTarget(u)}>
-                      {canViewPw ? 'Heslo' : 'Změnit heslo'}
+                      Změnit heslo
                     </GlassButton>
                   )}
                   {canDelete && (
@@ -310,7 +290,6 @@ export default function UsersSettings() {
         user={pwTarget}
         open={!!pwTarget}
         onClose={() => setPwTarget(null)}
-        canViewCurrent={!!pwTarget && !pwTarget.profile.is_admin && pwTarget.id !== me?.id && isAdmin}
       />
 
       <GlassModal open={!!deleteTarget} onClose={() => setDeleteTarget(null)}
