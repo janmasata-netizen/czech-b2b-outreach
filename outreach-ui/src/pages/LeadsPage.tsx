@@ -15,7 +15,9 @@ import ImportChooserDialog from '@/components/leads/ImportChooserDialog';
 import EmailDiscoveryTab from '@/components/leads/EmailDiscoveryTab';
 import ReadyLeadsTab from '@/components/leads/ReadyLeadsTab';
 import Pagination from '@/components/shared/Pagination';
+import GlassButton from '@/components/glass/GlassButton';
 import { PAGE_SIZE } from '@/lib/constants';
+import { exportCsv } from '@/lib/export';
 
 type Tab = 'all' | 'discovery' | 'ready' | 'problematic';
 
@@ -90,6 +92,30 @@ export default function LeadsPage() {
       <PageHeader
         title={PAGE_TITLES[tab]}
         subtitle={tab === 'all' || tab === 'problematic' ? `${total.toLocaleString('cs-CZ')} celkem` : undefined}
+        actions={
+          (tab === 'all' || tab === 'problematic') ? (
+            <GlassButton size="sm" variant="secondary" onClick={async () => {
+              const { data } = await supabase
+                .from('leads')
+                .select('company_name, ico, website, domain, status, created_at, email_candidates(email_address, is_verified)')
+                .order('created_at', { ascending: false })
+                .limit(5000);
+              if (!data?.length) return;
+              const rows = data.map((l: any) => ({
+                company_name: l.company_name,
+                ico: l.ico,
+                website: l.website,
+                domain: l.domain,
+                status: l.status,
+                email: l.email_candidates?.find((c: any) => c.is_verified)?.email_address ?? l.email_candidates?.[0]?.email_address ?? '',
+                created_at: l.created_at,
+              }));
+              exportCsv('leady.csv', ['company_name', 'ico', 'website', 'domain', 'status', 'email', 'created_at'], rows);
+            }}>
+              Export CSV
+            </GlassButton>
+          ) : undefined
+        }
       />
 
       {tab === 'problematic' && (
