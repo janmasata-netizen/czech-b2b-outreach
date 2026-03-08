@@ -6,7 +6,7 @@
 
 import { readFileSync } from 'fs';
 import http from 'http';
-import { N8N_API_KEY, N8N_BASE_URL } from './env.mjs';
+import { N8N_API_KEY, N8N_BASE_URL, SUPABASE_SERVICE_ROLE_KEY } from './env.mjs';
 
 const WORKFLOWS = [
   { file: 'sub-reply-check.json', id: 'WjbYMqMXDxkjIssL', activate: true },
@@ -41,7 +41,9 @@ function request(method, path, body) {
 }
 
 async function pushWorkflow({ file, id, activate }) {
-  const raw = JSON.parse(readFileSync(file, 'utf-8'));
+  const jsonStr = readFileSync(file, 'utf-8')
+    .replaceAll('SUPABASE_SERVICE_ROLE_KEY_PLACEHOLDER', SUPABASE_SERVICE_ROLE_KEY);
+  const raw = JSON.parse(jsonStr);
   delete raw.pinData;
   delete raw.active;
 
