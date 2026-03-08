@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import GlassCard from '@/components/glass/GlassCard';
 import GlassButton from '@/components/glass/GlassButton';
 import GlassInput from '@/components/glass/GlassInput';
@@ -39,6 +39,27 @@ export default function WaveConfigForm({ wave }: WaveConfigFormProps) {
     });
   }, [wave.id, wave.template_set_id, (wave as any).salesman_id, (wave as any).outreach_account_id, (wave as any).is_dummy, (wave as any).dummy_email]);
 
+  const savedForm = useRef(form);
+  useEffect(() => {
+    savedForm.current = {
+      name: wave.name ?? '',
+      template_set_id: wave.template_set_id ?? '',
+      salesman_id: (wave as any).salesman_id ?? '',
+      outreach_account_id: (wave as any).outreach_account_id ?? '',
+      is_dummy: Boolean((wave as any).is_dummy),
+      dummy_email: (wave as any).dummy_email ?? '',
+    };
+  }, [wave.id]);
+
+  const isDirty = JSON.stringify(form) !== JSON.stringify(savedForm.current);
+
+  useEffect(() => {
+    if (!isDirty) return;
+    const handler = (e: BeforeUnloadEvent) => { e.preventDefault(); };
+    window.addEventListener('beforeunload', handler);
+    return () => window.removeEventListener('beforeunload', handler);
+  }, [isDirty]);
+
   function set(field: string, value: string | boolean) {
     setForm(f => ({ ...f, [field]: value }));
   }
@@ -56,6 +77,7 @@ export default function WaveConfigForm({ wave }: WaveConfigFormProps) {
           dummy_email: form.is_dummy ? (form.dummy_email || undefined) : undefined,
         } as any,
       });
+      savedForm.current = { ...form };
       toast.success('Vlna uložena');
     } catch {
       toast.error('Chyba při ukládání vlny');
@@ -134,9 +156,14 @@ export default function WaveConfigForm({ wave }: WaveConfigFormProps) {
         </div>
 
         {!locked && (
-          <GlassButton variant="primary" onClick={handleSave} disabled={updateWave.isPending} style={{ alignSelf: 'flex-start' }}>
-            {updateWave.isPending ? 'Ukládám…' : 'Uložit změny'}
-          </GlassButton>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+            <GlassButton variant="primary" onClick={handleSave} disabled={updateWave.isPending} style={{ alignSelf: 'flex-start' }}>
+              {updateWave.isPending ? 'Ukládám…' : 'Uložit změny'}
+            </GlassButton>
+            {isDirty && (
+              <span style={{ fontSize: 11, color: '#fbbf24', fontWeight: 500 }}>Neuložené změny</span>
+            )}
+          </div>
         )}
       </div>
     </GlassCard>
