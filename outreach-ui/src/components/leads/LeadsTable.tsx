@@ -2,21 +2,11 @@ import { useNavigate } from 'react-router-dom';
 import type { Lead } from '@/types/database';
 import StatusBadge from '@/components/shared/StatusBadge';
 import { formatDate, extractDomain, truncate } from '@/lib/utils';
+import { EMAIL_STATUS_STYLES } from '@/lib/constants';
 import { TableSkeleton } from '@/components/shared/LoadingSkeleton';
 import EmptyState from '@/components/shared/EmptyState';
 import { useRemoveLeadFromWave } from '@/hooks/useLeads';
 import { toast } from 'sonner';
-
-const EMAIL_STATUS_STYLES: Record<string, { color: string; bg: string; label: string }> = {
-  valid:             { color: '#3ecf8e', bg: 'rgba(62,207,142,0.12)', label: 'valid' },
-  manually_verified: { color: '#3ecf8e', bg: 'rgba(62,207,142,0.12)', label: 'verified' },
-  likely_valid:      { color: '#f0b429', bg: 'rgba(240,180,41,0.12)',  label: 'likely valid' },
-  bounced:           { color: '#f87171', bg: 'rgba(248,113,113,0.12)', label: 'bounced' },
-  invalid:           { color: '#f87171', bg: 'rgba(248,113,113,0.12)', label: 'invalid' },
-  pending:           { color: '#94a3b8', bg: 'rgba(148,163,184,0.12)', label: 'pending' },
-  unknown:           { color: '#94a3b8', bg: 'rgba(148,163,184,0.12)', label: 'unknown' },
-  info_email:        { color: '#22d3ee', bg: 'rgba(34,211,238,0.12)',  label: 'info email' },
-};
 
 function EmailStatusBadge({ status }: { status: string }) {
   const s = EMAIL_STATUS_STYLES[status] ?? { color: '#94a3b8', bg: 'rgba(148,163,184,0.12)', label: status };

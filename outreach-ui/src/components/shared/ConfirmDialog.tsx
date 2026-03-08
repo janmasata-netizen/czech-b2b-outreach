@@ -1,5 +1,4 @@
-import GlassModal from '@/components/glass/GlassModal';
-import GlassButton from '@/components/glass/GlassButton';
+import GlassConfirmDialog from '@/components/glass/ConfirmDialog';
 
 interface ConfirmDialogProps {
   open: boolean;
@@ -12,23 +11,10 @@ interface ConfirmDialogProps {
   loading?: boolean;
 }
 
-export default function ConfirmDialog({ open, onClose, onConfirm, title, message, confirmLabel = 'Potvrdit', variant = 'danger', loading }: ConfirmDialogProps) {
+export default function ConfirmDialog({ message, ...rest }: ConfirmDialogProps) {
   return (
-    <GlassModal
-      open={open}
-      onClose={onClose}
-      title={title}
-      width={420}
-      footer={
-        <>
-          <GlassButton variant="secondary" onClick={onClose} disabled={loading}>Zrušit</GlassButton>
-          <GlassButton variant={variant} onClick={onConfirm} disabled={loading}>
-            {loading ? 'Probíhá…' : confirmLabel}
-          </GlassButton>
-        </>
-      }
-    >
+    <GlassConfirmDialog {...rest}>
       <p style={{ fontSize: 14, color: 'var(--text-dim)', lineHeight: 1.6 }}>{message}</p>
-    </GlassModal>
+    </GlassConfirmDialog>
   );
 }

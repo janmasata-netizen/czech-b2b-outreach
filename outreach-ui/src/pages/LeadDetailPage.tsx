@@ -14,6 +14,7 @@ import EnrichmentTimeline from '@/components/leads/EnrichmentTimeline';
 import CampaignHistory from '@/components/leads/CampaignHistory';
 import LeadTagsCard from '@/components/database/LeadTagsCard';
 import ContactMethodsCard from '@/components/database/ContactMethodsCard';
+import Breadcrumb from '@/components/shared/Breadcrumb';
 import { toast } from 'sonner';
 
 export default function LeadDetailPage() {
@@ -60,6 +61,10 @@ export default function LeadDetailPage() {
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
+      <Breadcrumb items={[
+        { label: 'Leady', to: '/leady' },
+        { label: lead.company_name ?? 'Lead' },
+      ]} />
       <PageHeader
         title={lead.company_name ?? 'Lead'}
         subtitle={lead.ico ? `IČO: ${lead.ico}` : undefined}
