@@ -1,50 +1,104 @@
-# Setup Guide
+# Pruvodce nastavenim
 
-## Prerequisites
+> Tento dokument vas provede kompletnim nastavenim systemu Czech B2B Email Outreach.
+> **Cast 1** je rychly checklist pro prvni den. **Cast 2** obsahuje detailni kroky.
 
-- **Node.js** v18+ (with npm)
-- **Docker** & Docker Compose
-- **GitHub CLI** (`gh`) — for PR workflow
-- **SSH access** to the VPS (key at `~/.ssh/vps_deploy_key`)
-- **Supabase account** with an active project
-- **n8n** self-hosted instance (Docker on VPS)
+---
 
-## 1. Clone and Configure
+## Navigace
 
-### Clone the repository
+| Jsem... | Chci... | Prejdete na... |
+|---------|---------|----------------|
+| Novy vyvojar | Rychle rozbehnout projekt | [Checklist prvniho dne](#cast-1--checklist-prvniho-dne) |
+| Vyvojar | Nastavit lokalni prostredi | [Klonovani a konfigurace](#1-klonovani-a-konfigurace) |
+| Vyvojar | Spustit UI lokalne | [Lokalni vyvoj](#2-lokalni-vyvoj) |
+| Vyvojar | Nasadit workflow do n8n | [Nasazeni workflow](#3-nasazeni-workflow-do-n8n) |
+| Admin | Nasadit na VPS | [Nasazeni na VPS](#4-nasazeni-na-vps) |
+| Admin | Nastavit novy Supabase projekt | [Supabase setup](#5-supabase-setup-nova-instalace) |
+| Kdokoliv | Reference promennych prostredi | [Prehled promennych](#6-prehled-promennych-prostredi) |
+
+---
+
+# Cast 1 — Checklist prvniho dne
+
+Postupujte v poradi. Kazdym krokem se priblizite k funkcnimu systemu.
+
+- [ ] Naklonovat repozitar (`git clone`)
+- [ ] Zkopirovat `.env.example` do `.env.local` a vyplnit hodnoty
+- [ ] Nainstalovat zavislosti UI (`npm install` v `outreach-ui/`)
+- [ ] Spustit UI lokalne (`npm run dev`) a overit prihlaseni
+- [ ] Importovat workflow do n8n (`node import.mjs`)
+- [ ] Overit, ze vsechny workflow jsou aktivni v n8n UI
+- [ ] Nasadit IMAP a SMTP proxy na VPS
+- [ ] Nasadit UI na VPS (`npm run build` + `node deploy-ssh2.mjs`)
+
+> TIP: Pokud nastavujete system od nuly (novy Supabase projekt), zacnete nejdriv sekci [5. Supabase Setup](#5-supabase-setup-nova-instalace) a pak se vratte k tomuto checklistu.
+
+---
+
+# Cast 2 — Detailni kroky
+
+## 1. Klonovani a konfigurace
+
+### Krok 1.1 — Klonovat repozitar
+
+**Cil:** Ziskat zdrojovy kod na lokalni pocitac.
+
+**Predpoklady:**
+- Nainstalovan Git
+- SSH klic pripojen ke GitHub uctu
 
 ```bash
 git clone git@github.com:janmasata-netizen/czech-b2b-outreach.git
 cd czech-b2b-outreach
 ```
 
-### Environment setup
+**Vysledek:** Adresar `czech-b2b-outreach/` s celym projektem.
+
+### Krok 1.2 — Nastavit promenne prostredi
+
+**Cil:** Pripravit konfiguraci pro pripojeni ke vsem sluzbam.
 
 ```bash
 cp .env.example .env.local
 ```
 
-Fill in all values in `.env.local`:
+Otevrete `.env.local` a vyplnte vsechny hodnoty:
 
-| Variable | Description | Where to get it |
-|----------|-------------|-----------------|
-| `N8N_BASE_URL` | n8n instance URL (e.g. `http://72.62.53.244:32770`) | VPS Docker config |
-| `N8N_API_KEY` | n8n REST API key | n8n Settings > API |
-| `N8N_MCP_BEARER` | Bearer token for webhook auth | Generate a random token, set in n8n |
-| `SUPABASE_URL` | Supabase project URL | Supabase Dashboard > Settings > API |
-| `SUPABASE_PROJECT_REF` | Project reference ID | Supabase Dashboard > Settings > General |
-| `SUPABASE_SERVICE_ROLE_KEY` | Server-side service role key | Supabase Dashboard > Settings > API |
-| `SUPABASE_MANAGEMENT_TOKEN` | Management API token | Supabase Dashboard > Access Tokens |
-| `HOSTINGER_API_TOKEN` | Hostinger API token | Hostinger control panel |
-| `VPS_IP` | VPS IP address | `72.62.53.244` |
-| `VITE_SUPABASE_URL` | Frontend Supabase URL (same as SUPABASE_URL) | Same as above |
-| `VITE_SUPABASE_ANON_KEY` | Frontend anon/public key | Supabase Dashboard > Settings > API |
-| `VITE_N8N_WEBHOOK_URL` | Frontend n8n webhook base URL | Same as N8N_BASE_URL + `/webhook` |
-| `VITE_WEBHOOK_SECRET` | Webhook auth secret for frontend calls | Same as N8N_MCP_BEARER |
+| Promenna | Popis | Kde ji najdete |
+|----------|-------|----------------|
+| `N8N_BASE_URL` | URL n8n instance (napr. `http://72.62.53.244:32770`) | VPS Docker konfigurace |
+| `N8N_API_KEY` | API klic pro n8n REST API | n8n > Settings > API |
+| `N8N_MCP_BEARER` | Bearer token pro webhook autentizaci | Vygenerujte nahodny token, nastavte v n8n |
+| `SUPABASE_URL` | URL Supabase projektu | Supabase Dashboard > Settings > API |
+| `SUPABASE_PROJECT_REF` | Referencni ID projektu | Supabase Dashboard > Settings > General |
+| `SUPABASE_SERVICE_ROLE_KEY` | Servisni klic (plny pristup) | Supabase Dashboard > Settings > API |
+| `SUPABASE_MANAGEMENT_TOKEN` | Token pro Management API | Supabase Dashboard > Access Tokens |
+| `HOSTINGER_API_TOKEN` | API token Hostinger | Hostinger kontrolni panel |
+| `VPS_IP` | IP adresa VPS | `72.62.53.244` |
+| `VITE_SUPABASE_URL` | Frontend Supabase URL (stejna jako SUPABASE_URL) | Viz vyse |
+| `VITE_SUPABASE_ANON_KEY` | Frontend anon/verejny klic | Supabase Dashboard > Settings > API |
+| `VITE_N8N_WEBHOOK_URL` | Frontend n8n webhook URL | Stejna jako N8N_BASE_URL + `/webhook` |
+| `VITE_WEBHOOK_SECRET` | Secret pro webhook autentizaci z frontendu | Stejny jako N8N_MCP_BEARER |
 
-## 2. Local Development
+> POZOR: Nikdy necommitujte `.env.local` do Gitu. Soubor je v `.gitignore`.
 
-### UI Development
+> Caste chyby:
+> - Zapomenuti na `/webhook` suffix u `VITE_N8N_WEBHOOK_URL`
+> - Zamena `SUPABASE_SERVICE_ROLE_KEY` s `VITE_SUPABASE_ANON_KEY` — kazdy se pouziva jinde
+> - Pouziti stareho API klice po regeneraci v n8n
+
+---
+
+## 2. Lokalni vyvoj
+
+### Krok 2.1 — Spustit UI lokalne
+
+**Cil:** Rozbehnout vyvojovy server pro praci na frontendu.
+
+**Predpoklady:**
+- Node.js v18+
+- Vyplneny `.env.local`
 
 ```bash
 cd outreach-ui
@@ -52,87 +106,113 @@ npm install
 npm run dev
 ```
 
-The dev server starts at `http://localhost:5173`. It reads environment variables from `../.env.local` (parent directory) via the Vite config.
+**Vysledek:** Vyvojovy server na `http://localhost:5173`.
 
-The `@` path alias maps to `./src` — imports like `@/hooks/useLeads` resolve to `src/hooks/useLeads.ts`.
+> TIP: UI cte promenne prostredi z `../.env.local` (nadrazeny adresar) pres Vite konfiguraci. Import alias `@` ukazuje na `./src` — napr. `@/hooks/useLeads` odpovida `src/hooks/useLeads.ts`.
 
-### Working with Workflows
+### Krok 2.2 — Prace s workflow
 
-Workflow JSON files live in `n8n-workflows/`. To modify a workflow:
+**Cil:** Upravit a nasadit workflow soubory.
 
-1. Edit the JSON file locally
-2. Push to n8n using the appropriate push script (see section 3)
-3. Verify in the n8n UI that the workflow is active and correct
+Workflow JSON soubory jsou v `n8n-workflows/`. Postup uprany:
 
-All helper scripts read secrets from `env.mjs` (which loads `../.env.local`). No hardcoded secrets in scripts.
+1. Upravte JSON soubor lokalne
+2. Nahrajte do n8n pomoci push skriptu (viz sekce 3)
+3. Overte v n8n UI, ze je workflow aktivni a spravny
 
-## 3. Deploying Workflows to n8n
+> TIP: Vsechny helper skripty ctou secrets z `env.mjs` (ktery nacita `../.env.local`). Zadne hardcoded secrets ve skriptech.
 
-### Push scripts
+---
 
-Individual push scripts exist for each workflow or group:
+## 3. Nasazeni workflow do n8n
+
+### Krok 3.1 — Push jednotlivych workflow
+
+**Cil:** Nahrat konkretni workflow do n8n.
+
+**Pouze pro roli Admin:** Tuto operaci muze provadet pouze spravce systemu.
 
 ```bash
 cd n8n-workflows
 
-# Push a specific workflow
-node push-wf8.mjs        # Push WF8 (send cron)
-node push-reply.mjs       # Push reply detection workflows
-node push-ndr.mjs         # Push NDR monitor workflows
-# ... etc (see n8n-workflows/push-*.mjs for all)
+# Push konkretniho workflow
+node push-wf8.mjs        # WF8 (odesilaci cron)
+node push-reply.mjs       # Reply detection workflow
+node push-ndr.mjs         # NDR monitor workflow
+# ... viz n8n-workflows/push-*.mjs pro vsechny
 ```
 
-Each push script:
-1. Reads the workflow JSON
-2. Strips `pinData` and sets `active: false`
-3. PUTs to n8n API (deactivate → update → activate)
+Kazdy push skript:
+1. Nacte JSON soubor workflow
+2. Odstrani `pinData` a nastavi `active: false`
+3. Odesle PUT do n8n API (deaktivuje → aktualizuje → aktivuje)
 
-### Import all workflows
+### Krok 3.2 — Import vsech workflow (nova instance)
 
-For a fresh n8n instance, import everything:
+**Cil:** Importovat vsechny workflow do ciste n8n instance.
+
+**Pouze pro roli Admin:** Toto spoustejte pouze pri prvni instalaci.
 
 ```bash
 node import.mjs
 ```
 
-This POSTs all workflow JSONs to n8n, stripping test data.
+**Vysledek:** Vsechny workflow nahrane do n8n, bez testovacich dat.
 
-### Update specific workflows
+### Krok 3.3 — Aktualizace nejcasteji menenych workflow
+
+**Cil:** Rychla aktualizace WF7, WF8 a WF10.
 
 ```bash
 node update.mjs
 ```
 
-Updates WF7, WF8, and WF10 specifically (the most frequently changed cron/scheduling workflows).
+### Krok 3.4 — Organizace workflow
 
-### Organize workflows
+**Cil:** Pridat tagy pro prehledne razeni v n8n UI.
 
 ```bash
 node organize.mjs
 ```
 
-Applies tags to all workflows for grouping in the n8n UI.
+---
 
-## 4. VPS Deployment
+## 4. Nasazeni na VPS
 
-### UI Deployment
+### Krok 4.1 — Nasadit UI
+
+**Cil:** Sestavit a nahrat UI na produkci.
+
+**Pouze pro roli Admin:** Vyzaduje SSH pristup k VPS.
+
+**Predpoklady:**
+- SSH klic `~/.ssh/vps_deploy_key`
+- Vyplneny `.env.local`
 
 ```bash
 cd outreach-ui
-npm run build          # TypeScript compile + Vite build → dist/
-node deploy-ssh2.mjs   # Upload dist/ to VPS via SFTP
+npm run build          # TypeScript kompilace + Vite build → dist/
+node deploy-ssh2.mjs   # Upload dist/ na VPS pres SFTP
 ```
 
-The deploy script:
-1. Connects to VPS at `72.62.53.244:22` as `root` via SSH key (`~/.ssh/vps_deploy_key`)
-2. Uploads the entire `dist/` directory to `/docker/outreach-ui/dist` via SFTP
-3. Restarts the `outreach-ui-outreach-ui-1` Docker container
+Deploy skript:
+1. Pripoji se na VPS `72.62.53.244:22` jako `root` pres SSH klic
+2. Nahraje cely adresar `dist/` do `/docker/outreach-ui/dist`
+3. Restartuje Docker kontejner `outreach-ui-outreach-ui-1`
 
-Fallback: If SSH key is not found, it uses the `VPS_PASS` environment variable for password auth.
+> TIP: Pokud SSH klic neni nalezen, skript pouzije promennou `VPS_PASS` pro heslo.
 
-### IMAP Proxy Deployment
+### Krok 4.2 — Nasadit IMAP Proxy
 
-1. Create `imap-proxy/config.json` from `config.example.json`:
+**Cil:** Spustit IMAP proxy mikrosluzbu na VPS.
+
+**Pouze pro roli Admin:** Vyzaduje SSH pristup k VPS.
+
+**Predpoklady:**
+- Pristup na VPS
+- IMAP credentials pro vsechny obchodniky
+
+1. Vytvorte `imap-proxy/config.json` podle `config.example.json`:
 
 ```json
 {
@@ -141,24 +221,30 @@ Fallback: If SSH key is not found, it uses the `VPS_PASS` environment variable f
       "host": "imap.example.com",
       "port": 993,
       "user": "email@example.com",
-      "pass": "password"
+      "pass": "heslo"
     }
   }
 }
 ```
 
-2. Deploy:
+2. Nasadte:
 
 ```bash
 cd imap-proxy
 node deploy.mjs
 ```
 
-This uploads files to `/docker/imap-proxy/` on the VPS, builds the Docker image, and restarts the container. The proxy runs on `127.0.0.1:3001` (accessible only within the Docker network).
+**Vysledek:** Proxy bezi na `127.0.0.1:3001` (pristupna pouze v Docker siti).
 
-### SMTP Proxy Deployment
+> POZOR: Nazev klice v `config.json` (napr. `"Salesman IMAP 1"`) musi **presne** odpovidat nazvu credential v databazi (`salesmen.imap_credential_name`). Rozdil v jedinem znaku zpusobi, ze detekce odpovedi nebude fungovat.
 
-1. Create `smtp-proxy/config.json` from `config.example.json`:
+### Krok 4.3 — Nasadit SMTP Proxy
+
+**Cil:** Spustit SMTP proxy mikrosluzbu na VPS.
+
+**Pouze pro roli Admin:** Vyzaduje SSH pristup k VPS.
+
+1. Vytvorte `smtp-proxy/config.json` podle `config.example.json`:
 
 ```json
 {
@@ -167,83 +253,113 @@ This uploads files to `/docker/imap-proxy/` on the VPS, builds the Docker image,
       "host": "smtp.example.com",
       "port": 465,
       "secure": true,
-      "user": "your-smtp-user",
-      "pass": "your-smtp-password"
+      "user": "smtp-uzivatel",
+      "pass": "smtp-heslo"
     }
   }
 }
 ```
 
-2. Deploy:
+2. Nasadte:
 
 ```bash
 cd smtp-proxy
 node deploy.mjs
 ```
 
-Same process as IMAP proxy — uploads to `/docker/smtp-proxy/`, builds, restarts. Runs on `127.0.0.1:3002`.
+**Vysledek:** Proxy bezi na `127.0.0.1:3002`.
 
-## 5. Supabase Setup (Fresh Install)
+> POZOR: Nazev credential v `config.json` musi presne odpovidat `outreach_accounts.smtp_credential_name` v databazi.
 
-For a brand new Supabase project, run the setup scripts in order:
+---
 
-### Database schema
+## 5. Supabase Setup (nova instalace)
+
+> Pouze pro roli Admin: Tato sekce je urcena pouze pro uplne novou instalaci. Pokud jiz mate existujici Supabase projekt, preskocte na sekci 6.
+
+### Krok 5.1 — Databazove schema
+
+**Cil:** Vytvorit vsechny tabulky, funkce, triggery a RLS politiky.
 
 ```bash
 cd n8n-workflows
 node db-setup.mjs
 ```
 
-Creates all 19 tables, types, functions, triggers, and RLS policies.
+### Krok 5.2 — Migrace
 
-### Run migrations
-
-The `migrate-*.mjs` scripts in `n8n-workflows/` have all been run on the current database. For a fresh install, run them in filename order:
+**Cil:** Spustit vsechny databazove migrace v poradi.
 
 ```bash
 node migrate-001-*.mjs
 node migrate-002-*.mjs
-# ... continue for all migrate-*.mjs files
+# ... pokracujte pro vsechny migrate-*.mjs soubory
 ```
 
-### Seed data
+> POZOR: Migraci spoustejte vzdy v poradi podle cisla v nazvu souboru. Preskoceni migrace muze zpusobit chyby.
+
+### Krok 5.3 — Seedovani dat
+
+**Cil:** Vlozit pocatecni konfiguracni hodnoty.
 
 ```bash
 node seed.mjs
 ```
 
-Seeds initial config values and any required reference data.
+### Krok 5.4 — Vytvoreni admin uzivatele
 
-### Create admin user
+**Cil:** Vytvorit prvniho administratora.
 
 ```bash
 node create-admin.mjs
 ```
 
-Creates the first admin user in Supabase Auth + profiles table.
+**Vysledek:** Uzivatel vytvoren v Supabase Auth i v tabulce `profiles`.
 
-### Combined setup (alternative)
+### Alternativa — Kompletni setup jednim prikazem
+
+Vsechny kroky 5.1 az 5.4 najednou:
 
 ```bash
 node setup-all.mjs
 ```
 
-Runs db-setup, migrations, seed, and create-admin in sequence.
+---
 
-## 6. Environment Variables Reference
+## 6. Prehled promennych prostredi
 
-| Variable | Used By | Description |
-|----------|---------|-------------|
-| `N8N_BASE_URL` | Scripts, UI | n8n API base URL |
-| `N8N_API_KEY` | Scripts | n8n REST API authentication |
-| `N8N_MCP_BEARER` | n8n webhooks | Bearer token for webhook auth |
-| `SUPABASE_URL` | Scripts | Supabase project URL |
-| `SUPABASE_PROJECT_REF` | Scripts | Supabase project reference ID |
-| `SUPABASE_SERVICE_ROLE_KEY` | Scripts | Server-side Supabase key (full access) |
-| `SUPABASE_MANAGEMENT_TOKEN` | Scripts | Supabase Management API token |
-| `HOSTINGER_API_TOKEN` | MCP tools | Hostinger API for VPS management |
-| `VPS_IP` | Deploy scripts | VPS IP address (72.62.53.244) |
-| `VITE_SUPABASE_URL` | UI (frontend) | Supabase URL for browser client |
-| `VITE_SUPABASE_ANON_KEY` | UI (frontend) | Supabase anon key for browser client |
-| `VITE_N8N_WEBHOOK_URL` | UI (frontend) | n8n webhook base URL for UI calls |
-| `VITE_WEBHOOK_SECRET` | UI (frontend) | Webhook auth secret |
+| Promenna | Pouziva | Popis |
+|----------|---------|-------|
+| `N8N_BASE_URL` | Skripty, UI | Zakladni URL n8n API |
+| `N8N_API_KEY` | Skripty | Autentizace n8n REST API |
+| `N8N_MCP_BEARER` | n8n webhooky | Bearer token pro webhook autentizaci |
+| `SUPABASE_URL` | Skripty | URL Supabase projektu |
+| `SUPABASE_PROJECT_REF` | Skripty | Referencni ID Supabase projektu |
+| `SUPABASE_SERVICE_ROLE_KEY` | Skripty | Servisni klic Supabase (plny pristup) |
+| `SUPABASE_MANAGEMENT_TOKEN` | Skripty | Token pro Supabase Management API |
+| `HOSTINGER_API_TOKEN` | MCP nastroje | API token pro spravu VPS |
+| `VPS_IP` | Deploy skripty | IP adresa VPS (72.62.53.244) |
+| `VITE_SUPABASE_URL` | UI (frontend) | Supabase URL pro prohlizec |
+| `VITE_SUPABASE_ANON_KEY` | UI (frontend) | Supabase anon klic pro prohlizec |
+| `VITE_N8N_WEBHOOK_URL` | UI (frontend) | n8n webhook URL pro volani z UI |
+| `VITE_WEBHOOK_SECRET` | UI (frontend) | Secret pro webhook autentizaci |
+
+---
+
+## Slovnicek
+
+| Pojem | Vysvetleni |
+|-------|-----------|
+| **VPS** | Virtual Private Server — virtualni server na Hostinger, kde bezi system |
+| **Docker** | Kontejnerizacni platforma — kazda sluzba bezi v izolovanem kontejneru |
+| **SSH** | Secure Shell — zabezpecene pripojeni k VPS pro spravu a deploy |
+| **SFTP** | SSH File Transfer Protocol — zabezpeceny prenos souboru na VPS |
+| **Anon klic** | Verejny klic Supabase pro frontend — omezeny pristup pres RLS |
+| **Service role klic** | Servisni klic Supabase — plny pristup, pouziva se pouze na backendu |
+| **Bearer token** | Autentizacni token v HTTP hlavicce — pouziva se pro zabezpeceni webhook volani |
+| **Push skript** | Helper skript, ktery nahraje workflow JSON do n8n pres API |
+| **Migrace** | Skript, ktery zmeni databazove schema (pridani sloupcu, tabulek atd.) |
+
+---
+
+*Posledni aktualizace: brezen 2026*
