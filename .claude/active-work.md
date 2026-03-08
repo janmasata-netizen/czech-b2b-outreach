@@ -6,4 +6,3 @@
 
 | Branch | Agent | Files/Areas | Started | Description |
 |---|---|---|---|---|
-| test/round-trip | coordination-test | .claude/ | 2026-03-08 | Round-trip test row — will be removed |
