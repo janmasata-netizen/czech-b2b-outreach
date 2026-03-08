@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useQueryClient } from '@tanstack/react-query';
-import { useWave, useTemplateSets, useDeleteWave, useUpdateWave } from '@/hooks/useWaves';
+import { useWave, useTemplateSets, useDeleteWave, useUpdateWave, useCreateWave } from '@/hooks/useWaves';
 import { useForceSendSequence } from '@/hooks/useForceSend';
 import { supabase } from '@/lib/supabase';
 import { n8nWebhookUrl, n8nHeaders } from '@/lib/n8n';
@@ -16,7 +16,7 @@ import EmptyState from '@/components/shared/EmptyState';
 import WaveConfigForm from '@/components/waves/WaveConfigForm';
 import WaveLeadsManager from '@/components/waves/WaveLeadsManager';
 import WaveResults from '@/components/waves/WaveResults';
-import { extractVariables, buildTemplateContext, findMissingVariables } from '@/lib/templateRenderer';
+import { extractVariables, buildTemplateContext, findMissingVariables, renderTemplate } from '@/lib/templateRenderer';
 import Breadcrumb from '@/components/shared/Breadcrumb';
 import { exportCsv } from '@/lib/export';
 import { toast } from 'sonner';
@@ -80,7 +80,9 @@ export default function WaveDetailPage() {
   const [missingVarsWarning, setMissingVarsWarning] = useState<Array<{ lead: string; missing: string[] }> | null>(null);
   const [confirmForceSendAll, setConfirmForceSendAll] = useState(false);
   const [confirmForceSendItem, setConfirmForceSendItem] = useState<any | null>(null);
+  const [showPreview, setShowPreview] = useState(false);
   const forceSend = useForceSendSequence(id ?? '');
+  const createWave = useCreateWave();
 
   if (isLoading) return <LoadingSkeleton />;
   if (error || !data) return (
@@ -397,6 +399,39 @@ export default function WaveDetailPage() {
       );
     }
 
+    // Email preview button
+    if (wave.template_set_id && waveLeads.length > 0) {
+      buttons.push(
+        <GlassButton key="preview" variant="secondary" onClick={() => setShowPreview(true)}>
+          Náhled e-mailu
+        </GlassButton>
+      );
+    }
+
+    // Duplicate button
+    buttons.push(
+      <GlassButton key="duplicate" variant="secondary" onClick={async () => {
+        try {
+          const newWave = await createWave.mutateAsync({
+            name: `${wave.name} (kopie)`,
+            template_set_id: wave.template_set_id,
+            salesman_id: (wave as any).salesman_id,
+            outreach_account_id: (wave as any).outreach_account_id,
+            team_id: (wave as any).team_id,
+            is_dummy: (wave as any).is_dummy,
+            dummy_email: (wave as any).dummy_email,
+            status: 'draft',
+          } as any);
+          toast.success('Vlna duplikována');
+          navigate(`/vlny/${newWave.id}`);
+        } catch {
+          toast.error('Chyba při duplikování vlny');
+        }
+      }} disabled={createWave.isPending}>
+        {createWave.isPending ? 'Duplikuji…' : 'Duplikovat'}
+      </GlassButton>
+    );
+
     if (['draft', 'paused'].includes(wave.status)) {
       buttons.push(
         <GlassButton
@@ -550,6 +585,34 @@ export default function WaveDetailPage() {
               </div>
             ))}
           </div>
+
+          {/* Scheduling summary */}
+          {canLaunch && (
+            <div style={{
+              marginTop: 14, padding: '12px 16px', borderRadius: 8,
+              background: 'rgba(62,207,142,0.04)', border: '1px solid rgba(62,207,142,0.15)',
+              display: 'flex', gap: 24, flexWrap: 'wrap',
+            }}>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+                <span style={{ fontSize: 10, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Leady</span>
+                <span style={{ fontSize: 15, fontFamily: 'JetBrains Mono, monospace', color: 'var(--green)', fontWeight: 600 }}>{waveLeads.length}</span>
+              </div>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+                <span style={{ fontSize: 10, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>E-mailů celkem</span>
+                <span style={{ fontSize: 15, fontFamily: 'JetBrains Mono, monospace', color: 'var(--text)', fontWeight: 600 }}>{waveLeads.length * availableSeqs.length}</span>
+              </div>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+                <span style={{ fontSize: 10, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Sekvence</span>
+                <span style={{ fontSize: 15, fontFamily: 'JetBrains Mono, monospace', color: 'var(--text)', fontWeight: 600 }}>{availableSeqs.length}</span>
+              </div>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+                <span style={{ fontSize: 10, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Období</span>
+                <span style={{ fontSize: 13, fontFamily: 'JetBrains Mono, monospace', color: 'var(--text)' }}>
+                  {fmtDate(seqDates[availableSeqs[0]] || '')} — {fmtDate(seqDates[availableSeqs[availableSeqs.length - 1]] || '')}
+                </span>
+              </div>
+            </div>
+          )}
 
           <div style={{ display: 'flex', gap: 10, marginTop: 16, alignItems: 'center' }}>
             <GlassButton
@@ -940,6 +1003,62 @@ export default function WaveDetailPage() {
             ))}
           </div>
         </div>
+      </GlassModal>
+
+      {/* Email preview modal */}
+      <GlassModal
+        open={showPreview}
+        onClose={() => setShowPreview(false)}
+        title="Náhled e-mailu"
+        width={640}
+        footer={
+          <GlassButton variant="secondary" onClick={() => setShowPreview(false)}>Zavřít</GlassButton>
+        }
+      >
+        {(() => {
+          const ts = templateSets?.find(t => t.id === wave.template_set_id);
+          const templates = ts?.email_templates ?? [];
+          const sampleWl = waveLeads[0];
+          const sampleLead = sampleWl?.leads ?? sampleWl?.lead ?? {};
+          const jednatels = sampleLead?.jednatels ?? [];
+          const jednatel = jednatels[0] ?? null;
+          const ctx = buildTemplateContext(sampleLead, jednatel);
+          const seqNums = Array.from(new Set<number>(templates.map((t: any) => t.sequence_number))).sort((a: number, b: number) => a - b);
+
+          if (!templates.length) {
+            return <p style={{ fontSize: 13, color: 'var(--text-muted)' }}>Žádné šablony k zobrazení</p>;
+          }
+
+          return (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+              <div style={{ fontSize: 12, color: 'var(--text-muted)', padding: '8px 12px', background: 'var(--bg-subtle)', borderRadius: 6, border: '1px solid var(--border)' }}>
+                Náhled s daty leadu: <strong style={{ color: 'var(--text)' }}>{sampleLead?.company_name ?? '—'}</strong>
+                {jednatel && <span> · {jednatel.full_name}</span>}
+              </div>
+              {seqNums.map(seq => {
+                const tpl = templates.find((t: any) => t.sequence_number === seq);
+                if (!tpl) return null;
+                const renderedSubject = renderTemplate(tpl.subject ?? '', ctx);
+                const renderedBody = renderTemplate(tpl.body_html ?? '', ctx);
+                return (
+                  <div key={seq} style={{ border: '1px solid var(--border)', borderRadius: 8, overflow: 'hidden' }}>
+                    <div style={{
+                      display: 'flex', alignItems: 'center', gap: 8, padding: '8px 12px',
+                      background: 'var(--bg-subtle)', borderBottom: '1px solid var(--border)',
+                    }}>
+                      <span style={{ fontSize: 11, fontFamily: 'JetBrains Mono, monospace', fontWeight: 700, color: 'var(--green)', background: 'rgba(62,207,142,0.1)', padding: '1px 6px', borderRadius: 3 }}>SEQ{seq}</span>
+                      <span style={{ fontSize: 13, color: 'var(--text)', fontWeight: 500 }}>{renderedSubject || '(bez předmětu)'}</span>
+                    </div>
+                    <div
+                      style={{ padding: '12px 16px', fontSize: 13, color: 'var(--text-dim)', lineHeight: 1.6 }}
+                      dangerouslySetInnerHTML={{ __html: renderedBody }}
+                    />
+                  </div>
+                );
+              })}
+            </div>
+          );
+        })()}
       </GlassModal>
     </div>
   );
