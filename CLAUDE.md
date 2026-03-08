@@ -57,7 +57,7 @@ An automated Czech B2B cold email outreach system built on n8n + Supabase. It en
 | wf-admin-users | JeP8whw3jNtL6VJ1 | webhook:admin-users |
 
 ## Database schema (Supabase)
-19 tables: `teams`, `outreach_accounts` (1 per team, UNIQUE(team_id)), `leads`, `enrichment_log`, `jednatels`, `email_candidates`, `template_sets`, `email_templates`, `waves`, `wave_leads`, `email_queue`, `sent_emails`, `lead_replies`, `config`, `salesmen`, `email_verifications`, `email_probe_bounces`, `profiles`, `processed_reply_emails`
+20 tables: `teams`, `outreach_accounts` (1 per team, UNIQUE(team_id)), `leads`, `enrichment_log`, `jednatels`, `email_candidates`, `template_sets`, `email_templates`, `waves`, `wave_leads`, `email_queue`, `sent_emails`, `lead_replies`, `config`, `salesmen`, `email_verifications`, `email_probe_bounces`, `profiles`, `processed_reply_emails`, `unmatched_replies`
 
 `config` table (key/value) for runtime secrets — `seznam_from_email`, `qev_api_key_1/2/3` (3 rotating QEV keys).
 

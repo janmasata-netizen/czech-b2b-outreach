@@ -275,7 +275,7 @@ const steps = [
       UPDATE public.email_queue
         SET status = 'cancelled'
         WHERE wave_lead_id = NEW.wave_lead_id
-          AND status IN ('queued', 'sending');
+          AND status IN ('queued', 'sending', 'pending_prev');
 
       UPDATE public.wave_leads
         SET status = 'replied', updated_at = now()
