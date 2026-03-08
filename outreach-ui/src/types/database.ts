@@ -275,7 +275,6 @@ export interface Profile {
   team_id: string | null;
   full_name: string | null;
   is_admin: boolean;
-  password_plain?: string | null;
   created_at?: string;
   team?: Team;
 }

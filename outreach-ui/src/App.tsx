@@ -12,6 +12,7 @@ import SettingsPage from '@/pages/SettingsPage';
 import EmailFinderPage from '@/pages/EmailFinderPage';
 import DatabasePage from '@/pages/DatabasePage';
 import RetargetPoolPage from '@/pages/RetargetPoolPage';
+import AdminRoute from '@/components/AdminRoute';
 import TeamsSettings from '@/components/settings/TeamsSettings';
 import OutreachAccountsSettings from '@/components/settings/OutreachAccountsSettings';
 import ApiKeysSettings from '@/components/settings/ApiKeysSettings';
@@ -40,7 +41,7 @@ export default function App() {
           <Route path="/vlny/:id" element={<WaveDetailPage />} />
           <Route path="/email-finder" element={<EmailFinderPage />} />
           <Route path="/retarget" element={<RetargetPoolPage />} />
-          <Route path="/nastaveni" element={<SettingsPage />}>
+          <Route path="/nastaveni" element={<AdminRoute><SettingsPage /></AdminRoute>}>
             <Route index element={null} />
             <Route path="tymy" element={<TeamsSettings />} />
             <Route path="obchodnici" element={<SalesmenSettings />} />

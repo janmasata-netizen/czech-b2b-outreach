@@ -8,6 +8,7 @@ import {
 } from 'lucide-react';
 import { TOP_H } from './TopBar';
 import { useMobileNav } from '@/hooks/useMobileNav';
+import { useAuthContext } from '@/components/AuthProvider';
 
 const NAV_ITEMS = [
   { to: '/prehled',      label: 'Přehled',      Icon: LayoutDashboard, exact: true  },
@@ -61,6 +62,8 @@ export default function Sidebar() {
   const [sp]     = useSearchParams();
   const [hover, setHover] = useState(false);
   const { isMobile, sidebarOpen, closeSidebar } = useMobileNav();
+  const { profile } = useAuthContext();
+  const isAdmin = profile?.is_admin === true;
 
   const open = isMobile ? sidebarOpen : hover;
 
@@ -249,10 +252,14 @@ export default function Sidebar() {
                 {item.to === '/vlny' && showWaveSubs && renderSubItems(WAVE_SUBS, 'Zobrazení', [{ label: 'Nová vlna', href: '/vlny?new=1' }])}
               </div>
             ))}
-            {divider}
-            {PEOPLE_ITEMS.map(item => navLink(item))}
-            {divider}
-            {CONFIG_ITEMS.map(item => navLink(item))}
+            {isAdmin && (
+              <>
+                {divider}
+                {PEOPLE_ITEMS.map(item => navLink(item))}
+                {divider}
+                {CONFIG_ITEMS.map(item => navLink(item))}
+              </>
+            )}
           </nav>
         </aside>
       </>
@@ -281,10 +288,14 @@ export default function Sidebar() {
     >
       <nav style={{ flex: 1, padding: '8px 0', display: 'flex', flexDirection: 'column', gap: 1, overflow: 'hidden' }}>
         {NAV_ITEMS.map(item => navLink(item))}
-        {divider}
-        {PEOPLE_ITEMS.map(item => navLink(item))}
-        {divider}
-        {CONFIG_ITEMS.map(item => navLink(item))}
+        {isAdmin && (
+          <>
+            {divider}
+            {PEOPLE_ITEMS.map(item => navLink(item))}
+            {divider}
+            {CONFIG_ITEMS.map(item => navLink(item))}
+          </>
+        )}
       </nav>
     </aside>
   );
