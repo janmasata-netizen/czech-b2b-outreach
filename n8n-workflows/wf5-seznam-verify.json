@@ -1,5 +1,5 @@
 {
-  "name": "WF5: Seznam Bounce Verification",
+  "name": "WF5: Combined Seznam + QEV Verification",
   "nodes": [
     {
       "parameters": {
@@ -9,7 +9,7 @@
         "options": {},
         "authentication": "headerAuth"
       },
-      "id": "wf05-0000-0000-0000-000000000001",
+      "id": "wf05c-n01",
       "name": "Webhook Trigger",
       "type": "n8n-nodes-base.webhook",
       "typeVersion": 2,
@@ -30,60 +30,12 @@
         "mode": "runOnceForEachItem",
         "jsCode": "return { json: { lead_id: $input.item.json.body.lead_id } };"
       },
-      "id": "wf05-0000-0000-0000-000000000002",
+      "id": "wf05c-n02",
       "name": "Extract Lead ID",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
         240,
-        300
-      ]
-    },
-    {
-      "parameters": {
-        "method": "GET",
-        "url": "https://cycapkswtucbucyegdsn.supabase.co/rest/v1/email_candidates",
-        "sendHeaders": true,
-        "headerParameters": {
-          "parameters": [
-            {
-              "name": "apikey",
-              "value": "SUPABASE_SERVICE_ROLE_KEY_PLACEHOLDER"
-            },
-            {
-              "name": "Authorization",
-              "value": "Bearer SUPABASE_SERVICE_ROLE_KEY_PLACEHOLDER"
-            }
-          ]
-        },
-        "sendQuery": true,
-        "queryParameters": {
-          "parameters": [
-            {
-              "name": "select",
-              "value": "id,email_address,jednatel_id,jednatels(lead_id)"
-            },
-            {
-              "name": "seznam_status",
-              "value": "eq.pending"
-            },
-            {
-              "name": "jednatels.lead_id",
-              "value": "={{ 'eq.' + $json.lead_id }}"
-            }
-          ]
-        },
-        "options": {
-          "timeout": 30000,
-          "neverError": true
-        }
-      },
-      "id": "wf05-0000-0000-0000-000000000003",
-      "name": "Get Pending Candidates",
-      "type": "n8n-nodes-base.httpRequest",
-      "typeVersion": 4.2,
-      "position": [
-        480,
         300
       ]
     },
@@ -108,16 +60,12 @@
         "queryParameters": {
           "parameters": [
             {
+              "name": "key",
+              "value": "in.(seznam_from_email,qev_api_key_1,qev_api_key_2,qev_api_key_3)"
+            },
+            {
               "name": "select",
               "value": "key,value"
-            },
-            {
-              "name": "key",
-              "value": "eq.seznam_from_email"
-            },
-            {
-              "name": "limit",
-              "value": "1"
             }
           ]
         },
@@ -126,10 +74,24 @@
           "neverError": true
         }
       },
-      "id": "wf05-conf-seznam-0000-000000000001",
-      "name": "Get Config SEZNAM",
+      "id": "wf05c-n03",
+      "name": "Get Config",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
+      "position": [
+        480,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "jsCode": "const rows = $input.all().map(i => i.json);\nconst get = k => rows.find(r => r.key === k)?.value ?? '';\nconst lead_id = $('Extract Lead ID').first().json.lead_id;\nconst keys = ['qev_api_key_1','qev_api_key_2','qev_api_key_3']\n  .map(k => get(k)).filter(v => v && v !== 'PLACEHOLDER');\nconst qev_key = keys.length > 0 ? keys[Math.floor(Math.random()*keys.length)] : '';\nreturn [{ json: { seznam_from_email: get('seznam_from_email'), qev_key, lead_id } }];"
+      },
+      "id": "wf05c-n04",
+      "name": "Extract Config",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
       "position": [
         720,
         300
@@ -137,47 +99,52 @@
     },
     {
       "parameters": {
-        "mode": "runOnceForAllItems",
-        "jsCode": "const candidates = $('Get Pending Candidates').all().map(i => i.json);\nconst lead_id = $('Extract Lead ID').first().json.lead_id;\n\nconst filtered = candidates.filter(c => {\n  const j = c.jednatels;\n  return j && (Array.isArray(j) ? j.some(x => x.lead_id === lead_id) : j.lead_id === lead_id);\n});\n\nreturn filtered.map(c => ({ json: { id: c.id, email_address: c.email_address, lead_id } }));"
+        "resource": "row",
+        "operation": "getAll",
+        "tableId": "jednatels",
+        "returnAll": true,
+        "filters": {
+          "conditions": [
+            {
+              "condition": "eq",
+              "keyName": "lead_id",
+              "keyValue": "={{ $('Extract Lead ID').first().json.lead_id }}"
+            }
+          ]
+        }
       },
-      "id": "wf05-0000-0000-0000-000000000004",
-      "name": "Flatten Candidates",
-      "type": "n8n-nodes-base.code",
-      "typeVersion": 2,
+      "id": "wf05c-n05",
+      "name": "Get Jednatels",
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
       "position": [
         960,
         300
-      ]
-    },
-    {
-      "parameters": {
-        "fromEmail": "={{ $('Get Config SEZNAM').first().json.value }}",
-        "toEmail": "={{ $json.email_address }}",
-        "subject": "Test doručení",
-        "emailType": "text",
-        "message": "Tento email je automatický test doručitelnosti.",
-        "options": {
-          "appendAttribution": false
-        }
-      },
-      "id": "wf05-0000-0000-0000-000000000007",
-      "name": "Send Test Email",
-      "type": "n8n-nodes-base.emailSend",
-      "typeVersion": 2.1,
-      "position": [
-        1200,
-        300
       ],
       "credentials": {
-        "smtp": {
-          "id": "3X8mKDvlcXsGRmZS",
-          "name": "vyhry-temu@seznam.cz"
+        "supabaseApi": {
+          "id": "8fUZtVEFmt5y101f",
+          "name": "Supabase"
         }
       }
     },
     {
       "parameters": {
-        "method": "PATCH",
+        "mode": "runOnceForAllItems",
+        "jsCode": "const ids = $input.all().map(i => i.json.id).filter(Boolean);\nconst cfg = $('Extract Config').first().json;\nreturn [{ json: { jednatel_ids: ids, seznam_from_email: cfg.seznam_from_email, qev_key: cfg.qev_key, lead_id: cfg.lead_id } }];"
+      },
+      "id": "wf05c-n06",
+      "name": "Build Jednatel IDs",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1200,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "method": "GET",
         "url": "https://cycapkswtucbucyegdsn.supabase.co/rest/v1/email_candidates",
         "sendHeaders": true,
         "headerParameters": {
@@ -189,10 +156,6 @@
             {
               "name": "Authorization",
               "value": "Bearer SUPABASE_SERVICE_ROLE_KEY_PLACEHOLDER"
-            },
-            {
-              "name": "Content-Type",
-              "value": "application/json"
             }
           ]
         },
@@ -200,21 +163,26 @@
         "queryParameters": {
           "parameters": [
             {
-              "name": "id",
-              "value": "={{ 'eq.' + $('Flatten Candidates').item.json.id }}"
+              "name": "jednatel_id",
+              "value": "={{ 'in.(' + $json.jednatel_ids.join(',') + ')' }}"
+            },
+            {
+              "name": "seznam_status",
+              "value": "eq.pending"
+            },
+            {
+              "name": "select",
+              "value": "id,email_address,jednatel_id"
             }
           ]
         },
-        "sendBody": true,
-        "specifyBody": "json",
-        "jsonBody": "={ \"seznam_status\": \"sent\" }",
         "options": {
           "timeout": 30000,
           "neverError": true
         }
       },
-      "id": "wf05-0000-0000-0000-000000000008",
-      "name": "Mark Sent",
+      "id": "wf05c-n07",
+      "name": "Get Pending Cands",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
       "position": [
@@ -225,10 +193,10 @@
     {
       "parameters": {
         "mode": "runOnceForAllItems",
-        "jsCode": "// All test emails have been sent. Consolidate to 1 item before the wait.\nreturn [{ json: { done: true } }];"
+        "jsCode": "const cfg = $('Build Jednatel IDs').first().json;\nreturn $input.all().map(i => ({ json: {\n  ...i.json,\n  seznam_from_email: cfg.seznam_from_email,\n  qev_key: cfg.qev_key,\n  lead_id: cfg.lead_id\n} }));"
       },
-      "id": "wf05-0000-0000-0000-000000000018",
-      "name": "Consolidate After Send",
+      "id": "wf05c-n08",
+      "name": "Add Config",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
@@ -238,68 +206,31 @@
     },
     {
       "parameters": {
-        "amount": 3,
-        "unit": "minutes"
+        "source": "database",
+        "workflowId": "Aov5PfwmBDv51L0e",
+        "mode": "runOnceForEachItem",
+        "waitForCompletion": true
       },
-      "id": "wf05-0000-0000-0000-000000000009",
-      "name": "Wait 3 Minutes",
-      "type": "n8n-nodes-base.wait",
-      "typeVersion": 1.1,
+      "id": "wf05c-nA",
+      "name": "Call Email Verify",
+      "type": "n8n-nodes-base.executeWorkflow",
+      "typeVersion": 1,
       "position": [
         1920,
-        300
-      ],
-      "webhookId": "wf5-wait"
-    },
-    {
-      "parameters": {
-        "mailbox": "INBOX",
-        "options": {
-          "customEmailConfig": "[\"UNSEEN\",[\"FROM\",\"mailer-daemon@seznam.cz\"]]",
-          "downloadAttachments": false,
-          "markSeen": false
-        }
-      },
-      "id": "wf05-0000-0000-0000-000000000010",
-      "name": "Check Bounces IMAP",
-      "type": "n8n-nodes-base.emailReadImap",
-      "typeVersion": 2,
-      "position": [
-        2160,
-        300
-      ],
-      "credentials": {
-        "imap": {
-          "id": "zvcpvsLoAq7WiOzX",
-          "name": "vyhry-temu@seznam.cz"
-        }
-      }
-    },
-    {
-      "parameters": {
-        "mode": "runOnceForAllItems",
-        "jsCode": "const bounceMessages = $input.all().map(i => i.json);\nconst bouncedEmails = new Set();\n\nfor (const msg of bounceMessages) {\n  const text = (msg.text || msg.html || msg.textHtml || '').toString();\n  \n  const patterns = [\n    /(?:Final-Recipient|Original-Recipient):[^\\n]*<([a-zA-Z0-9._%+\\-]+@[a-zA-Z0-9.\\-]+\\.[a-zA-Z]{2,})>/gi,\n    /(?:Failed Recipient|The following address):\\s*([a-zA-Z0-9._%+\\-]+@[a-zA-Z0-9.\\-]+\\.[a-zA-Z]{2,})/gi,\n    /Delivery to the following recipient failed[^\\n]+\\n+\\s*([a-zA-Z0-9._%+\\-]+@[a-zA-Z0-9.\\-]+\\.[a-zA-Z]{2,})/gi,\n    /\\bTo:\\s*([a-zA-Z0-9._%+\\-]+@[a-zA-Z0-9.\\-]+\\.[a-zA-Z]{2,})/gi,\n  ];\n  \n  for (const pattern of patterns) {\n    let match;\n    while ((match = pattern.exec(text)) !== null) {\n      bouncedEmails.add(match[1].toLowerCase());\n    }\n  }\n}\n\nreturn [{ json: { bouncedEmails: Array.from(bouncedEmails) } }];"
-      },
-      "id": "wf05-0000-0000-0000-000000000011",
-      "name": "Extract Bounced Emails",
-      "type": "n8n-nodes-base.code",
-      "typeVersion": 2,
-      "position": [
-        2400,
         300
       ]
     },
     {
       "parameters": {
-        "mode": "runOnceForAllItems",
-        "jsCode": "const bouncedEmails = $input.first().json.bouncedEmails || [];\nconst bouncedSet = new Set(bouncedEmails.map(e => e.toLowerCase()));\n\nconst candidates = $('Get Pending Candidates').all().map(i => i.json);\nconst lead_id = $('Extract Lead ID').first().json.lead_id;\n\nconst mine = candidates.filter(c => {\n  const j = c.jednatels;\n  return j && (Array.isArray(j) ? j.some(x => x.lead_id === lead_id) : j.lead_id === lead_id);\n});\n\nreturn mine.map(c => ({ json: {\n  id:            c.id,\n  seznam_status: bouncedSet.has(c.email_address.toLowerCase()) ? 'bounced' : 'likely_valid',\n  lead_id,\n} }));"
+        "mode": "runOnceForEachItem",
+        "jsCode": "// $input.item.json = sub-workflow result {is_valid, is_disposable, ...}\n// $('Add Config').item.json = original candidate {id, email_address, lead_id, ...}\nconst verify = $input.item.json;\nconst cand   = $('Add Config').item.json;\nconst valid  = verify.is_valid && !verify.is_disposable;\nreturn { json: {\n  id:             cand.id,\n  email_address:  cand.email_address,\n  lead_id:        cand.lead_id,\n  seznam_status:  valid ? 'likely_valid' : 'bounced',\n  confidence_score: verify.confidence_score,\n  is_catch_all:   verify.is_catch_all\n}};"
       },
-      "id": "wf05-0000-0000-0000-000000000012",
+      "id": "wf05c-nB",
       "name": "Classify Candidates",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        2640,
+        2160,
         300
       ]
     },
@@ -335,33 +266,278 @@
         },
         "sendBody": true,
         "specifyBody": "json",
-        "jsonBody": "={{ JSON.stringify({ seznam_status: $json.seznam_status, seznam_checked_at: new Date().toISOString() }) }}",
+        "jsonBody": "={{ JSON.stringify({ seznam_status: $json.seznam_status, verified_at: new Date().toISOString() }) }}",
         "options": {
           "timeout": 30000,
           "neverError": true
         }
       },
-      "id": "wf05-0000-0000-0000-000000000014",
-      "name": "Update Candidate Status",
+      "id": "wf05c-nC",
+      "name": "Update Status",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
       "position": [
-        2880,
+        2400,
         300
       ]
     },
     {
       "parameters": {
         "mode": "runOnceForAllItems",
-        "jsCode": "// All candidates updated. Consolidate to 1 item before logging and triggering WF6.\nreturn [{ json: { done: true } }];"
+        "jsCode": "const all = $('Classify Candidates').all().map(i => i.json);\nconst lead_id = $('Extract Lead ID').first().json.lead_id;\nconst qev_key = $('Extract Config').first().json.qev_key;\nconst likely = all.filter(c => c.seznam_status === 'likely_valid');\nif (likely.length === 0) {\n  return [{ json: { _no_candidates: true, lead_id } }];\n}\nreturn likely.map(c => ({ json: { id: c.id, email_address: c.email_address, qev_key, lead_id } }));"
       },
-      "id": "wf05-0000-0000-0000-000000000019",
-      "name": "Consolidate After Update",
+      "id": "wf05c-n17",
+      "name": "Prepare QEV Items",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        3120,
+        3840,
         300
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {},
+          "conditions": [
+            {
+              "id": "has-likely-valid",
+              "leftValue": "={{ $json._no_candidates === true }}",
+              "rightValue": false,
+              "operator": {
+                "type": "boolean",
+                "operation": "equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        }
+      },
+      "id": "wf05c-n18",
+      "name": "IF Has Likely Valid",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [
+        4080,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "method": "GET",
+        "url": "https://api.quickemailverification.com/v1/verify",
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            {
+              "name": "email",
+              "value": "={{ $json.email_address }}"
+            },
+            {
+              "name": "apikey",
+              "value": "={{ $json.qev_key }}"
+            }
+          ]
+        },
+        "options": {
+          "timeout": 30000,
+          "neverError": true
+        }
+      },
+      "id": "wf05c-n19",
+      "name": "QEV API Call",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        4320,
+        180
+      ]
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForEachItem",
+        "jsCode": "const resp = $input.item.json;\nconst cand = $('Prepare QEV Items').item.json;\nconst isValid = resp.result === 'valid' && resp.safe_to_send === true;\nreturn { json: {\n  id: cand.id,\n  email_address: cand.email_address,\n  lead_id: cand.lead_id,\n  qev_status: isValid ? 'valid' : (resp.result === 'invalid' ? 'invalid' : 'unknown'),\n  is_verified: isValid\n} };"
+      },
+      "id": "wf05c-n20",
+      "name": "Evaluate QEV",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        4560,
+        180
+      ]
+    },
+    {
+      "parameters": {
+        "method": "PATCH",
+        "url": "https://cycapkswtucbucyegdsn.supabase.co/rest/v1/email_candidates",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "apikey",
+              "value": "SUPABASE_SERVICE_ROLE_KEY_PLACEHOLDER"
+            },
+            {
+              "name": "Authorization",
+              "value": "Bearer SUPABASE_SERVICE_ROLE_KEY_PLACEHOLDER"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            {
+              "name": "id",
+              "value": "={{ 'eq.' + $json.id }}"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ qev_status: $json.qev_status, is_verified: $json.is_verified, qev_checked_at: new Date().toISOString() }) }}",
+        "options": {
+          "timeout": 30000,
+          "neverError": true
+        }
+      },
+      "id": "wf05c-n21",
+      "name": "Update Cand QEV",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        4800,
+        180
+      ]
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "jsCode": "const all = $('Evaluate QEV').all().map(i => i.json);\nconst lead_id = $('Extract Lead ID').first().json.lead_id;\nconst verified = all.filter(i => i.is_verified === true);\nreturn [{ json: { has_verified: verified.length > 0, verified_count: verified.length, lead_id } }];"
+      },
+      "id": "wf05c-n22",
+      "name": "Consolidate QEV",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        5040,
+        180
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://cycapkswtucbucyegdsn.supabase.co/rest/v1/rpc/mark_jednatels_email_status",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "apikey",
+              "value": "SUPABASE_SERVICE_ROLE_KEY_PLACEHOLDER"
+            },
+            {
+              "name": "Authorization",
+              "value": "Bearer SUPABASE_SERVICE_ROLE_KEY_PLACEHOLDER"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ p_lead_id: $('Extract Lead ID').first().json.lead_id }) }}",
+        "options": {
+          "timeout": 30000,
+          "neverError": true
+        }
+      },
+      "id": "wf05c-n23",
+      "name": "Mark Jednatels",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        5280,
+        180
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {},
+          "conditions": [
+            {
+              "id": "has-verified",
+              "leftValue": "={{ $('Consolidate QEV').first().json.has_verified }}",
+              "rightValue": true,
+              "operator": {
+                "type": "boolean",
+                "operation": "equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        }
+      },
+      "id": "wf05c-n24",
+      "name": "IF Has Verified",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [
+        5520,
+        180
+      ]
+    },
+    {
+      "parameters": {
+        "method": "PATCH",
+        "url": "https://cycapkswtucbucyegdsn.supabase.co/rest/v1/leads",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "apikey",
+              "value": "SUPABASE_SERVICE_ROLE_KEY_PLACEHOLDER"
+            },
+            {
+              "name": "Authorization",
+              "value": "Bearer SUPABASE_SERVICE_ROLE_KEY_PLACEHOLDER"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            {
+              "name": "id",
+              "value": "={{ 'eq.' + $('Extract Lead ID').first().json.lead_id }}"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={ \"status\": \"ready\" }",
+        "options": {
+          "timeout": 30000,
+          "neverError": true
+        }
+      },
+      "id": "wf05c-n25",
+      "name": "Set Lead Ready",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        5760,
+        60
       ]
     },
     {
@@ -387,25 +563,119 @@
         },
         "sendBody": true,
         "specifyBody": "json",
-        "jsonBody": "={{ JSON.stringify({ lead_id: $('Extract Lead ID').first().json.lead_id, step: 'seznam_verify', status: 'success', completed_at: new Date().toISOString() }) }}",
+        "jsonBody": "={{ JSON.stringify({ lead_id: $('Extract Lead ID').first().json.lead_id, step: 'combined_verify', status: 'success', completed_at: new Date().toISOString(), details: JSON.stringify({ verified_count: $('Consolidate QEV').first().json.verified_count }) }) }}",
         "options": {
           "timeout": 30000,
           "neverError": true
         }
       },
-      "id": "wf05-0000-0000-0000-000000000015",
+      "id": "wf05c-n26",
       "name": "Log Success",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
       "position": [
-        3360,
+        6000,
+        60
+      ]
+    },
+    {
+      "parameters": {
+        "method": "PATCH",
+        "url": "https://cycapkswtucbucyegdsn.supabase.co/rest/v1/leads",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "apikey",
+              "value": "SUPABASE_SERVICE_ROLE_KEY_PLACEHOLDER"
+            },
+            {
+              "name": "Authorization",
+              "value": "Bearer SUPABASE_SERVICE_ROLE_KEY_PLACEHOLDER"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            {
+              "name": "id",
+              "value": "={{ 'eq.' + $('Extract Lead ID').first().json.lead_id }}"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={ \"status\": \"failed\", \"enrichment_error\": \"No verified emails found after QEV check\" }",
+        "options": {
+          "timeout": 30000,
+          "neverError": true
+        }
+      },
+      "id": "wf05c-n27",
+      "name": "Set Lead Failed QEV",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        5760,
         300
       ]
     },
     {
       "parameters": {
+        "method": "PATCH",
+        "url": "https://cycapkswtucbucyegdsn.supabase.co/rest/v1/leads",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "apikey",
+              "value": "SUPABASE_SERVICE_ROLE_KEY_PLACEHOLDER"
+            },
+            {
+              "name": "Authorization",
+              "value": "Bearer SUPABASE_SERVICE_ROLE_KEY_PLACEHOLDER"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            {
+              "name": "id",
+              "value": "={{ 'eq.' + $('Extract Lead ID').first().json.lead_id }}"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={ \"status\": \"failed\", \"enrichment_error\": \"No emails passed bounce check\" }",
+        "options": {
+          "timeout": 30000,
+          "neverError": true
+        }
+      },
+      "id": "wf05c-n28",
+      "name": "Set Lead Failed NoCands",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        4560,
+        600
+      ]
+    },
+    {
+      "parameters": {
         "method": "POST",
-        "url": "http://72.62.53.244:32770/webhook/wf6-qev",
+        "url": "http://72.62.53.244:32770/webhook/wf11-website-fallback",
         "sendHeaders": true,
         "headerParameters": {
           "parameters": [
@@ -420,20 +690,59 @@
           ]
         },
         "sendBody": true,
-        "specifyBody": "json",
-        "jsonBody": "={{ JSON.stringify({ lead_id: $('Extract Lead ID').first().json.lead_id }) }}",
+        "contentType": "raw",
+        "rawContentType": "application/json",
+        "body": "={{ JSON.stringify({ lead_id: $json.lead_id }) }}",
         "options": {
           "timeout": 30000,
           "neverError": true
         }
       },
-      "id": "wf05-0000-0000-0000-000000000016",
-      "name": "Trigger WF6",
+      "id": "wf05c-n30",
+      "name": "Trigger WF11",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
       "position": [
-        3600,
-        300
+        4320,
+        480
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://cycapkswtucbucyegdsn.supabase.co/rest/v1/enrichment_log",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "apikey",
+              "value": "SUPABASE_SERVICE_ROLE_KEY_PLACEHOLDER"
+            },
+            {
+              "name": "Authorization",
+              "value": "Bearer SUPABASE_SERVICE_ROLE_KEY_PLACEHOLDER"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ lead_id: $('Extract Lead ID').first().json.lead_id, step: 'combined_verify', status: 'failed', completed_at: new Date().toISOString() }) }}",
+        "options": {
+          "timeout": 30000,
+          "neverError": true
+        }
+      },
+      "id": "wf05c-n29",
+      "name": "Log Failed",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        6000,
+        390
       ]
     }
   ],
@@ -453,102 +762,80 @@
       "main": [
         [
           {
-            "node": "Get Pending Candidates",
+            "node": "Get Config",
             "type": "main",
             "index": 0
           }
         ]
       ]
     },
-    "Get Pending Candidates": {
+    "Get Config": {
       "main": [
         [
           {
-            "node": "Get Config SEZNAM",
+            "node": "Extract Config",
             "type": "main",
             "index": 0
           }
         ]
       ]
     },
-    "Get Config SEZNAM": {
+    "Extract Config": {
       "main": [
         [
           {
-            "node": "Flatten Candidates",
+            "node": "Get Jednatels",
             "type": "main",
             "index": 0
           }
         ]
       ]
     },
-    "Flatten Candidates": {
+    "Get Jednatels": {
       "main": [
         [
           {
-            "node": "Send Test Email",
+            "node": "Build Jednatel IDs",
             "type": "main",
             "index": 0
           }
         ]
       ]
     },
-    "Send Test Email": {
+    "Build Jednatel IDs": {
       "main": [
         [
           {
-            "node": "Mark Sent",
+            "node": "Get Pending Cands",
             "type": "main",
             "index": 0
           }
         ]
       ]
     },
-    "Mark Sent": {
+    "Get Pending Cands": {
       "main": [
         [
           {
-            "node": "Consolidate After Send",
+            "node": "Add Config",
             "type": "main",
             "index": 0
           }
         ]
       ]
     },
-    "Consolidate After Send": {
+    "Add Config": {
       "main": [
         [
           {
-            "node": "Wait 3 Minutes",
+            "node": "Call Email Verify",
             "type": "main",
             "index": 0
           }
         ]
       ]
     },
-    "Wait 3 Minutes": {
-      "main": [
-        [
-          {
-            "node": "Check Bounces IMAP",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
-    "Check Bounces IMAP": {
-      "main": [
-        [
-          {
-            "node": "Extract Bounced Emails",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
-    "Extract Bounced Emails": {
+    "Call Email Verify": {
       "main": [
         [
           {
@@ -563,25 +850,132 @@
       "main": [
         [
           {
-            "node": "Update Candidate Status",
+            "node": "Update Status",
             "type": "main",
             "index": 0
           }
         ]
       ]
     },
-    "Update Candidate Status": {
+    "Update Status": {
       "main": [
         [
           {
-            "node": "Consolidate After Update",
+            "node": "Prepare QEV Items",
             "type": "main",
             "index": 0
           }
         ]
       ]
     },
-    "Consolidate After Update": {
+    "Prepare QEV Items": {
+      "main": [
+        [
+          {
+            "node": "IF Has Likely Valid",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "IF Has Likely Valid": {
+      "main": [
+        [
+          {
+            "node": "QEV API Call",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Trigger WF11",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Trigger WF11": {
+      "main": [
+        []
+      ]
+    },
+    "QEV API Call": {
+      "main": [
+        [
+          {
+            "node": "Evaluate QEV",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Evaluate QEV": {
+      "main": [
+        [
+          {
+            "node": "Update Cand QEV",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Update Cand QEV": {
+      "main": [
+        [
+          {
+            "node": "Consolidate QEV",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Consolidate QEV": {
+      "main": [
+        [
+          {
+            "node": "Mark Jednatels",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Mark Jednatels": {
+      "main": [
+        [
+          {
+            "node": "IF Has Verified",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "IF Has Verified": {
+      "main": [
+        [
+          {
+            "node": "Set Lead Ready",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Set Lead Failed QEV",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Set Lead Ready": {
       "main": [
         [
           {
@@ -592,19 +986,29 @@
         ]
       ]
     },
-    "Log Success": {
+    "Set Lead Failed QEV": {
       "main": [
         [
           {
-            "node": "Trigger WF6",
+            "node": "Log Failed",
             "type": "main",
             "index": 0
           }
         ]
       ]
+    },
+    "Log Success": {
+      "main": [
+        []
+      ]
+    },
+    "Log Failed": {
+      "main": [
+        []
+      ]
     }
   },
-  "active": false,
+  "active": true,
   "settings": {
     "executionOrder": "v1"
   },

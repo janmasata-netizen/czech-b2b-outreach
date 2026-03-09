@@ -82,6 +82,7 @@ export default function GoogleSheetImportDialog({ open, onClose }: GoogleSheetIm
         headers: n8nHeaders(),
         body: JSON.stringify({ url: sheetUrl }),
       });
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
       const data = await res.json();
 
       if (!data.success || !data.csv) {

@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import DOMPurify from 'dompurify';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useQueryClient } from '@tanstack/react-query';
 import { useWave, useTemplateSets, useDeleteWave, useUpdateWave, useCreateWave } from '@/hooks/useWaves';
@@ -1051,7 +1052,7 @@ export default function WaveDetailPage() {
                     </div>
                     <div
                       style={{ padding: '12px 16px', fontSize: 13, color: 'var(--text-dim)', lineHeight: 1.6 }}
-                      dangerouslySetInnerHTML={{ __html: renderedBody }}
+                      dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(renderedBody) }}
                     />
                   </div>
                 );
