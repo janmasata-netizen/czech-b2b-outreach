@@ -1,6 +1,7 @@
 import { Link, useLocation, useNavigate, useSearchParams } from 'react-router-dom';
 import {
   Users, LayoutList, Zap, Archive, AlertTriangle, Plus, Search, CircleCheck, Database, Ban, Upload,
+  Hash, UserSearch, MailCheck, Radar,
 } from 'lucide-react';
 import { TOP_H } from './TopBar';
 
@@ -72,10 +73,24 @@ const SECTIONS: Record<string, Section> = {
     ],
     actions: [{ label: 'Přidat záznam', href: '/databaze?new=1' }],
   },
+
+  '/email-finder': {
+    title: 'Email Finder',
+    groups: [
+      {
+        items: [
+          { label: 'Podle IČO',    to: '/email-finder', defaultTab: true,      Icon: Hash       },
+          { label: 'Podle jména',   to: '/email-finder', tabParam: 'name',      Icon: UserSearch },
+          { label: 'Ověřit e-mail', to: '/email-finder', tabParam: 'verify',    Icon: MailCheck  },
+          { label: 'Přímá sonda',   to: '/email-finder', tabParam: 'probe',     Icon: Radar      },
+        ],
+      },
+    ],
+  },
 };
 
 function getSection(pathname: string): [string, Section] | null {
-  for (const prefix of ['/leady', '/vlny', '/databaze']) {
+  for (const prefix of ['/leady', '/vlny', '/databaze', '/email-finder']) {
     if (pathname.startsWith(prefix)) return [prefix, SECTIONS[prefix]];
   }
   return null;

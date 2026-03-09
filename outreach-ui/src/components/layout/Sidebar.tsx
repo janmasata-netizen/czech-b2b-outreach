@@ -5,17 +5,21 @@ import {
   Building2, UserCheck, UserCog,
   AtSign, Key, FileText, X,
   LayoutList, Zap, Archive, AlertTriangle, CircleCheck, Plus, Ban, Upload,
+  Hash, UserSearch, MailCheck, Radar,
 } from 'lucide-react';
 import { TOP_H } from './TopBar';
 import { useMobileNav } from '@/hooks/useMobileNav';
 import { useAuthContext } from '@/components/AuthProvider';
 
-const NAV_ITEMS = [
+const DATA_ITEMS = [
   { to: '/prehled',      label: 'Přehled',      Icon: LayoutDashboard, exact: true  },
   { to: '/databaze',     label: 'Databáze',     Icon: Database,        exact: false },
   { to: '/leady',        label: 'Leady',        Icon: Users,           exact: false },
+];
+
+const ACTION_ITEMS = [
   { to: '/vlny',         label: 'Vlny',         Icon: Send,            exact: false },
-  { to: '/email-finder', label: 'Email Finder', Icon: Search,          exact: true  },
+  { to: '/email-finder', label: 'Email Finder', Icon: Search,          exact: false },
   { to: '/retarget',     label: 'Retarget',     Icon: RefreshCcw,      exact: true  },
 ];
 
@@ -49,6 +53,12 @@ const DB_SUBS: SubItem[] = [
   { label: 'Aktivní',      to: '/databaze', tabParam: 'active',       Icon: CircleCheck   },
   { label: 'Blacklist',    to: '/databaze', tabParam: 'blacklist',    Icon: Ban           },
   { label: 'Archivováno',  to: '/databaze', tabParam: 'archived',     Icon: Archive       },
+];
+const FINDER_SUBS: SubItem[] = [
+  { label: 'Podle IČO',    to: '/email-finder', defaultTab: true,      Icon: Hash       },
+  { label: 'Podle jména',  to: '/email-finder', tabParam: 'name',      Icon: UserSearch },
+  { label: 'Ověřit e-mail',to: '/email-finder', tabParam: 'verify',    Icon: MailCheck  },
+  { label: 'Přímá sonda',  to: '/email-finder', tabParam: 'probe',     Icon: Radar      },
 ];
 
 const W_COLLAPSED = 44;
@@ -103,20 +113,22 @@ export default function Sidebar() {
   };
 
   const divider = (
-    <div style={{ height: 1, background: 'var(--border)', margin: isMobile ? '8px 14px' : '6px 14px', flexShrink: 0 }} />
+    <div style={{ height: 1, background: 'var(--border-strong)', margin: isMobile ? '8px 14px' : '6px 14px', flexShrink: 0 }} />
   );
 
   /* Mobile: check if we're on a page that has sub-items */
-  const onLeads = location.pathname.startsWith('/leady');
-  const onWaves = location.pathname.startsWith('/vlny');
-  const onDb    = location.pathname.startsWith('/databaze');
-  const showLeadSubs = isMobile && onLeads;
-  const showWaveSubs = isMobile && onWaves;
-  const showDbSubs   = isMobile && onDb;
+  const onLeads  = location.pathname.startsWith('/leady');
+  const onWaves  = location.pathname.startsWith('/vlny');
+  const onDb     = location.pathname.startsWith('/databaze');
+  const onFinder = location.pathname.startsWith('/email-finder');
+  const showLeadSubs   = isMobile && onLeads;
+  const showWaveSubs   = isMobile && onWaves;
+  const showDbSubs     = isMobile && onDb;
+  const showFinderSubs = isMobile && onFinder;
 
   function isSubActive(item: SubItem): boolean {
     const tabVal = sp.get('tab');
-    const allItems = onLeads ? LEAD_SUBS : onWaves ? WAVE_SUBS : DB_SUBS;
+    const allItems = onLeads ? LEAD_SUBS : onWaves ? WAVE_SUBS : onFinder ? FINDER_SUBS : DB_SUBS;
     if (item.tabParam) return location.pathname === item.to && tabVal === item.tabParam;
     if (item.defaultTab) {
       if (location.pathname !== item.to && !location.pathname.startsWith(item.to + '/')) return false;
@@ -240,16 +252,22 @@ export default function Sidebar() {
           </div>
 
           <nav style={{ flex: 1, padding: '4px 0 20px', display: 'flex', flexDirection: 'column', gap: 1 }}>
-            {NAV_ITEMS.map(item => (
+            {DATA_ITEMS.map(item => (
               <div key={item.to}>
                 {navLink(item)}
-                {/* Inline sub-items for leads/waves on mobile */}
                 {item.to === '/databaze' && showDbSubs && renderSubItems(DB_SUBS, 'Stav', [{ label: 'Přidat záznam', href: '/databaze?new=1' }])}
                 {item.to === '/leady' && showLeadSubs && renderSubItems(LEAD_SUBS, 'Filtry', [
                   { label: 'Přidat lead', href: '/leady?new=1' },
                   { label: 'Importovat', href: '/leady?action=import', Icon: Upload },
                 ])}
+              </div>
+            ))}
+            {divider}
+            {ACTION_ITEMS.map(item => (
+              <div key={item.to}>
+                {navLink(item)}
                 {item.to === '/vlny' && showWaveSubs && renderSubItems(WAVE_SUBS, 'Zobrazení', [{ label: 'Nová vlna', href: '/vlny?new=1' }])}
+                {item.to === '/email-finder' && showFinderSubs && renderSubItems(FINDER_SUBS, 'Režim')}
               </div>
             ))}
             {isAdmin && (
@@ -287,7 +305,9 @@ export default function Sidebar() {
       }}
     >
       <nav style={{ flex: 1, padding: '8px 0', display: 'flex', flexDirection: 'column', gap: 1, overflow: 'hidden' }}>
-        {NAV_ITEMS.map(item => navLink(item))}
+        {DATA_ITEMS.map(item => navLink(item))}
+        {divider}
+        {ACTION_ITEMS.map(item => navLink(item))}
         {isAdmin && (
           <>
             {divider}
