@@ -12,10 +12,11 @@
 | Operator | Pridat noveho obchodnika | [Pridani obchodnika](#1-pridani-noveho-obchodnika--e-mailoveho-uctu) |
 | Operator | Vytvorit a odeslat vlnu | [Vytvareni vln](#2-vytvareni-a-planovani-e-mailovych-vln) |
 | Operator | Spravovat sablony | [Sprava sablon](#3-sprava-sablon) |
-| Operator | Pouzit retarget pool | [Retarget pool](#4-retarget-pool) |
-| Admin | Spravovat uzivatele | [Sprava uzivatelu](#5-sprava-uzivatelu) |
-| Admin | Sledovat stav systemu | [Monitoring](#6-monitoring) |
-| Kdokoliv | Resit problem | [Reseni problemu](#7-reseni-problemu-faq) |
+| Operator | Hledat e-maily | [Email Finder](#4-email-finder) |
+| Operator | Pouzit retarget pool | [Retarget pool](#5-retarget-pool) |
+| Admin | Spravovat uzivatele | [Sprava uzivatelu](#6-sprava-uzivatelu) |
+| Admin | Sledovat stav systemu | [Monitoring](#7-monitoring) |
+| Kdokoliv | Resit problem | [Reseni problemu](#8-reseni-problemu-faq) |
 | Kdokoliv | Vysvetleni pojmu | [Slovnicek](#slovnicek) |
 
 ---
@@ -296,7 +297,44 @@ Editor pouziva **Tiptap** (rich text editor). Podporuje:
 
 ---
 
-## 4. Retarget pool
+## 4. Email Finder
+
+**Cil:** Vyhledat e-mailovou adresu osoby nebo overit existujici adresu.
+
+**Pristupne na:** `/email-finder`
+
+Email Finder ma 4 rezimy (zobrazene jako podzalozky v postrannim panelu):
+
+| Rezim | Zalozka | Popis |
+|-------|---------|-------|
+| **Podle ICO** | Vychozi | Vyhleda jednatele v ARES podle ICO, odhadne e-mail z domeny a overi pres SMTP |
+| **Podle jmena** | `?tab=name` | Vygeneruje mozne e-mailove adresy ze jmena a domeny, overi pres SMTP |
+| **Overit e-mail** | `?tab=verify` | Overi, zda konkretni e-mailova adresa existuje (SMTP + MX check) |
+| **Prima sonda** | `?tab=probe` | Odesle sondovaci e-mail a ceka na odraz (~3 min). Spolehlive pro catch-all domeny |
+
+**Postup (rezim Podle ICO):**
+
+1. Prejdete na **Email Finder** (`/email-finder`)
+2. Zadejte ICO (8 cislic) a webovou adresu firmy
+3. Kliknete "Hledat"
+4. System vyhleda jednatele v ARES, vygeneruje e-mailove vzory a overi je
+5. Vysledky se zobrazi primo na strance s moznosti kopirovani a exportu CSV
+
+**Postup (rezim Prima sonda):**
+
+1. Prepnete na zalozku "Prima sonda"
+2. Zadejte jmeno osoby a domenu firmy
+3. Kliknete "Sondovat"
+4. System odesle testovaci e-maily a ceka na odraz (~3 minuty)
+5. Po dokonceni pouzijte tlacitko "Recheck odrazu" pro aktualizaci vysledku
+
+> TIP: U catch-all domen (kde SMTP server prijme jakykoliv e-mail) je Prima sonda spolehlivejsi nez SMTP overeni — skutecne odesle testovaci zpravou a sleduje, zda se vrati.
+
+> TIP: Vysledky se ukladaji do historie hledani (v ramci session) — muzete se k nim kdykoliv vratit.
+
+---
+
+## 5. Retarget pool
 
 **Cil:** Opetovne oslovit leady, ktere neodpovedly.
 
@@ -317,7 +355,7 @@ Lead se dostane do retarget poolu, kdyz:
 
 ---
 
-## 5. Sprava uzivatelu
+## 6. Sprava uzivatelu
 
 ### Role v systemu
 
@@ -342,9 +380,9 @@ Lead se dostane do retarget poolu, kdyz:
 
 ---
 
-## 6. Monitoring
+## 7. Monitoring
 
-### 6.1 — Detekce odpovedi
+### 7.1 — Detekce odpovedi
 
 **WF9** bezi kazdou minutu:
 
@@ -356,7 +394,7 @@ Lead se dostane do retarget poolu, kdyz:
 
 **Kde zkontrolovat odpovedi:** Na detailu vlny nebo detailu leadu v UI.
 
-### 6.2 — Monitorovani bouncu / NDR
+### 7.2 — Monitorovani bouncu / NDR
 
 Dva workflow monitoruji bouncy:
 
@@ -367,13 +405,13 @@ Dva workflow monitoruji bouncy:
 
 Bouncy se zaznamenavaji do `email_probe_bounces`. Stare zaznamy maze WF10 kazdy den.
 
-### 6.3 — Denni reset (WF10)
+### 7.3 — Denni reset (WF10)
 
 Bezi v pulnoci:
 - Zavola `reset_daily_sends()` — vynuluje vsechna pocitadla denniho odesilani
 - Smaze stare zaznamy z `email_probe_bounces`
 
-### 6.4 — Health checky
+### 7.4 — Health checky
 
 Obe proxy maji health endpointy:
 
@@ -382,7 +420,7 @@ Obe proxy maji health endpointy:
 | IMAP Proxy | `GET http://imap-proxy:3001/health` | `curl http://localhost:3001/health` |
 | SMTP Proxy | `GET http://smtp-proxy:3002/health` | `curl http://localhost:3002/health` |
 
-### 6.5 — Konfiguracni tabulka
+### 7.5 — Konfiguracni tabulka
 
 Tabulka `config` v Supabase obsahuje runtime konfiguraci:
 
@@ -397,7 +435,7 @@ Tabulka `config` v Supabase obsahuje runtime konfiguraci:
 
 ---
 
-## 7. Reseni problemu (FAQ)
+## 8. Reseni problemu (FAQ)
 
 ### E-maily se neodessilaji
 

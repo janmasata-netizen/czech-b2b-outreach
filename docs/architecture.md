@@ -104,7 +104,7 @@ Hostovana Supabase instance poskytuje:
 
 | Sluzba | Popis |
 |--------|-------|
-| **PostgreSQL** | 19 tabulek — leady, kontakty, e-maily, vlny, sablony, konfigurace |
+| **PostgreSQL** | 20 tabulek — leady, kontakty, e-maily, vlny, sablony, konfigurace |
 | **Auth** | Autentizace uzivatelu (e-mail + heslo), role (admin / bezny uzivatel) |
 | **RLS** | Row-level security politiky na tabulkach |
 | **Realtime** | Subscriptions pro live aktualizace v UI |
@@ -139,7 +139,7 @@ Jednostrankova webova aplikace (SPA).
 | `/leady/:id` | Detail leadu | Prihlaseny | Detail jednoho leadu |
 | `/vlny` | Vlny | Prihlaseny | Sprava e-mailovych kampani |
 | `/vlny/:id` | Detail vlny | Prihlaseny | Detail jedne vlny |
-| `/email-finder` | Email Finder | Prihlaseny | Nastroj pro vyhledavani e-mailu |
+| `/email-finder` | Email Finder | Prihlaseny | Nastroj pro vyhledavani e-mailu (4 rezimy: Podle ICO, Podle jmena, Overit e-mail, Prima sonda) |
 | `/retarget` | Retarget Pool | Prihlaseny | Sprava leadu k opetovnemu osloveni |
 | `/nastaveni` | Nastaveni | Pouze admin | Rozcestnik nastaveni |
 | `/nastaveni/tymy` | Tymy | Pouze admin | Sprava tymu |
@@ -148,6 +148,12 @@ Jednostrankova webova aplikace (SPA).
 | `/nastaveni/ucty` | Outreach ucty | Pouze admin | Konfigurace odesilacich uctu |
 | `/nastaveni/api-klice` | API klice | Pouze admin | Sprava API klicu |
 | `/nastaveni/sablony` | Sablony | Pouze admin | Editor e-mailovych sablon |
+
+**Navigace v sidebar:**
+- Polozky jsou rozdelene do dvou skupin odelenych vizualni carou:
+  - **Datova sekce:** Prehled, Databaze, Leady
+  - **Akcni sekce:** Vlny, Email Finder, Retarget
+- Stranky Databaze, Leady, Vlny a Email Finder maji podzalozky v postrannim SubPanelu (desktop) nebo v rozbalovaciim menu (mobil)
 
 > Pouze pro roli Admin: Vsechny stranky v sekci `/nastaveni` vyzaduji roli administratora.
 
@@ -319,6 +325,7 @@ Operator vytvori vlnu v UI
 | `email_probe_bounces` | Zaznamy o detekci bouncu | id, email, bounce_type, detected_at |
 | `profiles` | Uzivatelske profily (navazane na Supabase auth) | id, email, role, display_name |
 | `processed_reply_emails` | Deduplikace odpovedi | id, message_id, processed_at |
+| `unmatched_replies` | Odpovedi, ktere nebyly sparovany s odeslanyim e-mailem | id, raw_from, raw_subject, received_at |
 
 ### Klicove vztahy mezi tabulkami
 
@@ -350,7 +357,7 @@ Operator vytvori vlnu v UI
 | `generate_salutation()` | Generovani ceskeho osloveni ve vokativu |
 | `backfill_salutations()` | Hromadna regenerace osloveni pro vsechny kontakty |
 | `check_and_mark_reply_processed()` | Deduplikace zpracovani odpovedi |
-| `check_lead_duplicates(candidates)` | Kontrola duplicit leadu pred importem (ICO, domena, e-mail, nazev firmy) |
+| `check_lead_duplicates(candidates)` | Kontrola duplicit leadu pred importem (ICO, domena, e-mail, nazev firmy) — globalne pres vsechny tymy |
 | `auto_complete_waves()` | Oznaceni vlny jako dokoncene, kdyz jsou vsechny e-maily odeslany |
 | `reorder_template_sequences()` | Prerazeni poradovych cisel sablon |
 | `handle_lead_reply()` | Trigger funkce pro zpracovani odpovedi |
