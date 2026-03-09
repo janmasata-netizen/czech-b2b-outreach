@@ -6,6 +6,7 @@ import GlassProgress from '@/components/glass/GlassProgress';
 import { useTeams } from '@/hooks/useLeads';
 import { supabase } from '@/lib/supabase';
 import { parseCsv, autoDetect } from '@/lib/csv-utils';
+import { toast } from 'sonner';
 import { checkDuplicates, extractDomain, type DedupResult, type DuplicateMatch } from '@/lib/dedup';
 
 interface CsvImportDialogProps {
@@ -104,9 +105,9 @@ export default function CsvImportDialog({ open, onClose }: CsvImportDialogProps)
       } else {
         runImport(new Set());
       }
-    } catch {
-      // If dedup check fails, proceed without it
-      runImport(new Set());
+    } catch (err) {
+      console.error('Dedup check failed:', err);
+      toast.error('Kontrola duplicit selhala — zkuste to znovu');
     } finally {
       setDedupChecking(false);
     }
@@ -166,6 +167,7 @@ export default function CsvImportDialog({ open, onClose }: CsvImportDialogProps)
               company_name: company_name || null,
               ico: ico || null,
               website: website || null,
+              domain: extractDomain(website) || null,
               team_id: effectiveTeamId || null,
               status: 'ready',
               lead_type: 'company',
@@ -204,6 +206,7 @@ export default function CsvImportDialog({ open, onClose }: CsvImportDialogProps)
               company_name: company_name || null,
               ico: ico || null,
               website: website || null,
+              domain: extractDomain(website) || null,
               team_id: effectiveTeamId || null,
               status: 'new',
               lead_type: 'company',

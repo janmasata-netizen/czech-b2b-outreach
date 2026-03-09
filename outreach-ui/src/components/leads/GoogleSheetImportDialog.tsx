@@ -144,9 +144,9 @@ export default function GoogleSheetImportDialog({ open, onClose }: GoogleSheetIm
       } else {
         runImport(new Set());
       }
-    } catch {
-      // If dedup check fails, proceed without it
-      runImport(new Set());
+    } catch (err) {
+      console.error('Dedup check failed:', err);
+      toast.error('Kontrola duplicit selhala — zkuste to znovu');
     } finally {
       setDedupChecking(false);
     }
@@ -238,6 +238,7 @@ export default function GoogleSheetImportDialog({ open, onClose }: GoogleSheetIm
                 company_name: company_name || null,
                 ico: ico || null,
                 website: website || null,
+                domain: extractDomain(website) || null,
                 team_id: effectiveTeamId || null,
                 status: 'ready',
                 lead_type: 'company',
@@ -275,6 +276,7 @@ export default function GoogleSheetImportDialog({ open, onClose }: GoogleSheetIm
                 company_name: company_name || null,
                 ico: ico || null,
                 website: website || null,
+                domain: extractDomain(website) || null,
                 team_id: effectiveTeamId || null,
                 status: 'new',
                 lead_type: 'company',

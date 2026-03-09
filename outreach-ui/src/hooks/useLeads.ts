@@ -2,6 +2,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/lib/supabase';
 import type { Lead, LeadFilters, Team, EmailCandidate } from '@/types/database';
 import { PAGE_SIZE } from '@/lib/constants';
+import { extractDomain } from '@/lib/dedup';
 
 export function useLeads(filters: LeadFilters = {}, page = 1) {
   return useQuery({
@@ -116,6 +117,7 @@ export function useCreateLeadWithEmail() {
           company_name: payload.company_name,
           ico: payload.ico || null,
           website: payload.website || null,
+          domain: extractDomain(payload.website) || null,
           team_id: payload.team_id,
           status: 'ready',
           lead_type: 'company',

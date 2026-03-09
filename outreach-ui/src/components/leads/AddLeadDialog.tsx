@@ -96,8 +96,10 @@ export default function AddLeadDialog({ open, onClose }: AddLeadDialogProps) {
         toast.error(formatMatchMessage(result.duplicates[0]));
         return;
       }
-    } catch {
-      // If dedup check fails, proceed with insert (server-side will catch)
+    } catch (err) {
+      console.error('Dedup check failed:', err);
+      toast.error('Kontrola duplicit selhala — zkuste to znovu');
+      return;
     } finally {
       setChecking(false);
     }
