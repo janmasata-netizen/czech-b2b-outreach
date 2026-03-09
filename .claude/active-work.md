@@ -6,3 +6,4 @@
 
 | Branch | Agent | Files/Areas | Started | Description |
 |---|---|---|---|---|
+| claude/sidebar-divider-subtabs | Claude Opus | Sidebar.tsx, SubPanel.tsx, EmailFinderPage.tsx | 2026-03-09 | Sidebar divider + email finder sub-tabs reorganization |
