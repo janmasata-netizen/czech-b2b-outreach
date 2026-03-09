@@ -34,7 +34,7 @@ export async function checkDuplicates(candidates: DuplicateCandidate[]): Promise
   }
 
   const { data, error } = await supabase.rpc('check_lead_duplicates', {
-    candidates: JSON.stringify(candidates),
+    candidates: candidates,
   });
 
   if (error) {
