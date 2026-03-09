@@ -6,5 +6,3 @@
 
 | Branch | Agent | Files/Areas | Started | Description |
 |---|---|---|---|---|
-
-| claude/fix-dedup-system | Claude Opus | dedup.ts, AddLeadDialog, CsvImportDialog, GoogleSheetImportDialog, useLeads.ts, migrate-dedup-fix.mjs | 2026-03-09 | Fix broken dedup: JSON.stringify bug, silent error swallowing, domain backfill, UNIQUE indexes |
