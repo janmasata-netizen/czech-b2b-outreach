@@ -3,7 +3,7 @@
   "nodes": [
     {
       "parameters": {
-        "content": "## SUB — Burner Probe\n\n**Trigger:** POST /webhook/sub-burner-probe\n\n**Input body:**\n```json\n{ \"domain\": \"firma.cz\", \"candidates\": [\"jan.novak@firma.cz\", ...] }\n```\n\n**Output (after ~4 min):**\n```json\n{ candidates[{email,status,confidence,smtp_result,method}], domain, total, method:\"probe\", probe_start }\n```\n\n**Caller pattern:** HTTP Request with 300s timeout\n```\nPOST http://72.62.53.244:32770/webhook/sub-burner-probe\nContent-Type: application/json\n{ domain, candidates }\n```\n\n**Flow:** Receive → Fan-Out → Send probe emails → Wait 4 min → Query bounce table → Classify\n**Credential:** vyhry-temu@seznam.cz SMTP (id: 3X8mKDvlcXsGRmZS)\n**NDR source:** wf-ndr-monitor writes NDRs to email_probe_bounces table",
+        "content": "## SUB — Burner Probe\n\n**Trigger:** POST /webhook/sub-burner-probe\n\n**Input body:**\n```json\n{ \"domain\": \"firma.cz\", \"candidates\": [\"jan.novak@firma.cz\", ...] }\n```\n\n**Output (after ~3 min):**\n```json\n{ candidates[{email,status,confidence,smtp_result,method}], domain, total, method:\"probe\", probe_start }\n```\n\n**Caller pattern:** HTTP Request with 360s timeout\n```\nPOST http://72.62.53.244:32770/webhook/sub-burner-probe\nContent-Type: application/json\n{ domain, candidates }\n```\n\n**Flow:** Receive → Fan-Out → Send probe emails → Wait 3 min → Query bounce table → Classify\n**Credential:** vyhry-temu@seznam.cz SMTP (id: 3X8mKDvlcXsGRmZS)\n**NDR source:** wf-ndr-monitor writes NDRs to email_probe_bounces table",
         "height": 260,
         "width": 620,
         "color": 6
@@ -111,11 +111,11 @@
     },
     {
       "parameters": {
-        "amount": 4,
+        "amount": 3,
         "unit": "minutes"
       },
       "id": "sbp-0006",
-      "name": "Wait 4 Minutes",
+      "name": "Wait 3 Minutes",
       "type": "n8n-nodes-base.wait",
       "typeVersion": 1.1,
       "position": [
@@ -141,9 +141,7 @@
             }
           ]
         },
-        "options": {
-          "neverError": true
-        }
+        "options": {}
       },
       "id": "sbp-0007",
       "name": "Query Bounces",
@@ -247,14 +245,14 @@
       "main": [
         [
           {
-            "node": "Wait 4 Minutes",
+            "node": "Wait 3 Minutes",
             "type": "main",
             "index": 0
           }
         ]
       ]
     },
-    "Wait 4 Minutes": {
+    "Wait 3 Minutes": {
       "main": [
         [
           {

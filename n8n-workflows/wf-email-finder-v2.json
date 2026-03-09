@@ -3,7 +3,7 @@
   "nodes": [
     {
       "parameters": {
-        "content": "## Email Finder V2 — Orchestrator\n**Trigger:** POST /webhook/wf-email-finder-v2\n\n**Modes:**\n- `mode:name` — generate 10 patterns from first_name + last_name + domain\n- `mode:verify` — verify a single email address\n- `mode:probe` — skip SMTP, directly probe via burner email (same inputs as name)\n- `mode:recheck` — re-query email_probe_bounces for existing candidates (pass candidates[] + domain)\n\n**SMTP path (name/verify):** Execute Workflow → SUB — SMTP Check → if NOT catch-all → return SMTP results\n**Probe fallback:** If catch-all → HTTP Request → SUB — Burner Probe (300s timeout)\n**Direct probe (mode=probe):** Skip SMTP entirely → HTTP Request → SUB — Burner Probe\n**Recheck path:** Query email_probe_bounces directly (no SMTP/probe)\n\n**Sub-workflows:**\n- `SUB — SMTP Check` — executeWorkflow (sync)\n- `SUB — Burner Probe` — webhook at /webhook/sub-burner-probe (HTTP call, ~4 min)",
+        "content": "## Email Finder V2 — Orchestrator\n**Trigger:** POST /webhook/wf-email-finder-v2\n\n**Modes:**\n- `mode:name` — generate 10 patterns from first_name + last_name + domain\n- `mode:verify` — verify a single email address\n- `mode:probe` — skip SMTP, directly probe via burner email (same inputs as name)\n- `mode:recheck` — re-query email_probe_bounces for existing candidates (pass candidates[] + domain)\n\n**SMTP path (name/verify):** Execute Workflow → SUB — SMTP Check → if NOT catch-all → return SMTP results\n**Probe fallback:** If catch-all → HTTP Request → SUB — Burner Probe (300s timeout)\n**Direct probe (mode=probe):** Skip SMTP entirely → HTTP Request → SUB — Burner Probe\n**Recheck path:** Query email_probe_bounces directly (no SMTP/probe)\n\n**Sub-workflows:**\n- `SUB — SMTP Check` — executeWorkflow (sync)\n- `SUB — Burner Probe` — webhook at /webhook/sub-burner-probe (HTTP call, ~3 min, 360s timeout)",
         "height": 240,
         "width": 620,
         "color": 4
@@ -364,8 +364,7 @@
         "rawContentType": "application/json",
         "body": "={{ JSON.stringify($json) }}",
         "options": {
-          "timeout": 300000,
-          "neverError": true
+          "timeout": 360000
         },
         "sendHeaders": true,
         "headerParameters": {
@@ -384,7 +383,8 @@
       "position": [
         1920,
         880
-      ]
+      ],
+      "onError": "continueErrorOutput"
     },
     {
       "parameters": {
@@ -400,6 +400,36 @@
       "position": [
         2160,
         880
+      ]
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "jsCode": "const domain = $('Extract & Normalize Input').first().json.domain;\nreturn [{ json: { candidates: [], domain: domain, total: 0, method: 'probe', error: 'probe_timeout' } }];"
+      },
+      "id": "wfefv2-0041",
+      "name": "Build Probe Error Response",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        2160,
+        1080
+      ]
+    },
+    {
+      "parameters": {
+        "respondWith": "firstIncomingItem",
+        "options": {
+          "responseCode": 200
+        }
+      },
+      "id": "wfefv2-0042",
+      "name": "Webhook Response Probe Error",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1,
+      "position": [
+        2400,
+        1080
       ]
     }
   ],
@@ -596,6 +626,24 @@
         [
           {
             "node": "Webhook Response Probe",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Build Probe Error Response",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Build Probe Error Response": {
+      "main": [
+        [
+          {
+            "node": "Webhook Response Probe Error",
             "type": "main",
             "index": 0
           }
