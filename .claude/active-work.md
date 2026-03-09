@@ -6,3 +6,4 @@
 
 | Branch | Agent | Files/Areas | Started | Description |
 |---|---|---|---|---|
+| claude/audit-remediation | Claude Opus | imap-proxy, n8n-workflows, outreach-ui, CLAUDE.md | 2026-03-09 | Audit remediation: XSS fix, missing files, WF5 cleanup |

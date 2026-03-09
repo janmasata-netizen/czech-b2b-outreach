@@ -53,7 +53,6 @@ An automated Czech B2B cold email outreach system built on n8n + Supabase. It en
 | sub-reply-check | WjbYMqMXDxkjIssL | executeWorkflowTrigger |
 | backfill-salutations | xbJfPwwNRIBtFtAX | webhook:backfill-salutations |
 | wf-force-send | DPmnV2dRsbBMLAmz | webhook:wf-force-send |
-| wf5-combined-verify | 7JzGHAG24ra3977B | webhook:wf5-seznam |
 | wf-admin-users | JeP8whw3jNtL6VJ1 | webhook:admin-users |
 
 ## Database schema (Supabase)

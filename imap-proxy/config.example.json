@@ -1,0 +1,10 @@
+{
+  "credentials": {
+    "Salesman IMAP 1": {
+      "host": "imap.example.com",
+      "port": 993,
+      "user": "email@example.com",
+      "pass": "password"
+    }
+  }
+}
