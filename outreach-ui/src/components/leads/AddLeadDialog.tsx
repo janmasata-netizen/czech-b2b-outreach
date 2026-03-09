@@ -4,6 +4,7 @@ import GlassButton from '@/components/glass/GlassButton';
 import GlassInput from '@/components/glass/GlassInput';
 import { useTeams, useCreateLeadWithEmail } from '@/hooks/useLeads';
 import { toast } from 'sonner';
+import { checkDuplicates, extractDomain, formatMatchMessage } from '@/lib/dedup';
 
 interface AddLeadDialogProps {
   open: boolean;
@@ -18,6 +19,7 @@ interface CustomFieldRow {
 export default function AddLeadDialog({ open, onClose }: AddLeadDialogProps) {
   const { data: teams } = useTeams();
   const createLead = useCreateLeadWithEmail();
+  const [checking, setChecking] = useState(false);
   const [form, setForm] = useState({
     company_name: '',
     ico: '',
@@ -80,6 +82,26 @@ export default function AddLeadDialog({ open, onClose }: AddLeadDialogProps) {
       return;
     }
 
+    // Pre-flight dedup check
+    try {
+      setChecking(true);
+      const domain = extractDomain(form.website);
+      const result = await checkDuplicates([{
+        ico: form.ico || undefined,
+        domain: domain || undefined,
+        email: form.email || undefined,
+        company_name: form.company_name || undefined,
+      }]);
+      if (result.duplicates.length > 0) {
+        toast.error(formatMatchMessage(result.duplicates[0]));
+        return;
+      }
+    } catch {
+      // If dedup check fails, proceed with insert (server-side will catch)
+    } finally {
+      setChecking(false);
+    }
+
     try {
       const cf = buildCustomFieldsObj();
       await createLead.mutateAsync({
@@ -95,12 +117,8 @@ export default function AddLeadDialog({ open, onClose }: AddLeadDialogProps) {
       setForm({ company_name: '', ico: '', website: '', contact_name: '', email: '', team_id: '' });
       setCustomFields([]);
       onClose();
-    } catch (err: any) {
-      if (err?.code === '23505' || err?.message?.toLowerCase().includes('unique')) {
-        toast.error('Lead s tímto IČO již existuje');
-      } else {
-        toast.error('Chyba při přidávání leadu');
-      }
+    } catch {
+      toast.error('Chyba při přidávání leadu');
     }
   }
 
@@ -113,8 +131,8 @@ export default function AddLeadDialog({ open, onClose }: AddLeadDialogProps) {
       footer={
         <>
           <GlassButton variant="secondary" onClick={onClose}>Zrušit</GlassButton>
-          <GlassButton variant="primary" onClick={e => handleSubmit(e as any)} disabled={createLead.isPending}>
-            {createLead.isPending ? 'Ukládám…' : 'Přidat lead'}
+          <GlassButton variant="primary" onClick={e => handleSubmit(e as any)} disabled={createLead.isPending || checking}>
+            {checking ? 'Kontroluji…' : createLead.isPending ? 'Ukládám…' : 'Přidat lead'}
           </GlassButton>
         </>
       }

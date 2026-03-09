@@ -194,6 +194,15 @@ docker restart smtp-proxy
 
 > TIP: Pokud lead "uvaznul" v nejakem stavu, zkontrolujte sekci [Reseni problemu](#obohaceni-leadu-uvaznulo).
 
+#### Detekce duplicit
+
+Vsechny tri zpusoby pridavani leadu (rucni pridani, CSV import, Google Sheet import) kontroluji duplicity pred ulozenim:
+
+- **Rucni pridani:** Pokud existuje lead se shodnym ICO, domenou, e-mailem nebo nazvem firmy, zobrazi se chybova hlaska a lead nebude pridan.
+- **CSV / Google Sheet import:** Po kliknuti na "Spustit import" probehne kontrola duplicit. Pokud se najdou shody, zobrazi se review krok s tabulkou duplicitnich radku. Uzivatel muze potvrdit preskoceni duplicit a import zbylych leadu.
+
+Kontrola probiha globalne (pres vsechny tymy) a porovnava 4 pole: ICO, domena, e-mailova adresa, nazev firmy (bez ohledu na velikost pismen).
+
 ### Krok 2.2 — Vytvorit vlnu
 
 **Cil:** Zalozit novou e-mailovou kampan.

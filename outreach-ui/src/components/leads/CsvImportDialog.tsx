@@ -6,13 +6,14 @@ import GlassProgress from '@/components/glass/GlassProgress';
 import { useTeams } from '@/hooks/useLeads';
 import { supabase } from '@/lib/supabase';
 import { parseCsv, autoDetect } from '@/lib/csv-utils';
+import { checkDuplicates, extractDomain, type DedupResult, type DuplicateMatch } from '@/lib/dedup';
 
 interface CsvImportDialogProps {
   open: boolean;
   onClose: () => void;
 }
 
-type Step = 'upload' | 'map' | 'importing' | 'done';
+type Step = 'upload' | 'map' | 'review' | 'importing' | 'done';
 
 interface Progress {
   done: number;
@@ -34,6 +35,8 @@ export default function CsvImportDialog({ open, onClose }: CsvImportDialogProps)
   const [teamId, setTeamId] = useState('');
   const [progress, setProgress] = useState<Progress>({ done: 0, errors: 0, duplicates: 0, total: 0 });
   const [mapError, setMapError] = useState('');
+  const [dedupResult, setDedupResult] = useState<DedupResult | null>(null);
+  const [dedupChecking, setDedupChecking] = useState(false);
 
   function resetState() {
     setStep('upload');
@@ -44,6 +47,8 @@ export default function CsvImportDialog({ open, onClose }: CsvImportDialogProps)
     setTeamId('');
     setProgress({ done: 0, errors: 0, duplicates: 0, total: 0 });
     setMapError('');
+    setDedupResult(null);
+    setDedupChecking(false);
   }
 
   function handleClose() {
@@ -69,16 +74,45 @@ export default function CsvImportDialog({ open, onClose }: CsvImportDialogProps)
     reader.readAsText(file, 'UTF-8');
   }
 
-  function handleMapNext() {
+  function getRowValue(row: string[], field: keyof typeof mapping): string {
+    const col = mapping[field];
+    return col ? (row[headers.indexOf(col)] ?? '').trim() : '';
+  }
+
+  async function handleMapNext() {
     if (!mapping.company_name && !mapping.ico && !mapping.contact_name) {
       setMapError('Musíte namapovat alespoň Název firmy, IČO nebo Jméno kontaktu.');
       return;
     }
     setMapError('');
-    runImport();
+
+    // Build candidates for dedup check
+    setDedupChecking(true);
+    try {
+      const candidates = rows.map(row => ({
+        ico: getRowValue(row, 'ico') || undefined,
+        domain: extractDomain(getRowValue(row, 'website')) || undefined,
+        email: getRowValue(row, 'email') || undefined,
+        company_name: getRowValue(row, 'company_name') || undefined,
+      }));
+
+      const result = await checkDuplicates(candidates);
+
+      if (result.duplicates.length > 0) {
+        setDedupResult(result);
+        setStep('review');
+      } else {
+        runImport(new Set());
+      }
+    } catch {
+      // If dedup check fails, proceed without it
+      runImport(new Set());
+    } finally {
+      setDedupChecking(false);
+    }
   }
 
-  async function runImport() {
+  async function runImport(skipIndices: Set<number>) {
     setStep('importing');
     const total = rows.length;
     let done = 0, errors = 0, duplicates = 0;
@@ -90,12 +124,22 @@ export default function CsvImportDialog({ open, onClose }: CsvImportDialogProps)
     const mappedCols = new Set(Object.values(mapping).filter(Boolean));
     const extraCols = headers.filter(h => !mappedCols.has(h));
 
-    for (const row of rows) {
-      const company_name = mapping.company_name ? (row[headers.indexOf(mapping.company_name)] ?? '').trim() : '';
-      const ico          = mapping.ico          ? (row[headers.indexOf(mapping.ico)]          ?? '').trim() : '';
-      const website      = mapping.website      ? (row[headers.indexOf(mapping.website)]      ?? '').trim() : '';
-      const contact_name = mapping.contact_name ? (row[headers.indexOf(mapping.contact_name)] ?? '').trim() : '';
-      const email        = mapping.email        ? (row[headers.indexOf(mapping.email)]        ?? '').trim() : '';
+    for (let i = 0; i < rows.length; i++) {
+      const row = rows[i];
+
+      // Skip duplicates identified in review step
+      if (skipIndices.has(i)) {
+        duplicates++;
+        done++;
+        setProgress({ done, errors, duplicates, total });
+        continue;
+      }
+
+      const company_name = getRowValue(row, 'company_name');
+      const ico          = getRowValue(row, 'ico');
+      const website      = getRowValue(row, 'website');
+      const contact_name = getRowValue(row, 'contact_name');
+      const email        = getRowValue(row, 'email');
 
       // Build custom_fields from unmapped columns
       const custom_fields: Record<string, string> = {};
@@ -131,8 +175,7 @@ export default function CsvImportDialog({ open, onClose }: CsvImportDialogProps)
             .single();
 
           if (le) {
-            if (le.code === '23505') { duplicates++; }
-            else { errors++; }
+            errors++;
           } else {
             const { data: jed, error: je } = await supabase
               .from('jednatels')
@@ -166,10 +209,7 @@ export default function CsvImportDialog({ open, onClose }: CsvImportDialogProps)
               lead_type: 'company',
               custom_fields: Object.keys(custom_fields).length > 0 ? custom_fields : {},
             });
-          if (le) {
-            if (le.code === '23505') { duplicates++; }
-            else { errors++; }
-          }
+          if (le) errors++;
         }
       } catch {
         errors++;
@@ -183,7 +223,49 @@ export default function CsvImportDialog({ open, onClose }: CsvImportDialogProps)
     setStep('done');
   }
 
-  const modalWidth = (step === 'upload' || step === 'done') ? 520 : 600;
+  // ---- STEP: review (dedup) ----
+  const dupCount = dedupResult?.duplicateIndices.size ?? 0;
+  const cleanCount = rows.length - dupCount;
+  const matchFieldLabels: Record<string, string> = { ico: 'IČO', domain: 'Doména', email: 'E-mail', company_name: 'Název firmy' };
+
+  const stepReview = dedupResult && (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+      <div style={{ padding: '12px 16px', background: 'rgba(251,146,60,0.08)', border: '1px solid rgba(251,146,60,0.25)', borderRadius: 8, fontSize: 13, color: '#fb923c' }}>
+        Nalezeno <strong>{dupCount}</strong> duplicitních leadů z {rows.length}. Tyto řádky budou přeskočeny.
+      </div>
+      <div style={{ maxHeight: 300, overflowY: 'auto', borderRadius: 6, border: '1px solid var(--border)' }}>
+        <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 12 }}>
+          <thead>
+            <tr style={{ background: 'rgba(255,255,255,0.03)', position: 'sticky', top: 0 }}>
+              <th style={{ padding: '7px 10px', textAlign: 'left', color: 'var(--text-dim)', fontWeight: 500, borderBottom: '1px solid var(--border)' }}>Řádek</th>
+              <th style={{ padding: '7px 10px', textAlign: 'left', color: 'var(--text-dim)', fontWeight: 500, borderBottom: '1px solid var(--border)' }}>Firma</th>
+              <th style={{ padding: '7px 10px', textAlign: 'left', color: 'var(--text-dim)', fontWeight: 500, borderBottom: '1px solid var(--border)' }}>Shoda</th>
+              <th style={{ padding: '7px 10px', textAlign: 'left', color: 'var(--text-dim)', fontWeight: 500, borderBottom: '1px solid var(--border)' }}>Hodnota</th>
+              <th style={{ padding: '7px 10px', textAlign: 'left', color: 'var(--text-dim)', fontWeight: 500, borderBottom: '1px solid var(--border)' }}>Existující firma</th>
+            </tr>
+          </thead>
+          <tbody>
+            {Array.from(dedupResult.duplicateIndices).sort((a, b) => a - b).map(idx => {
+              const matches = dedupResult.candidateMatches.get(idx) ?? [];
+              const row = rows[idx];
+              const companyName = getRowValue(row, 'company_name');
+              return matches.map((m: DuplicateMatch, mi: number) => (
+                <tr key={`${idx}-${mi}`} style={{ borderBottom: '1px solid var(--border)' }}>
+                  <td style={{ padding: '7px 10px', color: 'var(--text-dim)', fontFamily: 'JetBrains Mono, monospace' }}>{idx + 1}</td>
+                  <td style={{ padding: '7px 10px', color: 'var(--text)' }}>{companyName || '—'}</td>
+                  <td style={{ padding: '7px 10px', color: '#fb923c' }}>{matchFieldLabels[m.match_field] ?? m.match_field}</td>
+                  <td style={{ padding: '7px 10px', color: 'var(--text)', fontFamily: 'JetBrains Mono, monospace' }}>{m.match_value}</td>
+                  <td style={{ padding: '7px 10px', color: 'var(--text-dim)' }}>{m.existing_company ?? '—'}</td>
+                </tr>
+              ));
+            })}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  );
+
+  const modalWidth = (step === 'upload' || step === 'done') ? 520 : step === 'review' ? 700 : 600;
 
   // ---- STEP: upload ----
   const stepUpload = (
@@ -394,8 +476,16 @@ export default function CsvImportDialog({ open, onClose }: CsvImportDialogProps)
       {step === 'map' && (
         <>
           <GlassButton variant="secondary" onClick={() => setStep('upload')}>← Zpět</GlassButton>
-          <GlassButton variant="primary" onClick={handleMapNext}>
-            Spustit import {rows.length}×
+          <GlassButton variant="primary" onClick={handleMapNext} disabled={dedupChecking}>
+            {dedupChecking ? 'Kontroluji duplicity…' : `Spustit import ${rows.length}×`}
+          </GlassButton>
+        </>
+      )}
+      {step === 'review' && dedupResult && (
+        <>
+          <GlassButton variant="secondary" onClick={() => { setDedupResult(null); setStep('map'); }}>← Zpět</GlassButton>
+          <GlassButton variant="primary" onClick={() => runImport(dedupResult.duplicateIndices)}>
+            Přeskočit {dupCount} duplikátů a importovat {cleanCount}
           </GlassButton>
         </>
       )}
@@ -408,6 +498,7 @@ export default function CsvImportDialog({ open, onClose }: CsvImportDialogProps)
   const titles: Record<Step, string> = {
     upload:    'Importovat leady z CSV',
     map:       'Mapování sloupců',
+    review:    'Nalezeny duplicity',
     importing: 'Import probíhá…',
     done:      'Import dokončen',
   };
@@ -422,6 +513,7 @@ export default function CsvImportDialog({ open, onClose }: CsvImportDialogProps)
     >
       {step === 'upload'    && stepUpload}
       {step === 'map'       && stepMap}
+      {step === 'review'    && stepReview}
       {step === 'importing' && stepImporting}
       {step === 'done'      && stepDone}
     </GlassModal>

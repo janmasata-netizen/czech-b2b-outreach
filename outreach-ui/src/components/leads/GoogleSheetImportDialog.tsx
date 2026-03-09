@@ -9,13 +9,14 @@ import { supabase } from '@/lib/supabase';
 import { parseCsv, autoDetect } from '@/lib/csv-utils';
 import { toast } from 'sonner';
 import { n8nWebhookUrl, n8nHeaders } from '@/lib/n8n';
+import { checkDuplicates, extractDomain, type DedupResult, type DuplicateMatch } from '@/lib/dedup';
 
 interface GoogleSheetImportDialogProps {
   open: boolean;
   onClose: () => void;
 }
 
-type Step = 'url' | 'map' | 'importing' | 'done';
+type Step = 'url' | 'map' | 'review' | 'importing' | 'done';
 type EnrichmentLevel = 'import_only' | 'find_emails' | 'full_pipeline';
 
 interface Progress {
@@ -41,6 +42,8 @@ export default function GoogleSheetImportDialog({ open, onClose }: GoogleSheetIm
   const [enrichmentLevel, setEnrichmentLevel] = useState<EnrichmentLevel>('full_pipeline');
   const [progress, setProgress] = useState<Progress>({ done: 0, errors: 0, duplicates: 0, total: 0, icosFound: 0, phase: '' });
   const [mapError, setMapError] = useState('');
+  const [dedupResult, setDedupResult] = useState<DedupResult | null>(null);
+  const [dedupChecking, setDedupChecking] = useState(false);
 
   function resetState() {
     setStep('url');
@@ -53,6 +56,8 @@ export default function GoogleSheetImportDialog({ open, onClose }: GoogleSheetIm
     setEnrichmentLevel('full_pipeline');
     setProgress({ done: 0, errors: 0, duplicates: 0, total: 0, icosFound: 0, phase: '' });
     setMapError('');
+    setDedupResult(null);
+    setDedupChecking(false);
   }
 
   function handleClose() {
@@ -109,21 +114,45 @@ export default function GoogleSheetImportDialog({ open, onClose }: GoogleSheetIm
     }
   }
 
-  function handleMapNext() {
-    if (!mapping.company_name && !mapping.website && !mapping.contact_name) {
-      setMapError('Musíte namapovat alespoň Název firmy, Web nebo Jméno kontaktu.');
-      return;
-    }
-    setMapError('');
-    runImport();
-  }
-
   function getRowValue(row: string[], field: keyof typeof mapping): string {
     const col = mapping[field];
     return col ? (row[headers.indexOf(col)] ?? '').trim() : '';
   }
 
-  async function runImport() {
+  async function handleMapNext() {
+    if (!mapping.company_name && !mapping.website && !mapping.contact_name) {
+      setMapError('Musíte namapovat alespoň Název firmy, Web nebo Jméno kontaktu.');
+      return;
+    }
+    setMapError('');
+
+    // Build candidates for dedup check
+    setDedupChecking(true);
+    try {
+      const candidates = rows.map(row => ({
+        ico: getRowValue(row, 'ico') || undefined,
+        domain: extractDomain(getRowValue(row, 'website')) || undefined,
+        email: getRowValue(row, 'email') || undefined,
+        company_name: getRowValue(row, 'company_name') || undefined,
+      }));
+
+      const result = await checkDuplicates(candidates);
+
+      if (result.duplicates.length > 0) {
+        setDedupResult(result);
+        setStep('review');
+      } else {
+        runImport(new Set());
+      }
+    } catch {
+      // If dedup check fails, proceed without it
+      runImport(new Set());
+    } finally {
+      setDedupChecking(false);
+    }
+  }
+
+  async function runImport(skipIndices: Set<number>) {
     setStep('importing');
     const total = rows.length;
     let done = 0, errors = 0, duplicates = 0, icosFound = 0;
@@ -139,7 +168,7 @@ export default function GoogleSheetImportDialog({ open, onClose }: GoogleSheetIm
     if (enrichmentLevel === 'full_pipeline') {
       const rowsNeedingIco = rows
         .map((row, i) => ({ i, website: getRowValue(row, 'website'), ico: getRowValue(row, 'ico') }))
-        .filter(r => r.website && !r.ico);
+        .filter(r => r.website && !r.ico && !skipIndices.has(r.i));
 
       if (rowsNeedingIco.length > 0) {
         setProgress(p => ({ ...p, phase: `Hledám IČO na webech... 0/${rowsNeedingIco.length}` }));
@@ -172,6 +201,14 @@ export default function GoogleSheetImportDialog({ open, onClose }: GoogleSheetIm
     setProgress(p => ({ ...p, phase: `Importuji leady... 0/${total}` }));
 
     for (let i = 0; i < rows.length; i++) {
+      // Skip duplicates identified in review step
+      if (skipIndices.has(i)) {
+        duplicates++;
+        done++;
+        setProgress(p => ({ ...p, done, duplicates, phase: `Importuji leady... ${done}/${total}` }));
+        continue;
+      }
+
       const row = rows[i];
       const company_name = getRowValue(row, 'company_name');
       const ico = getRowValue(row, 'ico') || rowIcos[i] || '';
@@ -210,8 +247,7 @@ export default function GoogleSheetImportDialog({ open, onClose }: GoogleSheetIm
               .single();
 
             if (le) {
-              if (le.code === '23505') duplicates++;
-              else errors++;
+              errors++;
             } else {
               const { data: jed, error: je } = await supabase
                 .from('jednatels')
@@ -244,10 +280,7 @@ export default function GoogleSheetImportDialog({ open, onClose }: GoogleSheetIm
                 lead_type: 'company',
                 custom_fields: Object.keys(custom_fields).length > 0 ? custom_fields : {},
               });
-            if (le) {
-              if (le.code === '23505') duplicates++;
-              else errors++;
-            }
+            if (le) errors++;
           }
         } else {
           // find_emails or full_pipeline → call lead-ingest webhook
@@ -293,7 +326,49 @@ export default function GoogleSheetImportDialog({ open, onClose }: GoogleSheetIm
     setStep('done');
   }
 
-  const modalWidth = (step === 'url' || step === 'done') ? 520 : 620;
+  // ---- STEP: review (dedup) ----
+  const dupCount = dedupResult?.duplicateIndices.size ?? 0;
+  const cleanCount = rows.length - dupCount;
+  const matchFieldLabels: Record<string, string> = { ico: 'IČO', domain: 'Doména', email: 'E-mail', company_name: 'Název firmy' };
+
+  const stepReview = dedupResult && (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+      <div style={{ padding: '12px 16px', background: 'rgba(251,146,60,0.08)', border: '1px solid rgba(251,146,60,0.25)', borderRadius: 8, fontSize: 13, color: '#fb923c' }}>
+        Nalezeno <strong>{dupCount}</strong> duplicitních leadů z {rows.length}. Tyto řádky budou přeskočeny.
+      </div>
+      <div style={{ maxHeight: 300, overflowY: 'auto', borderRadius: 6, border: '1px solid var(--border)' }}>
+        <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 12 }}>
+          <thead>
+            <tr style={{ background: 'rgba(255,255,255,0.03)', position: 'sticky', top: 0 }}>
+              <th style={{ padding: '7px 10px', textAlign: 'left', color: 'var(--text-dim)', fontWeight: 500, borderBottom: '1px solid var(--border)' }}>Řádek</th>
+              <th style={{ padding: '7px 10px', textAlign: 'left', color: 'var(--text-dim)', fontWeight: 500, borderBottom: '1px solid var(--border)' }}>Firma</th>
+              <th style={{ padding: '7px 10px', textAlign: 'left', color: 'var(--text-dim)', fontWeight: 500, borderBottom: '1px solid var(--border)' }}>Shoda</th>
+              <th style={{ padding: '7px 10px', textAlign: 'left', color: 'var(--text-dim)', fontWeight: 500, borderBottom: '1px solid var(--border)' }}>Hodnota</th>
+              <th style={{ padding: '7px 10px', textAlign: 'left', color: 'var(--text-dim)', fontWeight: 500, borderBottom: '1px solid var(--border)' }}>Existující firma</th>
+            </tr>
+          </thead>
+          <tbody>
+            {Array.from(dedupResult.duplicateIndices).sort((a, b) => a - b).map(idx => {
+              const matches = dedupResult.candidateMatches.get(idx) ?? [];
+              const row = rows[idx];
+              const companyName = getRowValue(row, 'company_name');
+              return matches.map((m: DuplicateMatch, mi: number) => (
+                <tr key={`${idx}-${mi}`} style={{ borderBottom: '1px solid var(--border)' }}>
+                  <td style={{ padding: '7px 10px', color: 'var(--text-dim)', fontFamily: 'JetBrains Mono, monospace' }}>{idx + 1}</td>
+                  <td style={{ padding: '7px 10px', color: 'var(--text)' }}>{companyName || '—'}</td>
+                  <td style={{ padding: '7px 10px', color: '#fb923c' }}>{matchFieldLabels[m.match_field] ?? m.match_field}</td>
+                  <td style={{ padding: '7px 10px', color: 'var(--text)', fontFamily: 'JetBrains Mono, monospace' }}>{m.match_value}</td>
+                  <td style={{ padding: '7px 10px', color: 'var(--text-dim)' }}>{m.existing_company ?? '—'}</td>
+                </tr>
+              ));
+            })}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  );
+
+  const modalWidth = (step === 'url' || step === 'done') ? 520 : step === 'review' ? 700 : 620;
   const pct = progress.total > 0 ? Math.round((progress.done / progress.total) * 100) : 0;
   const imported = Math.max(0, progress.done - progress.errors - progress.duplicates);
   const previewRows = rows.slice(0, 3);
@@ -508,8 +583,16 @@ export default function GoogleSheetImportDialog({ open, onClose }: GoogleSheetIm
       {step === 'map' && (
         <>
           <GlassButton variant="secondary" onClick={() => setStep('url')}>← Zpět</GlassButton>
-          <GlassButton variant="primary" onClick={handleMapNext}>
-            Spustit import {rows.length}×
+          <GlassButton variant="primary" onClick={handleMapNext} disabled={dedupChecking}>
+            {dedupChecking ? 'Kontroluji duplicity…' : `Spustit import ${rows.length}×`}
+          </GlassButton>
+        </>
+      )}
+      {step === 'review' && dedupResult && (
+        <>
+          <GlassButton variant="secondary" onClick={() => { setDedupResult(null); setStep('map'); }}>← Zpět</GlassButton>
+          <GlassButton variant="primary" onClick={() => runImport(dedupResult.duplicateIndices)}>
+            Přeskočit {dupCount} duplikátů a importovat {cleanCount}
           </GlassButton>
         </>
       )}
@@ -522,6 +605,7 @@ export default function GoogleSheetImportDialog({ open, onClose }: GoogleSheetIm
   const titles: Record<Step, string> = {
     url:       'Import z Google Sheetu',
     map:       'Mapování sloupců',
+    review:    'Nalezeny duplicity',
     importing: 'Import probíhá…',
     done:      'Import dokončen',
   };
@@ -536,6 +620,7 @@ export default function GoogleSheetImportDialog({ open, onClose }: GoogleSheetIm
     >
       {step === 'url'       && stepUrl}
       {step === 'map'       && stepMap}
+      {step === 'review'    && stepReview}
       {step === 'importing' && stepImporting}
       {step === 'done'      && stepDone}
     </GlassModal>

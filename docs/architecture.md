@@ -350,6 +350,7 @@ Operator vytvori vlnu v UI
 | `generate_salutation()` | Generovani ceskeho osloveni ve vokativu |
 | `backfill_salutations()` | Hromadna regenerace osloveni pro vsechny kontakty |
 | `check_and_mark_reply_processed()` | Deduplikace zpracovani odpovedi |
+| `check_lead_duplicates(candidates)` | Kontrola duplicit leadu pred importem (ICO, domena, e-mail, nazev firmy) |
 | `auto_complete_waves()` | Oznaceni vlny jako dokoncene, kdyz jsou vsechny e-maily odeslany |
 | `reorder_template_sequences()` | Prerazeni poradovych cisel sablon |
 | `handle_lead_reply()` | Trigger funkce pro zpracovani odpovedi |
