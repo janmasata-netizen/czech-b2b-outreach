@@ -41,6 +41,7 @@ export function useOutreachAccounts(teamId?: string) {
       if (error) throw error;
       return data ?? [];
     },
+    refetchInterval: 30_000,
   });
 }
 
