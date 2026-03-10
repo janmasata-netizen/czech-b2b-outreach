@@ -1,0 +1,13 @@
+services:
+  outreach-ui:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    ports:
+      - "32772:80"
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "wget", "-q", "--spider", "http://localhost:80"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
