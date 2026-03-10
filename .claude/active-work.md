@@ -6,4 +6,3 @@
 
 | Branch | Agent | Files/Areas | Started | Description |
 |---|---|---|---|---|
-| claude/type-safety-tests | Claude Opus | types/database.ts, 7 file-level eslint files, 12 per-line eslint files, 4 new test files | 2026-03-10 | PR 2: Type safety + page tests |
