@@ -56,8 +56,8 @@ export default function AddLeadDialog({ open, onClose }: AddLeadDialogProps) {
     return obj;
   }
 
-  async function handleSubmit(e: FormEvent) {
-    e.preventDefault();
+  async function handleSubmit(e?: FormEvent | React.MouseEvent) {
+    e?.preventDefault();
 
     if (!form.contact_name.trim()) {
       toast.error('Zadejte celé jméno kontaktní osoby');
@@ -65,6 +65,10 @@ export default function AddLeadDialog({ open, onClose }: AddLeadDialogProps) {
     }
     if (!form.email.trim()) {
       toast.error('Zadejte e-mailovou adresu');
+      return;
+    }
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(form.email.trim())) {
+      toast.error('Neplatný formát e-mailové adresy');
       return;
     }
     if (!form.company_name.trim()) {
@@ -133,7 +137,7 @@ export default function AddLeadDialog({ open, onClose }: AddLeadDialogProps) {
       footer={
         <>
           <GlassButton variant="secondary" onClick={onClose}>Zrušit</GlassButton>
-          <GlassButton variant="primary" onClick={e => handleSubmit(e as any)} disabled={createLead.isPending || checking}>
+          <GlassButton variant="primary" onClick={e => handleSubmit(e)} disabled={createLead.isPending || checking}>
             {checking ? 'Kontroluji…' : createLead.isPending ? 'Ukládám…' : 'Přidat lead'}
           </GlassButton>
         </>
