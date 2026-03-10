@@ -44,6 +44,7 @@ export default function WavesPage() {
   // SubPanel "Nová vlna" button navigates to ?new=1 — detect and open dialog
   useEffect(() => {
     if (searchParams.get('new') === '1') {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       setShowCreate(true);
       // Remove the ?new=1 param immediately so back-nav doesn't re-open it
       setSearchParams(prev => {
@@ -52,7 +53,7 @@ export default function WavesPage() {
         return next;
       }, { replace: true });
     }
-  }, [searchParams]);
+  }, [searchParams, setSearchParams]);
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>

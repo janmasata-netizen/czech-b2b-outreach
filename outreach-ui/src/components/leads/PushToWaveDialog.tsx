@@ -29,6 +29,7 @@ export default function PushToWaveDialog({ leadIds, open, onClose }: PushToWaveD
       toast.success(`${leadIds.length} lead${leadIds.length === 1 ? '' : 'ů'} přidáno do vlny`);
       onClose();
       navigate(`/vlny/${selectedWaveId}`);
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     } catch (e: any) {
       toast.error('Chyba: ' + (e?.message ?? 'neznámá chyba'));
     }

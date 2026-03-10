@@ -110,7 +110,7 @@ export function useAddLeadsToWave() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: async ({ waveId, leadIds, retargetMode }: { waveId: string; leadIds: string[]; retargetMode?: boolean }) => {
-      let retargetRounds: Record<string, number> = {};
+      const retargetRounds: Record<string, number> = {};
 
       if (retargetMode) {
         // Fetch the most recent retarget_round for each lead

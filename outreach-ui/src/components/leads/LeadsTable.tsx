@@ -1,5 +1,5 @@
 import { useNavigate } from 'react-router-dom';
-import type { Lead } from '@/types/database';
+import type { Lead, WaveLead } from '@/types/database';
 import StatusBadge from '@/components/shared/StatusBadge';
 import { formatDate, extractDomain, truncate } from '@/lib/utils';
 import { EMAIL_STATUS_STYLES } from '@/lib/constants';
@@ -45,8 +45,8 @@ export default function LeadsTable({ leads, isLoading, selected, onSelect }: Lea
     try {
       await removeFromWave.mutateAsync({ waveLeadId, leadId });
       toast.success('Lead odebrán z vlny');
-    } catch (err: any) {
-      toast.error('Chyba: ' + (err?.message ?? 'neznámá chyba'));
+    } catch (err: unknown) {
+      toast.error('Chyba: ' + (err instanceof Error ? err.message : 'neznámá chyba'));
     }
   }
 
@@ -77,19 +77,19 @@ export default function LeadsTable({ leads, isLoading, selected, onSelect }: Lea
         <tbody>
           {leads.map(lead => {
             const isSelected = selected.includes(lead.id);
-            const candidates: any[] = (lead as any).email_candidates ?? [];
-            const bestCand = candidates.find((e: any) => e.is_verified) ?? candidates[0];
+            const candidates = lead.email_candidates ?? [];
+            const bestCand = candidates.find(e => e.is_verified) ?? candidates[0];
             const primaryEmail = bestCand?.email_address;
             const emailStatus = lead.status === 'info_email'
               ? 'info_email'
               : bestCand?.qev_status && bestCand.qev_status !== 'unknown'
               ? bestCand.qev_status
               : bestCand?.seznam_status ?? null;
-            const jednatels = (lead as any).jednatels?.map((j: any) => j.full_name).filter(Boolean).join(', ');
-            const waveLead = (lead as any).wave_leads?.[0];
-            const waveName: string | undefined = waveLead?.waves?.name;
-            const waveStatus: string | undefined = waveLead?.waves?.status;
-            const canRemove = !!waveLead;
+            const jednatels = lead.jednatels?.map(j => j.full_name).filter(Boolean).join(', ');
+            // wave_leads come from Supabase join with nested waves
+            const wl = lead.wave_leads?.[0] as (WaveLead & { waves?: { name: string; status: string } }) | undefined;
+            const waveName: string | undefined = wl?.waves?.name;
+            const canRemove = !!wl;
 
             return (
               <tr
@@ -124,7 +124,7 @@ export default function LeadsTable({ leads, isLoading, selected, onSelect }: Lea
                 <td style={{ padding: '11px 14px', fontSize: 12, color: 'var(--text-dim)' }}>{jednatels || '—'}</td>
                 <td style={{ padding: '11px 14px' }}><StatusBadge status={lead.status ?? 'new'} /></td>
                 <td style={{ padding: '11px 14px' }} onClick={e => e.stopPropagation()}>
-                  {waveLead && waveName ? (
+                  {wl && waveName ? (
                     <div style={{ display: 'flex', alignItems: 'center', gap: 5, minWidth: 0 }}>
                       <span style={{ fontSize: 11, color: 'var(--text-dim)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: 110 }} title={waveName}>
                         {waveName}
@@ -132,7 +132,7 @@ export default function LeadsTable({ leads, isLoading, selected, onSelect }: Lea
                       {canRemove && (
                         <button
                           title="Odebrat z vlny"
-                          onClick={e => handleRemoveFromWave(e, waveLead.id, lead.id, waveName)}
+                          onClick={e => handleRemoveFromWave(e, wl!.id, lead.id, waveName!)}
                           disabled={removeFromWave.isPending}
                           style={{ flexShrink: 0, background: 'none', border: '1px solid rgba(248,113,113,0.35)', borderRadius: 4, cursor: 'pointer', color: '#f87171', fontSize: 13, lineHeight: 1, padding: '1px 5px' }}
                         >×</button>

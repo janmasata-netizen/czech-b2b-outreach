@@ -92,7 +92,7 @@ function formatElapsed(seconds: number): string {
 
 export default function EmailFinderPage() {
   const isMobile = useMobile();
-  const [searchParams, setSearchParams] = useSearchParams();
+  const [searchParams] = useSearchParams();
   const rawTab = searchParams.get('tab');
   const mode: Mode = (rawTab === 'name' || rawTab === 'verify' || rawTab === 'probe') ? rawTab : 'ico';
   const [loading, setLoading] = useState(false);
@@ -131,16 +131,6 @@ export default function EmailFinderPage() {
     const id = setInterval(() => setElapsed(Math.floor((Date.now() - startTime) / 1000)), 1000);
     return () => clearInterval(id);
   }, [startTime]);
-
-  function switchMode(m: Mode) {
-    if (m === 'ico') {
-      setSearchParams({});
-    } else {
-      setSearchParams({ tab: m });
-    }
-    setResults(null);
-    setFieldErrors({});
-  }
 
   function validateField(field: string, value: string) {
     const errs = { ...fieldErrors };

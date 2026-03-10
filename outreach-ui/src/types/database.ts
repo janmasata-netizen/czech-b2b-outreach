@@ -67,6 +67,9 @@ export interface Lead {
   team?: Team;
   jednatels?: Jednatel[];
   email_candidates?: EmailCandidate[];
+  wave_leads?: WaveLead[];
+  lead_replies?: LeadReply[];
+  enrichment_log?: EnrichmentLog[];
 }
 
 export interface EnrichmentLog {
@@ -248,12 +251,22 @@ export interface WaveAnalytics {
   status: WaveStatus;
   template_set_id: string | null;
   template_set_name: string | null;
+  salesman_id?: string | null;
+  outreach_account_id?: string | null;
+  is_dummy?: boolean;
+  dummy_email?: string | null;
+  source_wave_id?: string | null;
+  completed_at?: string | null;
   send_date_seq1: string | null;
   send_date_seq2: string | null;
   send_date_seq3: string | null;
   send_time_seq1: string | null;
   send_time_seq2: string | null;
   send_time_seq3: string | null;
+  delay_seq1_to_seq2_days?: number;
+  delay_seq2_to_seq3_days?: number;
+  send_window_start?: string;
+  send_window_end?: string;
   created_at: string;
   updated_at?: string;
   lead_count: number;

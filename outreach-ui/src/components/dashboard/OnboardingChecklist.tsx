@@ -5,14 +5,6 @@ import GlassCard from '@/components/glass/GlassCard';
 import GlassButton from '@/components/glass/GlassButton';
 import { Check, ArrowRight } from 'lucide-react';
 
-interface Step {
-  key: string;
-  label: string;
-  description: string;
-  href: string;
-  check: () => Promise<boolean>;
-}
-
 function useOnboardingStatus() {
   return useQuery({
     queryKey: ['onboarding-status'],

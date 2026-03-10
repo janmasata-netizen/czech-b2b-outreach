@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 import { useState, useEffect, useRef } from 'react';
 import GlassCard from '@/components/glass/GlassCard';
 import GlassButton from '@/components/glass/GlassButton';
@@ -37,6 +38,7 @@ export default function WaveConfigForm({ wave }: WaveConfigFormProps) {
       is_dummy: Boolean((wave as any).is_dummy),
       dummy_email: (wave as any).dummy_email ?? '',
     });
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [wave.id, wave.template_set_id, (wave as any).salesman_id, (wave as any).outreach_account_id, (wave as any).is_dummy, (wave as any).dummy_email]);
 
   const savedForm = useRef(form);
@@ -49,6 +51,7 @@ export default function WaveConfigForm({ wave }: WaveConfigFormProps) {
       is_dummy: Boolean((wave as any).is_dummy),
       dummy_email: (wave as any).dummy_email ?? '',
     };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [wave.id]);
 
   const isDirty = JSON.stringify(form) !== JSON.stringify(savedForm.current);

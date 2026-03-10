@@ -27,6 +27,7 @@ export default function BulkActions({ selected, onClear }: BulkActionsProps) {
       toast.success(`Smazáno ${selected.length} leadů`);
       onClear();
       setConfirmDelete(false);
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     } catch (e: any) {
       toast.error('Chyba při mazání leadů' + (e?.message ? ': ' + e.message : ''));
     }
