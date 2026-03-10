@@ -34,6 +34,9 @@ export function useRealtime(teamId?: string | null) {
         qc.invalidateQueries({ queryKey: ['waves'] });
         qc.invalidateQueries({ queryKey: ['dashboard'] });
       })
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'outreach_accounts', ...(teamFilter && { filter: teamFilter }) }, () => {
+        qc.invalidateQueries({ queryKey: ['settings', 'outreach-accounts'] });
+      })
       .subscribe();
 
     return () => { supabase.removeChannel(channel); };
