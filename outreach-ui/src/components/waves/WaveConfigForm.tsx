@@ -1,15 +1,14 @@
-/* eslint-disable @typescript-eslint/no-explicit-any */
 import { useState, useEffect, useRef } from 'react';
 import GlassCard from '@/components/glass/GlassCard';
 import GlassButton from '@/components/glass/GlassButton';
 import GlassInput from '@/components/glass/GlassInput';
 import { useUpdateWave, useTemplateSets } from '@/hooks/useWaves';
 import { useSalesmen, useOutreachAccounts } from '@/hooks/useSettings';
-import type { WaveAnalytics } from '@/types/database';
+import type { WaveAnalytics, Wave } from '@/types/database';
 import { toast } from 'sonner';
 
 interface WaveConfigFormProps {
-  wave: WaveAnalytics & { team_id?: string | null; salesman_id?: string | null; outreach_account_id?: string | null };
+  wave: WaveAnalytics;
 }
 
 const LABEL: React.CSSProperties = { fontSize: 12, fontWeight: 500, color: 'var(--text-dim)' };
@@ -23,33 +22,33 @@ export default function WaveConfigForm({ wave }: WaveConfigFormProps) {
   const [form, setForm] = useState({
     name: wave.name ?? '',
     template_set_id: wave.template_set_id ?? '',
-    salesman_id: (wave as any).salesman_id ?? '',
-    outreach_account_id: (wave as any).outreach_account_id ?? '',
-    is_dummy: Boolean((wave as any).is_dummy),
-    dummy_email: (wave as any).dummy_email ?? '',
+    salesman_id: wave.salesman_id ?? '',
+    outreach_account_id: wave.outreach_account_id ?? '',
+    is_dummy: Boolean(wave.is_dummy),
+    dummy_email: wave.dummy_email ?? '',
   });
 
   useEffect(() => {
     setForm({
       name: wave.name ?? '',
       template_set_id: wave.template_set_id ?? '',
-      salesman_id: (wave as any).salesman_id ?? '',
-      outreach_account_id: (wave as any).outreach_account_id ?? '',
-      is_dummy: Boolean((wave as any).is_dummy),
-      dummy_email: (wave as any).dummy_email ?? '',
+      salesman_id: wave.salesman_id ?? '',
+      outreach_account_id: wave.outreach_account_id ?? '',
+      is_dummy: Boolean(wave.is_dummy),
+      dummy_email: wave.dummy_email ?? '',
     });
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [wave.id, wave.template_set_id, (wave as any).salesman_id, (wave as any).outreach_account_id, (wave as any).is_dummy, (wave as any).dummy_email]);
+  }, [wave.id, wave.template_set_id, wave.salesman_id, wave.outreach_account_id, wave.is_dummy, wave.dummy_email]);
 
   const savedForm = useRef(form);
   useEffect(() => {
     savedForm.current = {
       name: wave.name ?? '',
       template_set_id: wave.template_set_id ?? '',
-      salesman_id: (wave as any).salesman_id ?? '',
-      outreach_account_id: (wave as any).outreach_account_id ?? '',
-      is_dummy: Boolean((wave as any).is_dummy),
-      dummy_email: (wave as any).dummy_email ?? '',
+      salesman_id: wave.salesman_id ?? '',
+      outreach_account_id: wave.outreach_account_id ?? '',
+      is_dummy: Boolean(wave.is_dummy),
+      dummy_email: wave.dummy_email ?? '',
     };
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [wave.id]);
@@ -78,7 +77,7 @@ export default function WaveConfigForm({ wave }: WaveConfigFormProps) {
           outreach_account_id: form.outreach_account_id || undefined,
           is_dummy: form.is_dummy,
           dummy_email: form.is_dummy ? (form.dummy_email || undefined) : undefined,
-        } as any,
+        } as Partial<Wave>,
       });
       savedForm.current = { ...form };
       toast.success('Vlna uložena');

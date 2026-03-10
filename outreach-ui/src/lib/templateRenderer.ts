@@ -1,3 +1,5 @@
+import type { Lead, Jednatel } from '@/types/database';
+
 /**
  * Client-side template renderer for draft wave preview.
  * Replaces {{placeholder}} tokens with lead/jednatel/custom_fields values.
@@ -10,8 +12,7 @@ export function renderTemplate(text: string | null, ctx: Record<string, string>)
 }
 
 /** Build a template context from lead + jednatel data + custom_fields */
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-export function buildTemplateContext(lead: any, jednatel: any): Record<string, string> {
+export function buildTemplateContext(lead: Lead | null, jednatel: Jednatel | null): Record<string, string> {
   // Standard fields from lead/jednatel columns
   const standard: Record<string, string> = {};
   if (lead?.company_name) standard.company_name = lead.company_name;

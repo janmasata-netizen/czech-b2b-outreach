@@ -339,6 +339,26 @@ export interface MasterLeadFilters {
   team_id?: string;
 }
 
+export interface WaveLeadRow extends WaveLead {
+  leads?: Lead & { jednatels?: (Jednatel & { email_candidates?: EmailCandidate[] })[] };
+  sent_emails?: SentEmail[];
+  lead_replies?: LeadReply[];
+  email_queue?: EmailQueue[];
+  waves?: { name: string; status: string };
+}
+
+export interface RetargetHistoryEntry {
+  id: string;
+  wave_id: string;
+  status: WaveLeadStatus;
+  retarget_round?: number;
+  ab_variant: ABVariant | null;
+  created_at?: string;
+  updated_at?: string;
+  waves?: { id: string; name: string; status: string; completed_at: string | null; created_at: string } | null;
+  sent_emails?: { id: string; sequence_number: number; sent_at: string; subject?: string | null }[];
+}
+
 export interface RetargetPoolLead {
   lead_id: string;
   company_name: string | null;

@@ -1,12 +1,11 @@
 import GlassCard from '@/components/glass/GlassCard';
 import StatCard from '@/components/shared/StatCard';
-import type { WaveAnalytics } from '@/types/database';
+import type { WaveAnalytics, WaveLeadRow, SentEmail } from '@/types/database';
 import { formatPercent } from '@/lib/utils';
 
 interface WaveResultsProps {
   wave: WaveAnalytics;
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  waveLeads?: any[];
+  waveLeads?: WaveLeadRow[];
 }
 
 const SEQ_COLORS = ['#3ECF8E', '#a78bfa', '#22d3ee'] as const;
@@ -30,16 +29,13 @@ function fmtSentAt(iso: string): string {
 
 export default function WaveResults({ wave, waveLeads = [] }: WaveResultsProps) {
   const total = wave.lead_count || waveLeads.length;
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const w = wave as any;
 
   // Count sent emails per sequence from waveLeads + find earliest sent_at
   const seqCounts = [1, 2, 3].map(seq => {
     let count = 0;
     let earliestSentAt: string | null = null;
     for (const wl of waveLeads) {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const seqEmails = (wl.sent_emails ?? []).filter((e: any) => e.sequence_number === seq);
+      const seqEmails = (wl.sent_emails ?? []).filter((e: SentEmail) => e.sequence_number === seq);
       if (seqEmails.length > 0) count++;
       for (const e of seqEmails) {
         if (e.sent_at && (!earliestSentAt || e.sent_at < earliestSentAt)) {
@@ -49,7 +45,7 @@ export default function WaveResults({ wave, waveLeads = [] }: WaveResultsProps) 
     }
     const dateKey = `send_date_seq${seq}`;
     const timeKey = `send_time_seq${seq}`;
-    let scheduled = fmtSeqDate(w[dateKey], w[timeKey]);
+    let scheduled = fmtSeqDate(wave[dateKey as keyof WaveAnalytics] as string | null, wave[timeKey as keyof WaveAnalytics] as string | null);
 
     // Fallback: derive scheduled date from email_queue if wave-level date is null
     if (!scheduled) {

@@ -1,4 +1,3 @@
-/* eslint-disable @typescript-eslint/no-explicit-any */
 import { useState, useRef, useCallback } from 'react';
 import GlassCard from '@/components/glass/GlassCard';
 import PageHeader from '@/components/layout/PageHeader';
@@ -19,7 +18,7 @@ import {
   useReorderSequences,
 } from '@/hooks/useSettings';
 import { toast } from 'sonner';
-import type { TemplateVariable } from '@/types/database';
+import type { TemplateVariable, EmailTemplate } from '@/types/database';
 import {
   DndContext,
   closestCenter,
@@ -41,8 +40,8 @@ const MONO: React.CSSProperties = { fontFamily: 'JetBrains Mono, monospace' };
 /* ── Sequence Panel sub-component ─────────────────────── */
 interface SequencePanelProps {
   seq: number;
-  templateA: Record<string, any> | undefined;
-  templateB: Record<string, any> | undefined;
+  templateA: EmailTemplate | undefined;
+  templateB: EmailTemplate | undefined;
   allVariables: TemplateVariable[];
   customVariables: TemplateVariable[];
   setId: string;
@@ -281,17 +280,17 @@ export default function TemplateSetEditor() {
   const [newVarLabel, setNewVarLabel] = useState('');
 
   const selectedSet = sets?.find(s => s.id === selectedSetId);
-  const templates: Record<string, any>[] = selectedSet?.email_templates ?? [];
-  const variables: TemplateVariable[] = (selectedSet as any)?.variables ?? [];
+  const templates: EmailTemplate[] = selectedSet?.email_templates ?? [];
+  const variables: TemplateVariable[] = selectedSet?.variables ?? [];
 
   // Get distinct sorted sequence numbers
-  const seqNumbers = Array.from(new Set(templates.map((t: any) => t.sequence_number))).sort((a, b) => a - b);
+  const seqNumbers = Array.from(new Set(templates.map((t: EmailTemplate) => t.sequence_number))).sort((a, b) => a - b);
 
   // Group templates by seq → variant
   const templatesBySeq = useCallback(() => {
-    const map = new Map<number, { A?: Record<string, any>; B?: Record<string, any> }>();
+    const map = new Map<number, { A?: EmailTemplate; B?: EmailTemplate }>();
     for (const t of templates) {
-      const seq = t.sequence_number as number;
+      const seq = t.sequence_number;
       const variant = (t.variant ?? t.ab_variant) as string;
       if (!map.has(seq)) map.set(seq, {});
       const entry = map.get(seq)!;
@@ -342,8 +341,8 @@ export default function TemplateSetEditor() {
       await deleteTemplateSet.mutateAsync(confirmDeleteId);
       if (selectedSetId === confirmDeleteId) setSelectedSetId(null);
       toast.success('Šablona smazána');
-    } catch (e: any) {
-      const msg = e?.message ?? e?.details ?? '';
+    } catch (e: unknown) {
+      const msg = (e as Error)?.message ?? '';
       if (msg.includes('foreign key') || msg.includes('violates')) {
         toast.error('Šablonu nelze smazat — je používána vlnou');
       } else {
@@ -480,7 +479,7 @@ export default function TemplateSetEditor() {
           gap: 12,
         }}>
           {sets.map(s => {
-            const seqCount = new Set((s.email_templates ?? []).map((t: any) => t.sequence_number)).size;
+            const seqCount = new Set((s.email_templates ?? []).map((t: EmailTemplate) => t.sequence_number)).size;
             return (
               <div
                 key={s.id}

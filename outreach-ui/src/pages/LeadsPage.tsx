@@ -102,15 +102,13 @@ export default function LeadsPage() {
                 .order('created_at', { ascending: false })
                 .limit(5000);
               if (!data?.length) return;
-              // eslint-disable-next-line @typescript-eslint/no-explicit-any
-              const rows = data.map((l: any) => ({
+              const rows = data.map((l: { company_name: string | null; ico: string | null; website: string | null; domain: string | null; status: string; created_at: string; email_candidates?: { email_address: string; is_verified: boolean }[] }) => ({
                 company_name: l.company_name,
                 ico: l.ico,
                 website: l.website,
                 domain: l.domain,
                 status: l.status,
-                // eslint-disable-next-line @typescript-eslint/no-explicit-any
-                email: l.email_candidates?.find((c: any) => c.is_verified)?.email_address ?? l.email_candidates?.[0]?.email_address ?? '',
+                email: l.email_candidates?.find((c: { is_verified: boolean; email_address: string }) => c.is_verified)?.email_address ?? l.email_candidates?.[0]?.email_address ?? '',
                 created_at: l.created_at,
               }));
               exportCsv('leady.csv', ['company_name', 'ico', 'website', 'domain', 'status', 'email', 'created_at'], rows);
