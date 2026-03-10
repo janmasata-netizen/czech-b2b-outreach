@@ -1,8 +1,9 @@
 import { useState } from 'react';
-import { X } from 'lucide-react';
+import { X, Lock } from 'lucide-react';
 import GlassCard from '@/components/glass/GlassCard';
 import GlassButton from '@/components/glass/GlassButton';
 import { useTags, useCreateTag, useDeleteTag } from '@/hooks/useTags';
+import { isSystemTag } from '@/lib/constants';
 import { toast } from 'sonner';
 
 const PRESET_COLORS = [
@@ -64,15 +65,21 @@ export default function TagManager({ teamId }: { teamId?: string }) {
               >
                 <span style={{ width: 8, height: 8, borderRadius: '50%', background: tag.color }} />
                 {tag.name}
-                <button
-                  onClick={() => handleDelete(tag.id)}
-                  style={{
-                    background: 'none', border: 'none', cursor: 'pointer', padding: 0,
-                    color: tag.color, display: 'flex', opacity: 0.6,
-                  }}
-                >
-                  <X size={12} />
-                </button>
+                {isSystemTag(tag.name) ? (
+                  <span title="Systémový štítek" style={{ display: 'flex', opacity: 0.4 }}>
+                    <Lock size={12} />
+                  </span>
+                ) : (
+                  <button
+                    onClick={() => handleDelete(tag.id)}
+                    style={{
+                      background: 'none', border: 'none', cursor: 'pointer', padding: 0,
+                      color: tag.color, display: 'flex', opacity: 0.6,
+                    }}
+                  >
+                    <X size={12} />
+                  </button>
+                )}
               </span>
             ))}
           </div>

@@ -2,6 +2,7 @@ import { useState } from 'react';
 import GlassCard from '@/components/glass/GlassCard';
 import TagBadge from './TagBadge';
 import { useTags, useLeadTags, useAddTagToLead, useRemoveTagFromLead } from '@/hooks/useTags';
+import { isSystemTag } from '@/lib/constants';
 import { toast } from 'sonner';
 
 export default function LeadTagsCard({ leadId }: { leadId: string }) {
@@ -40,7 +41,7 @@ export default function LeadTagsCard({ leadId }: { leadId: string }) {
             key={lt.id}
             name={lt.tag?.name ?? ''}
             color={lt.tag?.color ?? '#6b7280'}
-            onRemove={() => handleRemove(lt.tag_id, lt.tag?.name ?? '')}
+            onRemove={isSystemTag(lt.tag?.name ?? '') ? undefined : () => handleRemove(lt.tag_id, lt.tag?.name ?? '')}
           />
         ))}
 

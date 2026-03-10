@@ -1,5 +1,6 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/lib/supabase';
+import { isSystemTag } from '@/lib/constants';
 import type { Tag, LeadTag } from '@/types/database';
 
 export function useTags(teamId?: string) {
@@ -44,6 +45,11 @@ export function useDeleteTag() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: async (id: string) => {
+      // Safety net: look up tag name and block system tag deletion
+      const { data: tag } = await supabase.from('tags').select('name').eq('id', id).single();
+      if (tag && isSystemTag(tag.name)) {
+        throw new Error('Systémový štítek nelze smazat');
+      }
       const { error } = await supabase.from('tags').delete().eq('id', id);
       if (error) throw error;
     },

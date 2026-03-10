@@ -124,3 +124,12 @@ export const EMAIL_STATUS_STYLES: Record<string, { color: string; bg: string; la
 // PAGE SIZE
 // ================================================================
 export const PAGE_SIZE = 20;
+
+// ================================================================
+// SYSTEM TAGS — protected from deletion
+// ================================================================
+export const SYSTEM_TAG_NAMES = ['blacklist', 'email outreach', 'telefon', 'vip'];
+
+export function isSystemTag(tagName: string): boolean {
+  return SYSTEM_TAG_NAMES.includes(tagName.toLowerCase());
+}
