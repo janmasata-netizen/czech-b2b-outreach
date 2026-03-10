@@ -23,9 +23,8 @@ export default function OutreachAccountsSettings() {
       await upsert.mutateAsync(editing);
       toast.success('Účet uložen');
       setEditing(null);
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    } catch (e: any) {
-      toast.error(e?.message?.includes('unique') ? 'Tým již má outreach účet' : 'Chyba při ukládání');
+    } catch (e: unknown) {
+      toast.error(e instanceof Error && e.message.includes('unique') ? 'Tým již má outreach účet' : 'Chyba při ukládání');
     }
   }
 

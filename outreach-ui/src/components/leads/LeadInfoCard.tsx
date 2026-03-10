@@ -26,8 +26,7 @@ export default function LeadInfoCard({ lead }: LeadInfoCardProps) {
       <Row label="Web" value={lead.website ? <a href={lead.website} target="_blank" rel="noopener noreferrer" style={{ color: 'var(--green)', textDecoration: 'none' }}>{extractDomain(lead.website)}</a> : null} />
       <Row label="Stav" value={<StatusBadge status={lead.status ?? 'new'} />} />
       <Row label="CRM stav" value={<MasterStatusBadge status={lead.master_status ?? 'active'} />} />
-      {/* eslint-disable-next-line @typescript-eslint/no-explicit-any */}
-      <Row label="Tým" value={(lead as any).team?.name ?? lead.team_id ?? '—'} />
+      <Row label="Tým" value={lead.team?.name ?? lead.team_id ?? '—'} />
       <Row label="Přidáno" value={formatDate(lead.created_at)} />
       <Row label="Aktualizováno" value={formatDate(lead.updated_at)} />
     </GlassCard>

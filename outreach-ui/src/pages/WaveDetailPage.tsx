@@ -1,4 +1,3 @@
-/* eslint-disable @typescript-eslint/no-explicit-any */
 import { useState, useEffect } from 'react';
 import DOMPurify from 'dompurify';
 import { useParams, useNavigate } from 'react-router-dom';
@@ -7,6 +6,7 @@ import { useWave, useTemplateSets, useDeleteWave, useUpdateWave, useCreateWave }
 import { useForceSendSequence } from '@/hooks/useForceSend';
 import { supabase } from '@/lib/supabase';
 import { n8nWebhookUrl, n8nHeaders } from '@/lib/n8n';
+import type { WaveLeadRow, EmailQueue, EmailTemplate, Wave } from '@/types/database';
 import PageHeader from '@/components/layout/PageHeader';
 import GlassButton from '@/components/glass/GlassButton';
 import GlassCard from '@/components/glass/GlassCard';
@@ -80,7 +80,7 @@ export default function WaveDetailPage() {
   const [confirmSendNow, setConfirmSendNow] = useState(false);
   const [missingVarsWarning, setMissingVarsWarning] = useState<Array<{ lead: string; missing: string[] }> | null>(null);
   const [confirmForceSendAll, setConfirmForceSendAll] = useState(false);
-  const [confirmForceSendItem, setConfirmForceSendItem] = useState<any | null>(null);
+  const [confirmForceSendItem, setConfirmForceSendItem] = useState<EmailQueue | null>(null);
   const [showPreview, setShowPreview] = useState(false);
   const forceSend = useForceSendSequence(id ?? '');
   const createWave = useCreateWave();
@@ -91,14 +91,14 @@ export default function WaveDetailPage() {
   );
 
   const { wave, waveLeads } = data;
-  const hasSentEmails = waveLeads.some((wl: any) => (wl.sent_emails?.length ?? 0) > 0);
+  const hasSentEmails = waveLeads.some((wl: WaveLeadRow) => (wl.sent_emails?.length ?? 0) > 0);
   const _now = new Date();
   const today = `${_now.getFullYear()}-${String(_now.getMonth() + 1).padStart(2, '0')}-${String(_now.getDate()).padStart(2, '0')}`;
 
   // Compute available sequences from template set
   const currentTemplateSet = templateSets?.find(ts => ts.id === wave.template_set_id);
   const availableSeqs: number[] = currentTemplateSet?.email_templates
-    ? Array.from(new Set<number>(currentTemplateSet.email_templates.map((t: any) => t.sequence_number))).sort((a, b) => a - b)
+    ? Array.from(new Set<number>(currentTemplateSet.email_templates.map((t: EmailTemplate) => t.sequence_number))).sort((a, b) => a - b)
     : [];
 
   const canLaunch = wave.status === 'draft'
@@ -154,11 +154,11 @@ export default function WaveDetailPage() {
   }
 
   // Compute force-send eligible items: pending_prev where previous seq is sent
-  const forceSendEligibleItems = waveLeads.flatMap((wl: any) => {
-    const queue: any[] = wl.email_queue ?? [];
-    return queue.filter((qi: any) => {
+  const forceSendEligibleItems = waveLeads.flatMap((wl: WaveLeadRow) => {
+    const queue: EmailQueue[] = wl.email_queue ?? [];
+    return queue.filter((qi: EmailQueue) => {
       if (qi.status !== 'pending_prev') return false;
-      return queue.some((q: any) => q.sequence_number === qi.sequence_number - 1 && q.status === 'sent');
+      return queue.some((q: EmailQueue) => q.sequence_number === qi.sequence_number - 1 && q.status === 'sent');
     });
   });
 
@@ -212,7 +212,7 @@ export default function WaveDetailPage() {
           send_time_seq2: seqTimes[2] || '08:00',
           send_time_seq3: seqTimes[3] || '08:00',
           send_window_start: seqTimes[1] || '08:00',
-        } as any,
+        } as Partial<Wave>,
       });
       const res = await fetch(n8nWebhookUrl('wf7-wave-schedule'), {
         method: 'POST',
@@ -223,8 +223,8 @@ export default function WaveDetailPage() {
       toast.success('Vlna naplánována — SEQ1: ' + fmtDate(seqDates[1]) + ' ' + seqTimes[1]);
       qc.invalidateQueries({ queryKey: ['waves', id] });
       qc.invalidateQueries({ queryKey: ['waves'] });
-    } catch (e: any) {
-      toast.error('Chyba: ' + e.message);
+    } catch (e: unknown) {
+      toast.error('Chyba: ' + (e as Error).message);
     } finally {
       setScheduling(false);
       setConfirmSchedule(false);
@@ -234,7 +234,7 @@ export default function WaveDetailPage() {
   async function handleStop() {
     setStopping(true);
     try {
-      const waveleadIds = waveLeads.map((wl: any) => wl.id);
+      const waveleadIds = waveLeads.map((wl: WaveLeadRow) => wl.id);
       if (waveleadIds.length > 0) {
         const { error: qErr } = await supabase
           .from('email_queue')
@@ -243,12 +243,12 @@ export default function WaveDetailPage() {
           .in('status', ['queued', 'pending', 'scheduled']);
         if (qErr) throw qErr;
       }
-      await updateWave.mutateAsync({ id: wave.id, updates: { status: 'paused' } as any });
+      await updateWave.mutateAsync({ id: wave.id, updates: { status: 'paused' } as Partial<Wave> });
       toast.success('Vlna zastavena — čekající e-maily zrušeny.');
       qc.invalidateQueries({ queryKey: ['waves', id] });
       qc.invalidateQueries({ queryKey: ['waves'] });
-    } catch (e: any) {
-      toast.error('Chyba při zastavování vlny: ' + e.message);
+    } catch (e: unknown) {
+      toast.error('Chyba při zastavování vlny: ' + (e as Error).message);
     } finally {
       setStopping(false);
       setConfirmStop(false);
@@ -271,7 +271,7 @@ export default function WaveDetailPage() {
           send_time_seq3: rerunSeqTimes[3] || '08:00',
           send_window_start: rerunSeqTimes[1] || '08:00',
           status: 'scheduled',
-        } as any,
+        } as Partial<Wave>,
       });
       const res = await fetch(n8nWebhookUrl('wf7-wave-schedule'), {
         method: 'POST',
@@ -282,8 +282,8 @@ export default function WaveDetailPage() {
       toast.success('Vlna obnovena — sekvence znovu naplánovány');
       qc.invalidateQueries({ queryKey: ['waves', id] });
       qc.invalidateQueries({ queryKey: ['waves'] });
-    } catch (e: any) {
-      toast.error('Chyba při obnovování vlny: ' + e.message);
+    } catch (e: unknown) {
+      toast.error('Chyba při obnovování vlny: ' + (e as Error).message);
     } finally {
       setRerunning(false);
       setConfirmRerun(false);
@@ -324,7 +324,7 @@ export default function WaveDetailPage() {
           send_time_seq2: nowTime,
           send_time_seq3: nowTime,
           send_window_start: nowTime,
-        } as any,
+        } as Partial<Wave>,
       });
 
       const res = await fetch(n8nWebhookUrl('wf7-wave-schedule'), {
@@ -334,24 +334,24 @@ export default function WaveDetailPage() {
       });
       if (!res.ok) throw new Error(`WF7 vrátil ${res.status}`);
 
-      toast.success('Testovací vlna spuštěna — e-maily se odešlou do 5 minut na ' + (wave as any).dummy_email);
+      toast.success('Testovací vlna spuštěna — e-maily se odešlou do 5 minut na ' + wave.dummy_email);
       qc.invalidateQueries({ queryKey: ['waves', id] });
       qc.invalidateQueries({ queryKey: ['waves'] });
-    } catch (e: any) {
-      toast.error('Chyba: ' + e.message);
+    } catch (e: unknown) {
+      toast.error('Chyba: ' + (e as Error).message);
     } finally {
       setSendingNow(false);
       setConfirmSendNow(false);
     }
   }
 
-  async function handleForceSendSingle(qi: any) {
+  async function handleForceSendSingle(qi: EmailQueue) {
     try {
       await forceSend.mutateAsync({ queueIds: [qi.id] });
       toast.success(`SEQ${qi.sequence_number} odeslán na ${qi.email_address}`);
       qc.invalidateQueries({ queryKey: ['waves', id] });
-    } catch (e: any) {
-      toast.error('Chyba: ' + e.message);
+    } catch (e: unknown) {
+      toast.error('Chyba: ' + (e as Error).message);
     } finally {
       setConfirmForceSendItem(null);
     }
@@ -359,12 +359,12 @@ export default function WaveDetailPage() {
 
   async function handleForceSendAll() {
     try {
-      const ids = forceSendEligibleItems.map((qi: any) => qi.id);
+      const ids = forceSendEligibleItems.map((qi: EmailQueue) => qi.id);
       await forceSend.mutateAsync({ queueIds: ids });
       toast.success(`Force send dokončen pro ${ids.length} e-mailů`);
       qc.invalidateQueries({ queryKey: ['waves', id] });
-    } catch (e: any) {
-      toast.error('Chyba: ' + e.message);
+    } catch (e: unknown) {
+      toast.error('Chyba: ' + (e as Error).message);
     } finally {
       setConfirmForceSendAll(false);
     }
@@ -416,13 +416,13 @@ export default function WaveDetailPage() {
           const newWave = await createWave.mutateAsync({
             name: `${wave.name} (kopie)`,
             template_set_id: wave.template_set_id,
-            salesman_id: (wave as any).salesman_id,
-            outreach_account_id: (wave as any).outreach_account_id,
-            team_id: (wave as any).team_id,
-            is_dummy: (wave as any).is_dummy,
-            dummy_email: (wave as any).dummy_email,
+            salesman_id: wave.salesman_id,
+            outreach_account_id: wave.outreach_account_id,
+            team_id: wave.team_id,
+            is_dummy: wave.is_dummy,
+            dummy_email: wave.dummy_email,
             status: 'draft',
-          } as any);
+          } as Partial<Wave>);
           toast.success('Vlna duplikována');
           navigate(`/vlny/${newWave.id}`);
         } catch {
@@ -450,17 +450,17 @@ export default function WaveDetailPage() {
     if (waveLeads.length > 0) {
       buttons.push(
         <GlassButton key="export" variant="secondary" onClick={() => {
-          const rows = waveLeads.map((wl: any) => {
-            const lead = wl.leads ?? wl.lead ?? {};
+          const rows = waveLeads.map((wl: WaveLeadRow) => {
+            const lead = wl.leads ?? wl.lead;
             const sent = wl.sent_emails ?? [];
             return {
-              company_name: lead.company_name ?? '',
-              ico: lead.ico ?? '',
-              email: wl.email_address ?? '',
+              company_name: lead?.company_name ?? '',
+              ico: lead?.ico ?? '',
+              email: (wl as WaveLeadRow & { email_address?: string }).email_address ?? '',
               status: wl.status ?? '',
-              seq1_sent: sent.find((s: any) => s.sequence_number === 1) ? 'ano' : 'ne',
-              seq2_sent: sent.find((s: any) => s.sequence_number === 2) ? 'ano' : 'ne',
-              seq3_sent: sent.find((s: any) => s.sequence_number === 3) ? 'ano' : 'ne',
+              seq1_sent: sent.find((s: { sequence_number: number }) => s.sequence_number === 1) ? 'ano' : 'ne',
+              seq2_sent: sent.find((s: { sequence_number: number }) => s.sequence_number === 2) ? 'ano' : 'ne',
+              seq3_sent: sent.find((s: { sequence_number: number }) => s.sequence_number === 3) ? 'ano' : 'ne',
             };
           });
           exportCsv(`vlna-${wave.name ?? wave.id}.csv`, ['company_name', 'ico', 'email', 'status', 'seq1_sent', 'seq2_sent', 'seq3_sent'], rows);
@@ -492,7 +492,7 @@ export default function WaveDetailPage() {
             {wave.template_set_name && (
               <span style={{ fontSize: 13, color: 'var(--text-muted)' }}>{wave.template_set_name}</span>
             )}
-            {(wave as any).is_dummy && (
+            {wave.is_dummy && (
               <span style={{ fontSize: 11, background: 'rgba(251,191,36,0.15)', color: '#fbbf24', border: '1px solid rgba(251,191,36,0.3)', borderRadius: 4, padding: '1px 7px', fontWeight: 600 }}>
                 TESTOVACÍ
               </span>
@@ -624,11 +624,11 @@ export default function WaveDetailPage() {
             >
               {scheduling ? 'Spouštím…' : '▶ Naplánovat vlnu'}
             </GlassButton>
-            {(wave as any).is_dummy && (
+            {wave.is_dummy && (
               <GlassButton
                 variant="secondary"
                 onClick={() => setConfirmSendNow(true)}
-                disabled={sendingNow || !waveLeads.length || !wave.template_set_id || (!(wave as any).dummy_email)}
+                disabled={sendingNow || !waveLeads.length || !wave.template_set_id || (!wave.dummy_email)}
                 style={{
                   background: 'rgba(251,191,36,0.12)',
                   borderColor: 'rgba(251,191,36,0.35)',
@@ -642,7 +642,7 @@ export default function WaveDetailPage() {
           {!waveLeads.length && (
             <div style={{ fontSize: 11, color: '#fbbf24', marginTop: 8 }}>Přidejte leady do vlny</div>
           )}
-          {(wave as any).is_dummy && !(wave as any).dummy_email && (
+          {wave.is_dummy && !wave.dummy_email && (
             <div style={{ fontSize: 11, color: '#ef4444', marginTop: 8 }}>Nastavte testovací e-mail v konfiguraci vlny</div>
           )}
         </GlassCard>
@@ -739,21 +739,21 @@ export default function WaveDetailPage() {
       )}
 
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
-        <WaveConfigForm wave={wave as any} />
+        <WaveConfigForm wave={wave} />
         {wave.template_set_id && templateSets && (
           <GlassCard padding={20}>
             <h3 style={{ fontSize: 14, fontWeight: 600, color: 'var(--text)', marginBottom: 12 }}>Šablona</h3>
             {(() => {
               const ts = templateSets.find(t => t.id === wave.template_set_id);
               const templates = ts?.email_templates ?? [];
-              const seqNums = Array.from(new Set<number>(templates.map((t: any) => t.sequence_number))).sort((a, b) => a - b);
+              const seqNums = Array.from(new Set<number>(templates.map((t: EmailTemplate) => t.sequence_number))).sort((a, b) => a - b);
               if (seqNums.length === 0) {
                 return <div style={{ fontSize: 12, color: 'var(--text-muted)', fontStyle: 'italic' }}>Žádné šablony</div>;
               }
               return (
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
                   {seqNums.map(seq => {
-                    const t = templates.find((x: any) => x.sequence_number === seq);
+                    const t = templates.find((x: EmailTemplate) => x.sequence_number === seq);
                     return (
                       <div key={seq} style={{ padding: '8px 12px', background: 'var(--bg-subtle)', borderRadius: 6, border: '1px solid var(--border)' }}>
                         <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
@@ -776,7 +776,7 @@ export default function WaveDetailPage() {
         waveId={wave.id}
         waveLeads={waveLeads}
         waveStatus={wave.status}
-        teamId={(wave as any).team_id}
+        teamId={wave.team_id}
         templates={
           wave.template_set_id && templateSets
             ? (templateSets.find(ts => ts.id === wave.template_set_id)?.email_templates ?? [])
@@ -784,7 +784,7 @@ export default function WaveDetailPage() {
         }
         variables={
           wave.template_set_id && templateSets
-            ? ((templateSets.find(ts => ts.id === wave.template_set_id) as any)?.variables ?? [])
+            ? (templateSets.find(ts => ts.id === wave.template_set_id)?.variables ?? [])
             : []
         }
         onForceSend={(qi) => setConfirmForceSendItem(qi)}
@@ -905,7 +905,7 @@ export default function WaveDetailPage() {
           <div style={{ fontSize: 13, color: 'var(--text-dim)', lineHeight: 1.5 }}>
             Testovací e-maily se odešlou na{' '}
             <strong style={{ color: '#fbbf24', fontFamily: 'JetBrains Mono, monospace' }}>
-              {(wave as any).dummy_email}
+              {wave.dummy_email}
             </strong>{' '}
             do 5 minut.
           </div>
@@ -916,7 +916,7 @@ export default function WaveDetailPage() {
             </div>
             <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
               <span style={{ fontSize: 11, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Příjemce</span>
-              <span style={{ fontSize: 14, fontFamily: 'JetBrains Mono, monospace', color: 'var(--text)' }}>{(wave as any).dummy_email}</span>
+              <span style={{ fontSize: 14, fontFamily: 'JetBrains Mono, monospace', color: 'var(--text)' }}>{wave.dummy_email}</span>
             </div>
           </div>
           <div style={{ fontSize: 12, color: 'var(--text-muted)', lineHeight: 1.5, padding: '8px 12px', background: 'rgba(251,191,36,0.06)', border: '1px solid rgba(251,191,36,0.2)', borderRadius: 8 }}>
@@ -1024,7 +1024,7 @@ export default function WaveDetailPage() {
           const jednatels = sampleLead?.jednatels ?? [];
           const jednatel = jednatels[0] ?? null;
           const ctx = buildTemplateContext(sampleLead, jednatel);
-          const seqNums = Array.from(new Set<number>(templates.map((t: any) => t.sequence_number))).sort((a: number, b: number) => a - b);
+          const seqNums = Array.from(new Set<number>(templates.map((t: EmailTemplate) => t.sequence_number))).sort((a: number, b: number) => a - b);
 
           if (!templates.length) {
             return <p style={{ fontSize: 13, color: 'var(--text-muted)' }}>Žádné šablony k zobrazení</p>;
@@ -1037,7 +1037,7 @@ export default function WaveDetailPage() {
                 {jednatel && <span> · {jednatel.full_name}</span>}
               </div>
               {seqNums.map(seq => {
-                const tpl = templates.find((t: any) => t.sequence_number === seq);
+                const tpl = templates.find((t: EmailTemplate) => t.sequence_number === seq);
                 if (!tpl) return null;
                 const renderedSubject = renderTemplate(tpl.subject ?? '', ctx);
                 const renderedBody = renderTemplate(tpl.body_html ?? '', ctx);

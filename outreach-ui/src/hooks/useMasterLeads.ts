@@ -1,6 +1,6 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/lib/supabase';
-import type { Lead, MasterLeadFilters } from '@/types/database';
+import type { Lead, MasterLeadFilters, EmailCandidate } from '@/types/database';
 import { PAGE_SIZE } from '@/lib/constants';
 
 export function useMasterLeads(filters: MasterLeadFilters = {}, page = 1) {
@@ -42,12 +42,10 @@ export function useMasterLeads(filters: MasterLeadFilters = {}, page = 1) {
       const { data, count, error } = await q;
       if (error) throw error;
 
-      /* eslint-disable @typescript-eslint/no-explicit-any */
-      const mapped = (data ?? []).map((lead: any) => {
+      const mapped = (data ?? []).map((lead: { jednatels?: { email_candidates?: EmailCandidate[] }[]; lead_tags?: { tags: { id: string; name: string; color: string } | null }[]; [key: string]: unknown }) => {
         const jednatels = lead.jednatels ?? [];
-        const email_candidates = jednatels.flatMap((j: any) => j.email_candidates ?? []);
-        const tags = (lead.lead_tags ?? []).map((lt: any) => lt.tags).filter(Boolean);
-      /* eslint-enable @typescript-eslint/no-explicit-any */
+        const email_candidates = jednatels.flatMap((j: { email_candidates?: EmailCandidate[] }) => j.email_candidates ?? []);
+        const tags = (lead.lead_tags ?? []).map((lt: { tags: { id: string; name: string; color: string } | null }) => lt.tags).filter(Boolean);
         return { ...lead, jednatels, email_candidates, tags };
       });
 

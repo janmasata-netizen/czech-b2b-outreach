@@ -6,7 +6,7 @@ import StatusBadge from '@/components/shared/StatusBadge';
 import Pagination from '@/components/shared/Pagination';
 import { TableSkeleton } from '@/components/shared/LoadingSkeleton';
 import EmptyState from '@/components/shared/EmptyState';
-import type { LeadStatus } from '@/types/database';
+import type { Lead, LeadStatus } from '@/types/database';
 import { PAGE_SIZE } from '@/lib/constants';
 
 const DISCOVERY_STATUSES: LeadStatus[] = [
@@ -15,8 +15,7 @@ const DISCOVERY_STATUSES: LeadStatus[] = [
 
 const STALL_THRESHOLD_MS = 30 * 60 * 1000; // 30 minutes
 
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-function isStalled(lead: any): boolean {
+function isStalled(lead: Lead): boolean {
   if (lead.status !== 'email_discovery') return false;
   const updated = lead.updated_at ?? lead.created_at;
   if (!updated) return false;
@@ -68,8 +67,7 @@ export default function EmailDiscoveryTab() {
               </tr>
             </thead>
             <tbody>
-              {/* eslint-disable-next-line @typescript-eslint/no-explicit-any */}
-              {leads.map((lead: any) => {
+              {leads.map((lead: Lead) => {
                 const stalled = isStalled(lead);
                 const actionNeeded = lead.status === 'needs_review' || lead.status === 'failed';
 

@@ -1,4 +1,3 @@
-/* eslint-disable @typescript-eslint/no-explicit-any */
 import { useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useLead, useUpdateLead } from '@/hooks/useLeads';
@@ -33,8 +32,8 @@ export default function LeadDetailPage() {
     setEditForm({
       company_name: lead!.company_name ?? '',
       ico: lead!.ico ?? '',
-      website: (lead as any).website ?? '',
-      domain: (lead as any).domain ?? '',
+      website: lead!.website ?? '',
+      domain: lead!.domain ?? '',
     });
     setEditing(true);
   }
@@ -49,7 +48,7 @@ export default function LeadDetailPage() {
           ico: editForm.ico || undefined,
           website: editForm.website || undefined,
           domain: editForm.domain || undefined,
-        } as any,
+        },
       });
       toast.success('Lead aktualizován');
       setEditing(false);
@@ -58,7 +57,7 @@ export default function LeadDetailPage() {
     }
   }
 
-  const enrichmentError = (lead as any).enrichment_error;
+  const enrichmentError = lead.enrichment_error;
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
@@ -93,19 +92,19 @@ export default function LeadDetailPage() {
             candidates={lead.email_candidates ?? []}
             leadId={lead.id}
             leadStatus={lead.status}
-            leadDomain={(lead as any).domain ?? undefined}
+            leadDomain={lead.domain ?? undefined}
           />
         </div>
         <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
           <EnrichmentTimeline
             leadCreatedAt={lead.created_at ?? ''}
             companyName={lead.company_name ?? null}
-            teamName={(lead as any).team?.name ?? null}
+            teamName={lead.team?.name ?? null}
             emailCandidates={lead.email_candidates ?? []}
             jednatels={lead.jednatels ?? []}
-            waveLeads={(lead as any).wave_leads ?? []}
-            leadReplies={(lead as any).lead_replies ?? []}
-            enrichmentLog={(lead as any).enrichment_log ?? []}
+            waveLeads={lead.wave_leads ?? []}
+            leadReplies={lead.lead_replies ?? []}
+            enrichmentLog={lead.enrichment_log ?? []}
           />
           <CampaignHistory waveLeads={lead.wave_leads ?? []} />
         </div>

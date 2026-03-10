@@ -8,6 +8,7 @@ import Pagination from '@/components/shared/Pagination';
 import GlassButton from '@/components/glass/GlassButton';
 import PushToWaveDialog from '@/components/leads/PushToWaveDialog';
 import { PAGE_SIZE } from '@/lib/constants';
+import type { Lead } from '@/types/database';
 
 const TH: React.CSSProperties = {
   padding: '9px 14px', textAlign: 'left', fontSize: 11, fontWeight: 600,
@@ -28,8 +29,7 @@ export default function ReadyLeadsTab() {
   const totalPages = Math.ceil(total / PAGE_SIZE);
 
   function toggleAll(e: React.ChangeEvent<HTMLInputElement>) {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    setSelected(e.target.checked ? leads.map((l: any) => l.id) : []);
+    setSelected(e.target.checked ? leads.map((l: { id: string }) => l.id) : []);
   }
 
   function toggle(id: string) {
@@ -86,8 +86,7 @@ export default function ReadyLeadsTab() {
               </tr>
             </thead>
             <tbody>
-              {/* eslint-disable-next-line @typescript-eslint/no-explicit-any */}
-              {leads.map((lead: any) => {
+              {leads.map((lead: Lead) => {
                 const isSelected = selected.includes(lead.id);
                 return (
                   <tr

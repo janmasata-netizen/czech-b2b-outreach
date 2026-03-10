@@ -1,7 +1,6 @@
-/* eslint-disable @typescript-eslint/no-explicit-any */
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/lib/supabase';
-import type { Lead, LeadFilters, Team, EmailCandidate } from '@/types/database';
+import type { Lead, LeadFilters, Team, EmailCandidate, Jednatel } from '@/types/database';
 import { PAGE_SIZE } from '@/lib/constants';
 import { extractDomain } from '@/lib/dedup';
 
@@ -30,9 +29,9 @@ export function useLeads(filters: LeadFilters = {}, page = 1) {
       const { data, count, error } = await q;
       if (error) throw error;
       // Flatten email_candidates from jednatels (no direct FK from email_candidates to leads)
-      const mapped = (data ?? []).map((lead: any) => {
+      const mapped = (data ?? []).map((lead: Lead & { jednatels?: (Jednatel & { email_candidates?: EmailCandidate[] })[] }) => {
         const jednatels = lead.jednatels ?? [];
-        const email_candidates = jednatels.flatMap((j: any) => j.email_candidates ?? []);
+        const email_candidates = jednatels.flatMap((j: Jednatel & { email_candidates?: EmailCandidate[] }) => j.email_candidates ?? []);
         return { ...lead, jednatels, email_candidates };
       });
       return { data: mapped, count: count ?? 0 };
@@ -59,8 +58,8 @@ export function useLead(id: string | undefined) {
         .single();
       if (error) throw error;
       // Flatten email_candidates from jednatels (no direct FK from email_candidates to leads)
-      const jednatels = (data as any).jednatels ?? [];
-      const email_candidates = jednatels.flatMap((j: any) => j.email_candidates ?? []);
+      const jednatels = (data as unknown as { jednatels?: (Jednatel & { email_candidates?: EmailCandidate[] })[] }).jednatels ?? [];
+      const email_candidates = jednatels.flatMap((j: Jednatel & { email_candidates?: EmailCandidate[] }) => j.email_candidates ?? []);
       return {
         ...data,
         email_candidates,
@@ -202,7 +201,7 @@ export function useLeadsNotInWave(teamId: string | undefined, search?: string) {
     queryFn: async () => {
       // Get lead IDs already in any wave
       const { data: wlRows } = await supabase.from('wave_leads').select('lead_id');
-      const usedIds = (wlRows ?? []).map((r: any) => r.lead_id as string);
+      const usedIds = (wlRows ?? []).map((r: { lead_id: string }) => r.lead_id);
 
       let q = supabase
         .from('leads')
@@ -213,7 +212,7 @@ export function useLeadsNotInWave(teamId: string | undefined, search?: string) {
         .order('company_name');
 
       if (search) q = q.or(`company_name.ilike.%${search}%,ico.ilike.%${search}%`);
-      if (usedIds.length > 0) q = (q as any).not('id', 'in', `(${usedIds.join(',')})`);
+      if (usedIds.length > 0) q = q.not('id', 'in', `(${usedIds.join(',')})`);
 
       const { data, error } = await q;
       if (error) throw error;
@@ -279,9 +278,9 @@ export function useUnverifyCandidate() {
         .from('email_candidates')
         .select('is_verified,is_catch_all,jednatels!inner(lead_id)')
         .eq('jednatels.lead_id', leadId);
-      const mine = (remaining ?? []) as any[];
-      const hasVerified = mine.some((c: any) => c.is_verified === true);
-      const hasCatchAll = mine.some((c: any) => c.is_catch_all === true);
+      const mine = (remaining ?? []) as { is_verified?: boolean; is_catch_all?: boolean }[];
+      const hasVerified = mine.some((c: { is_verified?: boolean }) => c.is_verified === true);
+      const hasCatchAll = mine.some((c: { is_catch_all?: boolean }) => c.is_catch_all === true);
       const newStatus = hasVerified ? 'ready' : hasCatchAll ? 'needs_review' : 'failed';
       const { error: le } = await supabase
         .from('leads')

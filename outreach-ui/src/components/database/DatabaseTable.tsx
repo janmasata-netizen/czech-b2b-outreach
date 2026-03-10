@@ -1,5 +1,5 @@
 import { useNavigate } from 'react-router-dom';
-import type { Lead } from '@/types/database';
+import type { Lead, Jednatel, EmailCandidate } from '@/types/database';
 import TagBadge from './TagBadge';
 import MasterStatusBadge from './MasterStatusBadge';
 import EmptyState from '@/components/shared/EmptyState';
@@ -68,12 +68,10 @@ export default function DatabaseTable({ leads, selected, onToggle, onToggleAll, 
             const checked = selected.includes(lead.id);
             const jednatels = lead.jednatels ?? [];
             const firstJed = jednatels[0];
-            /* eslint-disable @typescript-eslint/no-explicit-any */
-            const emails = jednatels.flatMap((j: any) => j.email_candidates ?? []);
+            const emails = jednatels.flatMap((j: Jednatel & { email_candidates?: EmailCandidate[] }) => j.email_candidates ?? []);
             const hasEmail = emails.length > 0;
-            const hasPhone = jednatels.some((j: any) => j.phone);
-            const hasLinkedin = jednatels.some((j: any) => j.linkedin);
-            /* eslint-enable @typescript-eslint/no-explicit-any */
+            const hasPhone = jednatels.some((j: Jednatel) => j.phone);
+            const hasLinkedin = jednatels.some((j: Jednatel) => j.linkedin);
             const tags = lead.tags ?? [];
 
             return (

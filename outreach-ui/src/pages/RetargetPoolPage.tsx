@@ -1,4 +1,3 @@
-/* eslint-disable @typescript-eslint/no-explicit-any */
 import { useState, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { RefreshCcw, ChevronDown, ChevronRight, Clock, Hash, Building2 } from 'lucide-react';
@@ -32,21 +31,21 @@ function HistoryPanel({ leadId }: { leadId: string }) {
   return (
     <div style={{ padding: '8px 12px 12px 44px', display: 'flex', flexDirection: 'column', gap: 6 }}>
       <div style={LABEL}>Historie vln</div>
-      {history.map((wl: any) => (
+      {history.map((wl) => (
         <div key={wl.id} style={{
           display: 'flex', alignItems: 'center', gap: 12, padding: '6px 10px',
           background: 'var(--bg-subtle)', borderRadius: 6, border: '1px solid var(--border)',
           fontSize: 12,
         }}>
-          <span style={{ fontWeight: 500, color: 'var(--text)' }}>{(wl as any).waves?.name ?? '—'}</span>
+          <span style={{ fontWeight: 500, color: 'var(--text)' }}>{(wl.waves as unknown as { name: string } | null)?.name ?? '—'}</span>
           <span style={{ color: 'var(--text-muted)' }}>Round {wl.retarget_round ?? 0}</span>
           <span style={{ color: 'var(--text-muted)' }}>Status: {wl.status}</span>
           <span style={{ color: 'var(--text-muted)', marginLeft: 'auto' }}>
-            {formatDate(wl.updated_at)}
+            {formatDate(wl.updated_at ?? null)}
           </span>
-          {(wl as any).sent_emails && (wl as any).sent_emails.length > 0 && (
+          {wl.sent_emails && wl.sent_emails.length > 0 && (
             <span style={{ color: 'var(--cyan)', fontSize: 11 }}>
-              {(wl as any).sent_emails.length} email{(wl as any).sent_emails.length > 1 ? 's' : ''}
+              {wl.sent_emails.length} email{wl.sent_emails.length > 1 ? 's' : ''}
             </span>
           )}
         </div>

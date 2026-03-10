@@ -1,4 +1,3 @@
-/* eslint-disable @typescript-eslint/no-explicit-any */
 import { Fragment, useState } from 'react';
 import GlassCard from '@/components/glass/GlassCard';
 import GlassButton from '@/components/glass/GlassButton';
@@ -8,7 +7,7 @@ import EmailSequenceCards from './EmailSequenceCards';
 import EmailEditModal from './EmailEditModal';
 import { useRemoveLeadFromWave } from '@/hooks/useLeads';
 import { toast } from 'sonner';
-import type { EmailTemplate, EmailQueue, TemplateVariable } from '@/types/database';
+import type { EmailTemplate, EmailQueue, TemplateVariable, WaveLeadRow, Jednatel, EmailCandidate } from '@/types/database';
 import { WAVE_LEAD_STATUS_MAP, STATUS_COLOR_MAP } from '@/lib/constants';
 
 const EMAIL_STATUS_COLORS: Record<string, { bg: string; border: string; text: string }> = {
@@ -32,17 +31,17 @@ function EmailStatusBadge({ status }: { status: string | null }) {
   );
 }
 
-function hasUsableEmail(wl: any): boolean {
+function hasUsableEmail(wl: WaveLeadRow): boolean {
   const jednatels = wl.leads?.jednatels ?? [];
-  const allCandidates = jednatels.flatMap((j: any) => j.email_candidates ?? []);
+  const allCandidates = jednatels.flatMap((j: Jednatel & { email_candidates?: EmailCandidate[] }) => j.email_candidates ?? []);
   return allCandidates.some(
-    (ec: any) => ec.is_verified || ec.qev_status === 'valid' || ec.seznam_status === 'likely_valid'
+    (ec: EmailCandidate) => ec.is_verified || ec.qev_status === 'valid' || ec.seznam_status === 'likely_valid'
   );
 }
 
 interface WaveLeadsManagerProps {
   waveId: string;
-  waveLeads: any[];
+  waveLeads: WaveLeadRow[];
   waveStatus: string;
   teamId: string | null | undefined;
   templates: EmailTemplate[];
@@ -67,13 +66,13 @@ export default function WaveLeadsManager({ waveId, waveLeads, waveStatus, teamId
   const canAddLeads = waveStatus === 'draft';
   const canModifyLeads = ['draft', 'paused'].includes(waveStatus);
 
-  async function handleRemoveFromWave(wl: any) {
+  async function handleRemoveFromWave(wl: WaveLeadRow) {
     if (!window.confirm(`Odebrat "${wl.leads?.company_name ?? 'lead'}" z vlny?\nStav leadu bude nastaven zpět na "připraven".`)) return;
     try {
       await removeFromWave.mutateAsync({ waveLeadId: wl.id, leadId: wl.lead_id });
       toast.success('Lead odebrán z vlny');
-    } catch (e: any) {
-      toast.error('Chyba: ' + (e?.message ?? 'neznámá chyba'));
+    } catch (e: unknown) {
+      toast.error('Chyba: ' + ((e as Error)?.message ?? 'neznámá chyba'));
     }
   }
 
@@ -116,13 +115,13 @@ export default function WaveLeadsManager({ waveId, waveLeads, waveStatus, teamId
             </thead>
             <tbody>
               {waveLeads.map(wl => {
-                const allCandidates = (wl.leads?.jednatels ?? []).flatMap((j: any) => j.email_candidates ?? []);
-                const bestCand = allCandidates.find((e: any) => e.is_verified) ?? allCandidates[0] ?? null;
+                const allCandidates = (wl.leads?.jednatels ?? []).flatMap((j: Jednatel & { email_candidates?: EmailCandidate[] }) => j.email_candidates ?? []);
+                const bestCand = allCandidates.find((e: EmailCandidate) => e.is_verified) ?? allCandidates[0] ?? null;
                 const emailAddr = bestCand?.email_address ?? null;
-                const emailStatus = wl.leads?.status === 'info_email'
+                const emailStatus: string | null = wl.leads?.status === 'info_email'
                   ? 'info_email'
                   : bestCand
-                  ? (bestCand.qev_status && bestCand.qev_status !== 'unknown' ? bestCand.qev_status : bestCand.seznam_status)
+                  ? (bestCand.qev_status && bestCand.qev_status !== 'unknown' ? bestCand.qev_status : bestCand.seznam_status ?? null)
                   : null;
                 const emailOk = hasUsableEmail(wl);
                 const isExpanded = expandedId === wl.id;
