@@ -243,3 +243,19 @@ server.listen(PORT, BIND_HOST, () => {
   const credCount = Object.keys(config.credentials || {}).length;
   console.log(`IMAP proxy listening on 127.0.0.1:${PORT} (${credCount} credentials configured)`);
 });
+
+// Graceful shutdown — let in-flight requests finish before exiting
+function shutdown(signal) {
+  console.log(`${signal} received, shutting down gracefully…`);
+  server.close(() => {
+    console.log('All connections closed, exiting.');
+    process.exit(0);
+  });
+  // Force exit after 10s if connections don't drain
+  setTimeout(() => {
+    console.error('Forced exit after 10s timeout');
+    process.exit(1);
+  }, 10_000).unref();
+}
+process.on('SIGTERM', () => shutdown('SIGTERM'));
+process.on('SIGINT', () => shutdown('SIGINT'));

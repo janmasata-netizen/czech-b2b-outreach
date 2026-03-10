@@ -16,8 +16,23 @@ export default function DashboardPage() {
     return (
       <div style={{ display: 'flex', flexDirection: 'column', gap: 24 }}>
         <PageHeader title="Přehled" subtitle="Realtime monitoring outreach kampaně" />
-        <div style={{ padding: 24, color: 'var(--red)', textAlign: 'center' }}>
-          Chyba při načítání statistik. Zkuste obnovit stránku.
+        <div style={{ padding: 24, color: 'var(--red)', textAlign: 'center', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 12 }}>
+          <span>Chyba při načítání statistik.</span>
+          <button
+            onClick={() => window.location.reload()}
+            style={{
+              background: 'rgba(248,113,113,0.12)',
+              border: '1px solid rgba(248,113,113,0.3)',
+              borderRadius: 6,
+              padding: '8px 20px',
+              color: '#f87171',
+              cursor: 'pointer',
+              fontSize: 13,
+              fontWeight: 500,
+            }}
+          >
+            Zkusit znovu
+          </button>
         </div>
       </div>
     );

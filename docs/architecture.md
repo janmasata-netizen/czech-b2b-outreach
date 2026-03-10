@@ -188,6 +188,12 @@ Docker mikrosluzba na portu 3001 (pouze localhost).
 
 **Konfigurace:** `config.json` (gitignored), sablona v `config.example.json`. Kazdy credential je klicem podle nazvu slotu (napr. `"Salesman IMAP 1"`).
 
+**Zabezpeceni a spolehlivost:**
+- `PROXY_AUTH_TOKEN` — povinny Bearer token pro autentizaci pozadavku (nastaveny v `docker-compose.yml`)
+- Rate limiting (60 req/min per IP)
+- Graceful shutdown — SIGTERM/SIGINT handler umozni dokoncit rozpracovane pozadavky (10s timeout)
+- Docker healthcheck na `/health` (interval 30s, 3 retries)
+
 ### 5. SMTP Proxy (smtp-proxy/)
 
 Docker mikrosluzba na portu 3002 (pouze localhost).
@@ -200,6 +206,13 @@ Docker mikrosluzba na portu 3002 (pouze localhost).
 | POST | `/send-email` | `{ credential_name, from, to, subject, html, replyTo?, messageId?, inReplyTo?, references? }` | `{ success, messageId, response }` |
 
 **Konfigurace:** `config.json` (gitignored), sablona v `config.example.json`. Transporter caching (30min TTL).
+
+**Zabezpeceni a spolehlivost:**
+- `PROXY_AUTH_TOKEN` — povinny Bearer token pro autentizaci pozadavku (nastaveny v `docker-compose.yml`)
+- Rate limiting (120 req/min per IP)
+- Validace e-mailoveho formatu a ochrana proti header injection (CRLF v subjectu)
+- Graceful shutdown — SIGTERM/SIGINT handler zavre vsechny SMTP transportery a docka na ukonceni spojeni (10s timeout)
+- Docker healthcheck na `/health` (interval 30s, 3 retries)
 
 ---
 
@@ -395,8 +408,11 @@ System generuje formalni ceska osloveni ve vokativu. Pravidla (v poradi priority
 | UI autentizace | Supabase Auth (e-mail + heslo), kontrola admin role na chranenych strankach |
 | Radkove zabezpeceni | Row-level security (RLS) politiky na Supabase tabulkach |
 | Proxy pristupy | IMAP a SMTP proxy nasloucha pouze na localhost (127.0.0.1) — nedostupne z venku |
+| Proxy autentizace | Bearer token (`PROXY_AUTH_TOKEN`) povinny pro vsechny proxy endpointy (krome /health) |
 | Sprava tajemstvi | Zadne hardcoded secrets — vse v `.env.local` nebo v Supabase tabulce `config` |
 | E-mailova atribuce | Zadny outgoing e-mail nesmi obsahovat n8n branding |
+| Validace prostredi | UI validuje `VITE_SUPABASE_URL`, `VITE_SUPABASE_ANON_KEY`, `VITE_N8N_WEBHOOK_URL` pri startu |
+| CI/CD | GitHub Actions: lint → typecheck → test → build na kazdem push/PR do main |
 
 > POZOR: Kazdy novy workflow, ktery odesila e-maily, musi mit `options.appendAttribution: false`. Systemove pravidlo — zadna n8n atribuce v odchozich zpravach.
 
@@ -423,6 +439,51 @@ System generuje formalni ceska osloveni ve vokativu. Pravidla (v poradi priority
 | **Cron** | Casove planovany spoustec — workflow bezi automaticky v nastavenych intervalech |
 | **Webhook** | HTTP endpoint, ktery spusti workflow po prijeti pozadavku |
 | **SPA** | Single Page Application — webova aplikace nacitana jako jedina stranka |
+| **CI/CD** | Continuous Integration / Continuous Deployment — automaticke testovani a nasazeni kodu |
+| **Vitest** | Testovaci framework pro Vite projekty — pouziva se pro unit a komponentove testy |
+| **Healthcheck** | Kontrolni endpoint pro overeni, ze sluzba bezi a odpovida spravne |
+| **Graceful shutdown** | Kontrolovane ukonceni serveru — dockani na dokonceni rozpracovanych pozadavku pred vypnutim |
+
+---
+
+## Testovaci infrastruktura
+
+### UI testy (outreach-ui/)
+
+**Framework:** Vitest + React Testing Library + jsdom
+
+| Typ testu | Soubory | Co testuje |
+|-----------|---------|-----------|
+| Unit testy | `lib/n8n.test.ts`, `lib/export.test.ts` | Webhook URL builder, headers, CSV export |
+| Hook testy | `hooks/useMobile.test.ts` | Mobilni breakpoint detekce |
+| Komponentove testy | `components/glass/*.test.tsx`, `AuthProvider.test.tsx` | GlassButton, GlassInput, GlassModal, autentizace |
+| Strankove testy | `pages/DashboardPage.test.tsx` | Dashboard loading/error/data stavy |
+
+**Spusteni:**
+
+```bash
+cd outreach-ui
+npm test          # jednorazovy beh
+npm run test:watch # sledovani zmen
+```
+
+### Proxy testy
+
+| Soubor | Co testuje |
+|--------|-----------|
+| `imap-proxy/server.test.mjs` | Health endpoint, auth validace, rate limiting, neplatne pozadavky |
+| `smtp-proxy/server.test.mjs` | Health endpoint, auth validace, header injection ochrana, rate limiting |
+
+### CI/CD pipeline
+
+Soubor: `.github/workflows/ci.yml`
+
+Pipeline bezi automaticky na push a PR do `main`:
+
+1. **Lint** — ESLint kontrola
+2. **Typecheck** — TypeScript kompilace
+3. **Test** — Vitest unit/komponentove testy
+4. **Build** — Produkční build
 
 ---
 

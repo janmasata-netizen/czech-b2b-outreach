@@ -72,6 +72,9 @@ export default function CsvImportDialog({ open, onClose }: CsvImportDialogProps)
       setMapping(autoDetect(headerRow));
       setTeamId(teams?.[0]?.id ?? '');
     };
+    reader.onerror = () => {
+      toast.error('Nepodařilo se přečíst soubor');
+    };
     reader.readAsText(file, 'UTF-8');
   }
 
