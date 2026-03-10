@@ -27,6 +27,7 @@ Postupujte v poradi. Kazdym krokem se priblizite k funkcnimu systemu.
 - [ ] Zkopirovat `.env.example` do `.env.local` a vyplnit hodnoty
 - [ ] Nainstalovat zavislosti UI (`npm install` v `outreach-ui/`)
 - [ ] Spustit UI lokalne (`npm run dev`) a overit prihlaseni
+- [ ] Spustit testy (`npm test` v `outreach-ui/`) a overit, ze prochazi
 - [ ] Importovat workflow do n8n (`node import.mjs`)
 - [ ] Overit, ze vsechny workflow jsou aktivni v n8n UI
 - [ ] Nasadit IMAP a SMTP proxy na VPS
@@ -108,7 +109,21 @@ npm run dev
 
 **Vysledek:** Vyvojovy server na `http://localhost:5173`.
 
+> POZOR: UI validuje povinne promenne prostredi pri startu (`VITE_SUPABASE_URL`, `VITE_SUPABASE_ANON_KEY`, `VITE_N8N_WEBHOOK_URL`). Pokud nejsou nastaveny, zobrazi se chybova hlaska misto aplikace.
+
 > TIP: UI cte promenne prostredi z `../.env.local` (nadrazeny adresar) pres Vite konfiguraci. Import alias `@` ukazuje na `./src` — napr. `@/hooks/useLeads` odpovida `src/hooks/useLeads.ts`.
+
+### Krok 2.1b — Spustit testy
+
+**Cil:** Overit, ze codebase je v poradku.
+
+```bash
+cd outreach-ui
+npm test          # jednorazovy beh (39 testu)
+npm run test:watch # sledovani zmen (vyvoj)
+```
+
+**Vysledek:** Vsechny testy prochazi. Testy pokryvaji utility, hooky, glass komponenty, AuthProvider a DashboardPage.
 
 ### Krok 2.2 — Prace s workflow
 
@@ -236,6 +251,8 @@ node deploy.mjs
 
 **Vysledek:** Proxy bezi na `127.0.0.1:3001` (pristupna pouze v Docker siti).
 
+> POZOR: Na VPS musite nastavit promennou `PROXY_AUTH_TOKEN` v `.env` souboru vedle `docker-compose.yml` (nebo primo v prostredi). Bez ni kontejner nenastartuje.
+
 > POZOR: Nazev klice v `config.json` (napr. `"Salesman IMAP 1"`) musi **presne** odpovidat nazvu credential v databazi (`salesmen.imap_credential_name`). Rozdil v jedinem znaku zpusobi, ze detekce odpovedi nebude fungovat.
 
 ### Krok 4.3 — Nasadit SMTP Proxy
@@ -268,6 +285,8 @@ node deploy.mjs
 ```
 
 **Vysledek:** Proxy bezi na `127.0.0.1:3002`.
+
+> POZOR: Na VPS musite nastavit promennou `PROXY_AUTH_TOKEN` v `.env` souboru vedle `docker-compose.yml` (nebo primo v prostredi). Bez ni kontejner nenastartuje. Pouzijte stejny token jako u IMAP proxy.
 
 > POZOR: Nazev credential v `config.json` musi presne odpovidat `outreach_accounts.smtp_credential_name` v databazi.
 
@@ -343,6 +362,20 @@ node setup-all.mjs
 | `VITE_SUPABASE_ANON_KEY` | UI (frontend) | Supabase anon klic pro prohlizec |
 | `VITE_N8N_WEBHOOK_URL` | UI (frontend) | n8n webhook URL pro volani z UI |
 | `VITE_WEBHOOK_SECRET` | UI (frontend) | Secret pro webhook autentizaci |
+| `PROXY_AUTH_TOKEN` | IMAP/SMTP proxy (Docker) | Bearer token pro proxy autentizaci — nastavit na VPS v `.env` u docker-compose |
+
+---
+
+## 7. CI/CD pipeline
+
+Projekt obsahuje GitHub Actions workflow v `.github/workflows/ci.yml`. Pipeline bezi automaticky na kazdem push a pull requestu do vetve `main`:
+
+1. **Lint** — `npm run lint`
+2. **Typecheck** — `npx tsc -b --noEmit`
+3. **Test** — `npm test` (Vitest, 39 testu)
+4. **Build** — `npm run build`
+
+> TIP: Pokud CI pipeline selze na pull requestu, zkontrolujte logy v GitHub Actions a opravte problemy pred mergem.
 
 ---
 

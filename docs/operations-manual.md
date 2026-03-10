@@ -420,6 +420,16 @@ Obe proxy maji health endpointy:
 | IMAP Proxy | `GET http://imap-proxy:3001/health` | `curl http://localhost:3001/health` |
 | SMTP Proxy | `GET http://smtp-proxy:3002/health` | `curl http://localhost:3002/health` |
 
+> TIP: Obe proxy maji Docker healthcheck — Docker automaticky monitoruje stav a restartuje kontejner po 3 neuspesnych kontrolach (interval 30s).
+
+### 7.4b — Graceful shutdown
+
+Obe proxy podporuji kontrolovane ukonceni:
+
+- Pri `docker stop` (SIGTERM) dokonci rozpracovane pozadavky (max 10s timeout)
+- SMTP proxy navic zavre vsechny cache SMTP transportery
+- Zabranuje ztracenym IMAP spojenim a nedokoncenym odesilkam
+
 ### 7.5 — Konfiguracni tabulka
 
 Tabulka `config` v Supabase obsahuje runtime konfiguraci:
@@ -488,9 +498,15 @@ docker ps -a | grep -E "imap-proxy|smtp-proxy|outreach-ui"
 docker logs imap-proxy --tail 50
 docker logs smtp-proxy --tail 50
 
-# 3. Restartujte
+# 3. Zkontrolujte Docker healthcheck stav
+docker inspect --format='{{.State.Health.Status}}' imap-proxy
+docker inspect --format='{{.State.Health.Status}}' smtp-proxy
+
+# 4. Restartujte
 docker restart imap-proxy smtp-proxy
 ```
+
+> TIP: Docker healthcheck monitoruje `/health` endpoint kazdych 30 sekund. Pokud 3 kontroly za sebou selzou, kontejner se oznaci jako unhealthy a `restart: unless-stopped` ho automaticky restartuje.
 
 ### Problemy s pripojenim k databazi
 
