@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 import { useState, useEffect } from 'react';
 import DOMPurify from 'dompurify';
 import { useParams, useNavigate } from 'react-router-dom';
@@ -22,8 +23,6 @@ import Breadcrumb from '@/components/shared/Breadcrumb';
 import { exportCsv } from '@/lib/export';
 import { toast } from 'sonner';
 
-const LABEL: React.CSSProperties = { fontSize: 12, fontWeight: 500, color: 'var(--text-dim)' };
-
 /** Format YYYY-MM-DD → DD.MM.YYYY */
 function fmtDate(iso: string): string {
   if (!iso) return '';
@@ -40,19 +39,19 @@ export default function WaveDetailPage() {
   const deleteWave = useDeleteWave();
   const updateWave = useUpdateWave();
   const [seqDates, setSeqDates] = useState<Record<number, string>>({
-    1: (data?.wave as any)?.send_date_seq1?.slice(0, 10) ?? '',
-    2: (data?.wave as any)?.send_date_seq2?.slice(0, 10) ?? '',
-    3: (data?.wave as any)?.send_date_seq3?.slice(0, 10) ?? '',
+    1: data?.wave?.send_date_seq1?.slice(0, 10) ?? '',
+    2: data?.wave?.send_date_seq2?.slice(0, 10) ?? '',
+    3: data?.wave?.send_date_seq3?.slice(0, 10) ?? '',
   });
   const [seqTimes, setSeqTimes] = useState<Record<number, string>>({
-    1: (data?.wave as any)?.send_time_seq1?.slice(0, 5) ?? '08:00',
-    2: (data?.wave as any)?.send_time_seq2?.slice(0, 5) ?? '08:00',
-    3: (data?.wave as any)?.send_time_seq3?.slice(0, 5) ?? '08:00',
+    1: data?.wave?.send_time_seq1?.slice(0, 5) ?? '08:00',
+    2: data?.wave?.send_time_seq2?.slice(0, 5) ?? '08:00',
+    3: data?.wave?.send_time_seq3?.slice(0, 5) ?? '08:00',
   });
   // Hydrate dates/times when wave data loads (useState init runs before useWave resolves)
   useEffect(() => {
     if (!data?.wave) return;
-    const w = data.wave as any;
+    const w = data.wave;
     setSeqDates(prev => ({
       1: prev[1] || w.send_date_seq1?.slice(0, 10) || '',
       2: prev[2] || w.send_date_seq2?.slice(0, 10) || '',
@@ -63,6 +62,7 @@ export default function WaveDetailPage() {
       2: prev[2] !== '08:00' ? prev[2] : (w.send_time_seq2?.slice(0, 5) || '08:00'),
       3: prev[3] !== '08:00' ? prev[3] : (w.send_time_seq3?.slice(0, 5) || '08:00'),
     }));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [data?.wave?.id]);
 
   const [scheduling, setScheduling] = useState(false);

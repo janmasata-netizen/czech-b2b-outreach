@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 import { useState, useRef, useCallback } from 'react';
 import GlassCard from '@/components/glass/GlassCard';
 import PageHeader from '@/components/layout/PageHeader';

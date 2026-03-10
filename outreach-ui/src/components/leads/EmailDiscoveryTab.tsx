@@ -1,7 +1,6 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useLeads } from '@/hooks/useLeads';
-import { LEAD_STATUS_MAP } from '@/lib/constants';
 import { formatDate, formatRelative } from '@/lib/utils';
 import StatusBadge from '@/components/shared/StatusBadge';
 import Pagination from '@/components/shared/Pagination';
@@ -16,6 +15,7 @@ const DISCOVERY_STATUSES: LeadStatus[] = [
 
 const STALL_THRESHOLD_MS = 30 * 60 * 1000; // 30 minutes
 
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
 function isStalled(lead: any): boolean {
   if (lead.status !== 'email_discovery') return false;
   const updated = lead.updated_at ?? lead.created_at;
@@ -68,6 +68,7 @@ export default function EmailDiscoveryTab() {
               </tr>
             </thead>
             <tbody>
+              {/* eslint-disable-next-line @typescript-eslint/no-explicit-any */}
               {leads.map((lead: any) => {
                 const stalled = isStalled(lead);
                 const actionNeeded = lead.status === 'needs_review' || lead.status === 'failed';

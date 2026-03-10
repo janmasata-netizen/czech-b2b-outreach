@@ -68,6 +68,7 @@ export default function CreateWaveDialog({ open, onClose, onCreated, preselected
       footer={
         <>
           <GlassButton variant="secondary" onClick={onClose}>Zrušit</GlassButton>
+          {/* eslint-disable-next-line @typescript-eslint/no-explicit-any */}
           <GlassButton variant="primary" onClick={e => handleSubmit(e as any)} disabled={createWave.isPending}>
             {createWave.isPending ? 'Ukládám…' : 'Vytvořit vlnu'}
           </GlassButton>

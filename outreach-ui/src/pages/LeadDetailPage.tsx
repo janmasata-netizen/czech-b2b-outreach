@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 import { useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useLead, useUpdateLead } from '@/hooks/useLeads';

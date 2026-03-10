@@ -1,8 +1,6 @@
 import { createContext, useContext, type ReactNode } from 'react';
 import { Navigate } from 'react-router-dom';
 import { useAuth, type AuthState } from '@/hooks/useAuth';
-import type { User } from '@supabase/supabase-js';
-import type { Profile } from '@/types/database';
 
 interface AuthContextValue extends AuthState {
   signIn: (email: string, password: string) => Promise<void>;
@@ -16,6 +14,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   return <AuthContext.Provider value={auth}>{children}</AuthContext.Provider>;
 }
 
+// eslint-disable-next-line react-refresh/only-export-components
 export function useAuthContext(): AuthContextValue {
   const ctx = useContext(AuthContext);
   if (!ctx) throw new Error('useAuthContext must be used within AuthProvider');

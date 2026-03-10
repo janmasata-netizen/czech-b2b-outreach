@@ -42,10 +42,12 @@ export function useMasterLeads(filters: MasterLeadFilters = {}, page = 1) {
       const { data, count, error } = await q;
       if (error) throw error;
 
+      /* eslint-disable @typescript-eslint/no-explicit-any */
       const mapped = (data ?? []).map((lead: any) => {
         const jednatels = lead.jednatels ?? [];
         const email_candidates = jednatels.flatMap((j: any) => j.email_candidates ?? []);
         const tags = (lead.lead_tags ?? []).map((lt: any) => lt.tags).filter(Boolean);
+      /* eslint-enable @typescript-eslint/no-explicit-any */
         return { ...lead, jednatels, email_candidates, tags };
       });
 

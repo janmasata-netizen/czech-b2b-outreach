@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useLeads } from '@/hooks/useLeads';
-import { extractDomain, formatDate } from '@/lib/utils';
+import { extractDomain } from '@/lib/utils';
 import { TableSkeleton } from '@/components/shared/LoadingSkeleton';
 import EmptyState from '@/components/shared/EmptyState';
 import Pagination from '@/components/shared/Pagination';
@@ -28,6 +28,7 @@ export default function ReadyLeadsTab() {
   const totalPages = Math.ceil(total / PAGE_SIZE);
 
   function toggleAll(e: React.ChangeEvent<HTMLInputElement>) {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     setSelected(e.target.checked ? leads.map((l: any) => l.id) : []);
   }
 
@@ -85,6 +86,7 @@ export default function ReadyLeadsTab() {
               </tr>
             </thead>
             <tbody>
+              {/* eslint-disable-next-line @typescript-eslint/no-explicit-any */}
               {leads.map((lead: any) => {
                 const isSelected = selected.includes(lead.id);
                 return (

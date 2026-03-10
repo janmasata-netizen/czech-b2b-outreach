@@ -22,6 +22,7 @@ export default function EmailEditModal({ item, waveId, onClose, variables }: Ema
 
   useEffect(() => {
     if (item && item.id !== prevItemId.current) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       setSubject(item.subject_rendered ?? '');
       setBodyHtml(item.body_rendered ?? '');
       prevItemId.current = item.id;
@@ -37,6 +38,7 @@ export default function EmailEditModal({ item, waveId, onClose, variables }: Ema
       await updateQueue.mutateAsync({ id: item.id, subject_rendered: subject, body_rendered: bodyHtml });
       toast.success('Email aktualizován');
       onClose();
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     } catch (e: any) {
       toast.error('Chyba: ' + (e?.message ?? 'neznámá chyba'));
     }

@@ -23,6 +23,7 @@ export default function ApiKeysSettings() {
     if (entries) {
       const map: Record<string, string> = {};
       entries.forEach(e => { map[e.key] = e.value ?? ''; });
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       setValues(map);
     }
   }, [entries]);

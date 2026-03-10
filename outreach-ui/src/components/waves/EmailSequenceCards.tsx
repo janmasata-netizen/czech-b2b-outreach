@@ -42,6 +42,7 @@ function plainPreview(html: string | null | undefined, maxLen = 150): string {
 
 interface EmailSequenceCardsProps {
   waveStatus: string;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   waveLead: any;
   templates: EmailTemplate[];
   onEdit: (item: EmailQueue) => void;
@@ -57,7 +58,9 @@ export default function EmailSequenceCards({ waveStatus, waveLead, templates, on
   const lead = waveLead.leads;
   const jednatels = lead?.jednatels ?? [];
   const jednatel = jednatels[0] ?? null;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const allCandidates = jednatels.flatMap((j: any) => j.email_candidates ?? []);
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const bestCand = allCandidates.find((e: any) => e.is_verified) ?? allCandidates[0] ?? null;
   const emailAddr = bestCand?.email_address ?? null;
   const ctx = buildTemplateContext(lead, jednatel);

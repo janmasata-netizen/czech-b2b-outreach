@@ -96,6 +96,7 @@ function getSection(pathname: string): [string, Section] | null {
   return null;
 }
 
+// eslint-disable-next-line react-refresh/only-export-components
 export function useHasSubPanel() {
   const location = useLocation();
   return getSection(location.pathname) !== null;

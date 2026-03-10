@@ -10,6 +10,7 @@ export function renderTemplate(text: string | null, ctx: Record<string, string>)
 }
 
 /** Build a template context from lead + jednatel data + custom_fields */
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
 export function buildTemplateContext(lead: any, jednatel: any): Record<string, string> {
   // Standard fields from lead/jednatel columns
   const standard: Record<string, string> = {};

@@ -1,7 +1,6 @@
 import { useTags } from '@/hooks/useTags';
 import { useTeams } from '@/hooks/useLeads';
 import type { MasterLeadFilters, MasterStatus } from '@/types/database';
-import TagBadge from './TagBadge';
 
 interface DatabaseFiltersProps {
   filters: MasterLeadFilters;

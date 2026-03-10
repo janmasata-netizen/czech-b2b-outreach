@@ -10,7 +10,7 @@ import OnboardingChecklist from '@/components/dashboard/OnboardingChecklist';
 import { formatPercent } from '@/lib/utils';
 
 export default function DashboardPage() {
-  const { data: stats, isLoading, isError } = useDashboardStats();
+  const { data: stats, isError } = useDashboardStats();
 
   if (isError) {
     return (

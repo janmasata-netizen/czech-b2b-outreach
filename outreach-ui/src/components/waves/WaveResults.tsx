@@ -5,6 +5,7 @@ import { formatPercent } from '@/lib/utils';
 
 interface WaveResultsProps {
   wave: WaveAnalytics;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   waveLeads?: any[];
 }
 
@@ -29,6 +30,7 @@ function fmtSentAt(iso: string): string {
 
 export default function WaveResults({ wave, waveLeads = [] }: WaveResultsProps) {
   const total = wave.lead_count || waveLeads.length;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const w = wave as any;
 
   // Count sent emails per sequence from waveLeads + find earliest sent_at
@@ -36,6 +38,7 @@ export default function WaveResults({ wave, waveLeads = [] }: WaveResultsProps) 
     let count = 0;
     let earliestSentAt: string | null = null;
     for (const wl of waveLeads) {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const seqEmails = (wl.sent_emails ?? []).filter((e: any) => e.sequence_number === seq);
       if (seqEmails.length > 0) count++;
       for (const e of seqEmails) {

@@ -96,7 +96,7 @@ export function useUpdateUserPassword() {
 export function useUpdateOwnPassword() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: async ({ userId, password }: { userId: string; password: string }) => {
+    mutationFn: async ({ password }: { userId: string; password: string }) => {
       const { error } = await supabaseAuth.auth.updateUser({ password });
       if (error) throw error;
     },

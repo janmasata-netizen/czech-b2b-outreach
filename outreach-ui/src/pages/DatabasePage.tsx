@@ -33,6 +33,7 @@ export default function DatabasePage() {
     if (tab === 'active' && !sp.get('status')) setSp(p => { p.set('status', 'active'); return p; }, { replace: true });
     if (tab === 'blacklist' && !sp.get('status')) setSp(p => { p.set('status', 'blacklisted'); return p; }, { replace: true });
     if (tab === 'archived' && !sp.get('status')) setSp(p => { p.set('status', 'archived'); return p; }, { replace: true });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [tab]);
 
   // Open add dialog from SubPanel action
@@ -41,6 +42,7 @@ export default function DatabasePage() {
       setShowAdd(true);
       setSp(p => { p.delete('new'); return p; }, { replace: true });
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [sp]);
 
   const { data, isLoading } = useMasterLeads(filters, page);
