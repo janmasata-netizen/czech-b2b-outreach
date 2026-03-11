@@ -57,7 +57,7 @@ export default function EmailEditModal({ item, waveId, onClose, variables }: Ema
       open={!!item}
       onClose={onClose}
       title={`Upravit email — SEQ${item?.sequence_number ?? ''}`}
-      width={700}
+      fullscreen
       footer={
         <>
           <GlassButton variant="secondary" onClick={onClose}>Zrušit</GlassButton>
@@ -82,7 +82,7 @@ export default function EmailEditModal({ item, waveId, onClose, variables }: Ema
           <RichTextEditor
             value={bodyHtml}
             onChange={setBodyHtml}
-            minHeight={200}
+            minHeight={400}
           />
         </div>
 
