@@ -32,3 +32,20 @@
   }
   ```
 ---
+
+## lastNode responseMode returns 500 when parallel branches error (even with neverError)
+- **Date:** 2026-03-11
+- **Node/Service:** Webhook (responseMode: lastNode) + HTTP Request (neverError: true)
+- **Error:** `{"message":"Error in workflow"}` — HTTP 500 returned to caller
+- **Root Cause:** When parallel HTTP Request branches return 404/errors, the execution is marked as "error" even with `neverError: true`. In `lastNode` response mode, n8n returns 500 for errored executions instead of the last node's output.
+- **Solution:** Add `"continueOnFail": true` (top-level node property) to all HTTP Request nodes in parallel branches. This prevents individual node errors from marking the whole execution as failed.
+- **Example:**
+  ```json
+  {
+    "parameters": { "method": "GET", "url": "...", "options": { "neverError": true } },
+    "type": "n8n-nodes-base.httpRequest",
+    "typeVersion": 4.2,
+    "continueOnFail": true
+  }
+  ```
+---

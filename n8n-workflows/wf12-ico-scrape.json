@@ -61,6 +61,7 @@
       "name": "GET Homepage",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
+      "continueOnFail": true,
       "position": [
         480,
         100
@@ -79,6 +80,7 @@
       "name": "GET Kontakt",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
+      "continueOnFail": true,
       "position": [
         480,
         300
@@ -97,6 +99,7 @@
       "name": "GET O-nas",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
+      "continueOnFail": true,
       "position": [
         480,
         500
@@ -113,20 +116,6 @@
       "typeVersion": 2,
       "position": [
         780,
-        300
-      ]
-    },
-    {
-      "parameters": {
-        "respondWith": "json",
-        "responseBody": "={{ JSON.stringify({ ico: $json.ico }) }}"
-      },
-      "id": "wf12-n07",
-      "name": "Respond",
-      "type": "n8n-nodes-base.respondToWebhook",
-      "typeVersion": 1.1,
-      "position": [
-        1020,
         300
       ]
     },
@@ -212,13 +201,7 @@
     },
     "Extract ICO": {
       "main": [
-        [
-          {
-            "node": "Respond",
-            "type": "main",
-            "index": 0
-          }
-        ]
+        []
       ]
     }
   },
