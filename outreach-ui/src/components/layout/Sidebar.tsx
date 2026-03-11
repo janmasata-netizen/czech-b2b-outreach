@@ -19,7 +19,7 @@ const DATA_ITEMS = [
 
 const ACTION_ITEMS = [
   { to: '/vlny',         label: 'Vlny',         Icon: Send,            exact: false },
-  { to: '/email-finder', label: 'Email Finder', Icon: Search,          exact: false },
+  { to: '/sablony',     label: 'Šablony',      Icon: FileText,        exact: true  },
   { to: '/retarget',     label: 'Retarget',     Icon: RefreshCcw,      exact: true  },
 ];
 
@@ -32,7 +32,7 @@ const PEOPLE_ITEMS = [
 const CONFIG_ITEMS = [
   { to: '/nastaveni/ucty',      label: 'Outreach účty', Icon: AtSign,   exact: true },
   { to: '/nastaveni/api-klice', label: 'API klíče',     Icon: Key,      exact: true },
-  { to: '/nastaveni/sablony',   label: 'Šablony',       Icon: FileText, exact: true },
+  { to: '/email-finder',        label: 'Email Finder',  Icon: Search,   exact: false },
 ];
 
 /* SubPanel sections — duplicated here for mobile drawer */
@@ -267,7 +267,6 @@ export default function Sidebar() {
               <div key={item.to}>
                 {navLink(item)}
                 {item.to === '/vlny' && showWaveSubs && renderSubItems(WAVE_SUBS, 'Zobrazení', [{ label: 'Nová vlna', href: '/vlny?new=1' }])}
-                {item.to === '/email-finder' && showFinderSubs && renderSubItems(FINDER_SUBS, 'Režim')}
               </div>
             ))}
             {isAdmin && (
@@ -275,7 +274,12 @@ export default function Sidebar() {
                 {divider}
                 {PEOPLE_ITEMS.map(item => navLink(item))}
                 {divider}
-                {CONFIG_ITEMS.map(item => navLink(item))}
+                {CONFIG_ITEMS.map(item => (
+                  <div key={item.to}>
+                    {navLink(item)}
+                    {item.to === '/email-finder' && showFinderSubs && renderSubItems(FINDER_SUBS, 'Režim')}
+                  </div>
+                ))}
               </>
             )}
           </nav>

@@ -17,6 +17,7 @@ import {
   useTeamsSettings,
   useReorderSequences,
 } from '@/hooks/useSettings';
+import { useAuthContext } from '@/components/AuthProvider';
 import { toast } from 'sonner';
 import type { TemplateVariable, EmailTemplate } from '@/types/database';
 import {
@@ -258,9 +259,11 @@ function SequencePanel({
 
 /* ── Main editor component ────────────────────────────── */
 export default function TemplateSetEditor() {
+  const { profile } = useAuthContext();
+  const isAdmin = profile?.is_admin === true;
   const { data: teams } = useTeamsSettings();
-  const teamId = teams?.[0]?.id;
-  const { data: sets, isLoading } = useTemplateSetsSettings(teamId);
+  const userTeamId = profile?.team_id;
+  const { data: sets, isLoading } = useTemplateSetsSettings(isAdmin ? undefined : userTeamId ?? undefined);
   const upsertTemplate = useUpsertTemplate();
   const deleteTemplate = useDeleteTemplate();
   const createTemplateSet = useCreateTemplateSet();
@@ -271,6 +274,7 @@ export default function TemplateSetEditor() {
 
   const [selectedSetId, setSelectedSetId] = useState<string | null>(null);
   const [newSetName, setNewSetName] = useState('');
+  const [newSetTeamId, setNewSetTeamId] = useState('');
   const [showNewSet, setShowNewSet] = useState(false);
   const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
   const [confirmDeleteSeq, setConfirmDeleteSeq] = useState<number | null>(null);
@@ -308,11 +312,15 @@ export default function TemplateSetEditor() {
       .map(name => ({ name, label: name })),
   ];
 
+  // Build team lookup for labels
+  const teamMap = new Map(teams?.map(t => [t.id, t.name]) ?? []);
+
   // ── Create set + 3 default sequences ──────────────────
   async function handleCreateSet() {
-    if (!newSetName.trim() || !teamId) return;
+    const createTeamId = isAdmin ? newSetTeamId : userTeamId;
+    if (!newSetName.trim() || !createTeamId) return;
     try {
-      const data = await createTemplateSet.mutateAsync({ name: newSetName.trim(), team_id: teamId });
+      const data = await createTemplateSet.mutateAsync({ name: newSetName.trim(), team_id: createTeamId });
       // Auto-create 3 empty sequence pairs
       for (const seq of [1, 2, 3]) {
         for (const variant of ['A', 'B']) {
@@ -327,6 +335,7 @@ export default function TemplateSetEditor() {
       }
       setSelectedSetId(data.id);
       setNewSetName('');
+      setNewSetTeamId('');
       setShowNewSet(false);
       toast.success('Šablona vytvořena');
     } catch {
@@ -505,6 +514,11 @@ export default function TemplateSetEditor() {
                 <div style={{ fontSize: 14, fontWeight: 600, color: 'var(--text)', marginBottom: 4 }}>
                   {s.name}
                 </div>
+                {isAdmin && s.team_id && (
+                  <div style={{ fontSize: 11, color: 'var(--text-muted)', marginTop: 2 }}>
+                    {teamMap.get(s.team_id) ?? 'Neznámý tým'}
+                  </div>
+                )}
                 <div style={{ fontSize: 12, color: 'var(--text-muted)' }}>
                   {seqLabel(seqCount)}
                 </div>
@@ -532,7 +546,11 @@ export default function TemplateSetEditor() {
       <GlassModal
         open={!!selectedSetId && !!selectedSet}
         onClose={() => setSelectedSetId(null)}
-        title={selectedSet?.name ?? ''}
+        title={
+          isAdmin && selectedSet?.team_id
+            ? `${selectedSet.name} — ${teamMap.get(selectedSet.team_id) ?? 'Neznámý tým'}`
+            : selectedSet?.name ?? ''
+        }
         fullscreen
       >
         <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
@@ -656,25 +674,43 @@ export default function TemplateSetEditor() {
       {/* ── New Set Dialog ── */}
       <GlassModal
         open={showNewSet}
-        onClose={() => { setShowNewSet(false); setNewSetName(''); }}
+        onClose={() => { setShowNewSet(false); setNewSetName(''); setNewSetTeamId(''); }}
         title="Nová šablona"
         width={400}
         footer={
           <>
-            <GlassButton variant="secondary" onClick={() => { setShowNewSet(false); setNewSetName(''); }}>Zrušit</GlassButton>
-            <GlassButton variant="primary" onClick={handleCreateSet} disabled={!newSetName.trim() || createTemplateSet.isPending}>
+            <GlassButton variant="secondary" onClick={() => { setShowNewSet(false); setNewSetName(''); setNewSetTeamId(''); }}>Zrušit</GlassButton>
+            <GlassButton variant="primary" onClick={handleCreateSet} disabled={!newSetName.trim() || createTemplateSet.isPending || (isAdmin && !newSetTeamId)}>
               {createTemplateSet.isPending ? 'Vytvářím...' : 'Vytvořit'}
             </GlassButton>
           </>
         }
       >
-        <GlassInput
-          label="Název šablony"
-          placeholder="Nabídka webu"
-          value={newSetName}
-          onChange={e => setNewSetName(e.target.value)}
-          autoFocus
-        />
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+          <GlassInput
+            label="Název šablony"
+            placeholder="Nabídka webu"
+            value={newSetName}
+            onChange={e => setNewSetName(e.target.value)}
+            autoFocus
+          />
+          {isAdmin && (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+              <label style={{ fontSize: 12, fontWeight: 500, color: 'var(--text-dim)' }}>Tým</label>
+              <select
+                className="glass-input"
+                value={newSetTeamId}
+                onChange={e => setNewSetTeamId(e.target.value)}
+                style={{ fontSize: 13, height: 36 }}
+              >
+                <option value="">— Vyberte tým —</option>
+                {teams?.map(t => (
+                  <option key={t.id} value={t.id}>{t.name}</option>
+                ))}
+              </select>
+            </div>
+          )}
+        </div>
       </GlassModal>
 
       {/* ── Confirm Delete Set ── */}

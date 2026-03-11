@@ -39,7 +39,8 @@ export default function App() {
           <Route path="/leady/:id" element={<LeadDetailPage />} />
           <Route path="/vlny" element={<WavesPage />} />
           <Route path="/vlny/:id" element={<WaveDetailPage />} />
-          <Route path="/email-finder" element={<EmailFinderPage />} />
+          <Route path="/email-finder" element={<AdminRoute><EmailFinderPage /></AdminRoute>} />
+          <Route path="/sablony" element={<TemplateSetEditor />} />
           <Route path="/retarget" element={<RetargetPoolPage />} />
           <Route path="/nastaveni" element={<AdminRoute><SettingsPage /></AdminRoute>}>
             <Route index element={null} />
@@ -48,7 +49,6 @@ export default function App() {
             <Route path="uzivatele" element={<UsersSettings />} />
             <Route path="ucty" element={<OutreachAccountsSettings />} />
             <Route path="api-klice" element={<ApiKeysSettings />} />
-            <Route path="sablony" element={<TemplateSetEditor />} />
           </Route>
           <Route path="/" element={<Navigate to="/prehled" replace />} />
           <Route path="*" element={<Navigate to="/prehled" replace />} />
