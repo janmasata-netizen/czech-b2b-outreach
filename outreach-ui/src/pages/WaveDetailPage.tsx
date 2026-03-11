@@ -30,6 +30,16 @@ function fmtDate(iso: string): string {
   return `${d}.${m}.${y}`;
 }
 
+/** Tab id + label for each wave status */
+const TAB_META: Record<string, { id: string; label: string }> = {
+  draft:     { id: 'manager', label: 'Manager' },
+  scheduled: { id: 'live',    label: 'Live' },
+  sending:   { id: 'live',    label: 'Live' },
+  done:      { id: 'archive', label: 'Archiv' },
+  completed: { id: 'archive', label: 'Archiv' },
+  paused:    { id: 'archive', label: 'Archiv' },
+};
+
 export default function WaveDetailPage() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
@@ -91,6 +101,9 @@ export default function WaveDetailPage() {
   );
 
   const { wave, waveLeads } = data;
+  const meta = TAB_META[wave.status] ?? { id: 'manager', label: 'Manager' };
+  const backUrl = `/vlny?tab=${meta.id}`;
+  const tabLabel = meta.label;
   const hasSentEmails = waveLeads.some((wl: WaveLeadRow) => (wl.sent_emails?.length ?? 0) > 0);
   const _now = new Date();
   const today = `${_now.getFullYear()}-${String(_now.getMonth() + 1).padStart(2, '0')}-${String(_now.getDate()).padStart(2, '0')}`;
@@ -299,7 +312,7 @@ export default function WaveDetailPage() {
     try {
       await deleteWave.mutateAsync(wave.id);
       toast.success('Vlna smazána');
-      navigate('/vlny');
+      navigate(backUrl);
     } catch {
       toast.error('Chyba při mazání vlny');
     } finally {
@@ -471,7 +484,7 @@ export default function WaveDetailPage() {
     }
 
     buttons.push(
-      <GlassButton key="back" variant="secondary" onClick={() => navigate('/vlny')}>← Zpět</GlassButton>
+      <GlassButton key="back" variant="secondary" onClick={() => navigate(backUrl)}>← Zpět</GlassButton>
     );
     return <div style={{ display: 'flex', gap: 8 }}>{buttons}</div>;
   }
@@ -482,6 +495,7 @@ export default function WaveDetailPage() {
     <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
       <Breadcrumb items={[
         { label: 'Vlny', to: '/vlny' },
+        { label: tabLabel, to: backUrl },
         { label: wave.name ?? 'Vlna' },
       ]} />
       <PageHeader
