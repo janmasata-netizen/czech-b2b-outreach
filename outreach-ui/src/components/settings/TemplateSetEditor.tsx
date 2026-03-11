@@ -676,7 +676,7 @@ export default function TemplateSetEditor() {
         open={showNewSet}
         onClose={() => { setShowNewSet(false); setNewSetName(''); setNewSetTeamId(''); }}
         title="Nová šablona"
-        width={400}
+        fullscreen
         footer={
           <>
             <GlassButton variant="secondary" onClick={() => { setShowNewSet(false); setNewSetName(''); setNewSetTeamId(''); }}>Zrušit</GlassButton>
