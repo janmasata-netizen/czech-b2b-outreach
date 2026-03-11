@@ -31,11 +31,11 @@ export default function GlassModal({ open, onClose, title, children, width = 560
   if (!open) return null;
 
   const mobilePanelStyle: React.CSSProperties = fullscreen
-    ? { width: '100%', height: '100vh', display: 'flex', flexDirection: 'column', borderRadius: 0 }
+    ? { width: '100%', height: '100vh', maxWidth: 'none', maxHeight: 'none', display: 'flex', flexDirection: 'column', borderRadius: 0, border: 'none' }
     : { width: '100%', maxWidth: '100%', display: 'flex', flexDirection: 'column', maxHeight: '85vh', borderRadius: '12px 12px 0 0' };
 
   const desktopPanelStyle: React.CSSProperties = fullscreen
-    ? { width: '100vw', height: '100vh', display: 'flex', flexDirection: 'column', borderRadius: 0 }
+    ? { width: '100vw', height: '100vh', maxWidth: 'none', maxHeight: 'none', display: 'flex', flexDirection: 'column', borderRadius: 0, border: 'none' }
     : { width: '100%', maxWidth: width, display: 'flex', flexDirection: 'column', maxHeight: '90vh' };
 
   return (
