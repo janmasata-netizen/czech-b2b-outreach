@@ -231,26 +231,31 @@ CSV import / AddLead dialog (s volbou enrichment level)
         v
    WF2: ARES Lookup (webhook:wf2-ares)
    - ICO → nazev firmy, adresa, pravni forma
-   - Vola BE i VR endpoint (merge jednatelu)
+   - Vola BE i VR endpoint (merge kontaktu do contacts tabulky)
         |
         v
    WF3: Kurzy Scrape (webhook:wf3-kurzy)
-   - Scraping jednatelu z kurzy.cz
-   - Uklada do contacts tabulky
+   - Scraping kontaktnich osob z kurzy.cz
+   - Uklada do contacts tabulky (pres company_id)
         |
         v
    WF4: Email Gen (webhook:wf4-email-gen)
+   - Nacita kontakty pres get_contacts_for_lead() RPC
    - Generuje emailove adresy z jmena + domeny
    - Uklada do email_candidates
         |
         v
    WF5: Seznam Verify (webhook:wf5-seznam)
+   - Nacita kontakty z contacts tabulky (pres company_id)
    - Overeni pres Seznam (zda email existuje)
+   - Oznacuje vysledky pres mark_contacts_email_status() RPC
    - Nacita seznam_from_email z config tabulky
         |
         v
    WF6: QEV Verify (webhook:wf6-qev)
+   - Nacita kandidaty s join na contacts tabulku
    - Quick Email Verification API
+   - Oznacuje vysledky pres mark_contacts_email_status() RPC
    - 3 rotujici API klice z config tabulky
         |
         v
@@ -313,17 +318,17 @@ Kompletni seznam vsech n8n workflow s identifikatory:
 
 | Workflow | n8n ID | Trigger | Popis |
 |---|---|---|---|
-| wf1-lead-ingest | beB84wDnEG2soY1m | webhook:lead-ingest | Prijem a vytvoreni leadu (ingest_lead RPC) |
-| wf2-ares-lookup | 2i6zvyAy3j7BjaZE | webhook:wf2-ares | ARES ICO lookup (BE + VR endpoint) |
-| wf3-kurzy-scrape | nPbr15LJxGaZUqo7 | webhook:wf3-kurzy | Scraping jednatelu z kurzy.cz |
-| wf4-email-gen | RNuSFAtwoEAkb9rA | webhook:wf4-email-gen | Generovani emailovych adres |
-| wf5-seznam-verify | 7JzGHAG24ra3977B | webhook:wf5-seznam | Overeni emailu pres Seznam |
-| wf6-qev-verify | EbKgRSRr2Poe34vH | webhook:wf6-qev | Overeni emailu pres QEV API |
-| wf7-wave-schedule | TVNOzjSnaWrmTlqw | webhook:wf7-wave-schedule | Planovani vlny + scheduling_report |
+| wf1-lead-ingest | beB84wDnEG2soY1m | webhook:lead-ingest | Prijem a vytvoreni leadu (ingest_lead RPC), vlozeni kontaktu do contacts |
+| wf2-ares-lookup | 2i6zvyAy3j7BjaZE | webhook:wf2-ares | ARES ICO lookup (BE + VR endpoint), uklada kontakty do contacts pres company_id |
+| wf3-kurzy-scrape | nPbr15LJxGaZUqo7 | webhook:wf3-kurzy | Scraping kontaktnich osob z kurzy.cz do contacts tabulky |
+| wf4-email-gen | RNuSFAtwoEAkb9rA | webhook:wf4-email-gen | Generovani emailovych adres (get_contacts_for_lead RPC) |
+| wf5-seznam-verify | 7JzGHAG24ra3977B | webhook:wf5-seznam | Overeni emailu pres Seznam (contacts + mark_contacts_email_status) |
+| wf6-qev-verify | EbKgRSRr2Poe34vH | webhook:wf6-qev | Overeni emailu pres QEV API (contacts join + mark_contacts_email_status) |
+| wf7-wave-schedule | TVNOzjSnaWrmTlqw | webhook:wf7-wave-schedule | Planovani vlny + scheduling_report (contacts nested select) |
 | wf8-send-cron | wJLD5sFxddNNxR7p | cron:every-5min | Odesilani emailu z fronty |
 | wf9-reply-detection | AaHXknYh9egPDxcG | cron:every-1min | Detekce odpovedi pres IMAP proxy |
 | wf10-daily-reset | 50Odnt5vzIMfSBZE | cron:midnight | Reset dennich pocitadel + cisteni |
-| wf11-website-fallback | E5QzxzZe4JbSv5lU | webhook:wf11-website-fallback | Fallback ziskani domeny z webu |
+| wf11-website-fallback | E5QzxzZe4JbSv5lU | webhook:wf11-website-fallback | Fallback ziskani domeny z webu (get_contacts_for_lead RPC) |
 | wf12-ico-scrape | LGEe4MTELj5lmOFX | webhook:wf12-ico-scrape | Scraping ICO z webovych stranek |
 | wf13-gsheet-proxy | ENcE8iMWLNwIPc5a | webhook:gsheet-proxy | Google Sheets proxy |
 | email-verification sub-wf | Aov5PfwmBDv51L0e | executeWorkflowTrigger | Sdileny sub-workflow pro overeni emailu |
@@ -353,7 +358,7 @@ Kompletni seznam vsech n8n workflow s identifikatory:
 | `companies` | **Master CRM** — vsechny firmy | id, company_name, ico, website, domain, master_status, team_id, created_at, updated_at |
 | `leads` | **Email outreach vrstva** — navazano na companies | id, company_id (FK → companies), status, team_id |
 | `contacts` | Kontaktni osoby firem (nahrazuje jednatels) | id, company_id (FK → companies), full_name, first_name, last_name, salutation, role, phone, linkedin, other_contact, notes, created_at, updated_at |
-| `jednatels` | **Deprecated** — zachovano pro zpetnou kompatibilitu | Stejna UUID jako contacts |
+| `jednatels` | **Deprecated** — zachovano pro zpetnou kompatibilitu, vsechny workflow jiz pouzivaji `contacts` | Stejna UUID jako contacts |
 | `salesmen` | Obchodnici | id, jmeno, email, team_id |
 | `profiles` | Uzivatelske profily (Supabase Auth) | id, role (admin/user) |
 
@@ -531,7 +536,7 @@ Vsechna muzska jmena se sklonovani — zadna vyjimka pro cizi jmena.
 | **QEV** | Quick Email Verification — externi API pro overeni platnosti emailovych adres |
 | **Seznam verify** | Overeni emailu pres Seznam.cz (cesky email provider) |
 | **NDR** | Non-Delivery Report — automaticka zprava o nedoruceni emailu (bounce) |
-| **Enrichment** | Proces obohacovani dat o firme (ARES lookup, scraping jednatelu, generovani emailu, verifikace) |
+| **Enrichment** | Proces obohacovani dat o firme (ARES lookup, scraping kontaktu, generovani emailu, verifikace) |
 | **Enrichment level** | Uroven obohaceni pri importu: `import_only`, `find_emails`, `full_pipeline` |
 | **Vokativ** | 5. pad v cestine — pouziva se pro oslovovani (Novak → Novaku) |
 | **Salutation** | Formalni oslovovani ve vokativu vcetne genderoveho prefixu (Vazeny pane / Vazena pani) |

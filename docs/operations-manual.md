@@ -30,7 +30,7 @@
 |------|-------------|-------|-------|--------|
 | `new` | novy | zelena (accent) | ✓ | Nove pridany lead, ceka na obohaceni |
 | `enriching` | obohacuje se | oranzova | ⚠ | Probiha ARES lookup / kurzy scraping |
-| `enriched` | obohacen | oranzova | ⚠ | ICO a jednatel nalezeni, ceka na email discovery |
+| `enriched` | obohacen | oranzova | ⚠ | ICO a kontakty nalezeny, ceka na email discovery |
 | `email_discovery` | hledani emailu | zluta | ⚠ | Generuji se e-mailove kandidaty |
 | `email_verified` | email overen | zelena | ✓ | E-mail uspesne provereny (Seznam / QEV) |
 | `ready` | pripraven | zelena | ✓ | Lead je plne pripraveny k zarazeni do vlny |
@@ -212,7 +212,7 @@ Vytvorit vlnu, naplnit ji leady, pridat e-mailovou sablonu a naplanovat odeslani
 1. Jdete na `/leady`
 2. Vyfiltrujte leady podle stavu (`ready` nebo `email_verified`)
 3. Overite, ze leady maji overeny email (zeleny badge)
-4. Volitelne: zkontrolujte jednatele a osloveni (salutation)
+4. Volitelne: zkontrolujte kontakty a osloveni (salutation)
 
 #### Krok 2 — Vytvorit vlnu
 
@@ -320,7 +320,7 @@ Retarget pool je automaticky generovany seznam leadu, kteri byli v minulosti osl
 1. Jdete na `/retarget`
 2. Prohledejte / vyfiltrujte leady (fulltextove hledani, filtr podle tymu)
 3. U kazdeho leadu vidite:
-   - Nazev firmy, ICO, jednatele
+   - Nazev firmy, ICO, kontakty
    - Nazev posledni vlny
    - Datum posledniho kontaktu
    - Celkovy pocet osloveni
@@ -451,7 +451,7 @@ Samostatny nastroj pro ad-hoc vyhledavani a overovani e-mailovych adres. Pristup
 #### ICO rezim (`?tab=ico`)
 
 - **Vstup:** ICO firmy + webova adresa
-- **Postup:** Vyhled jednatele v ARES podle ICO, odhadne e-mail z domeny a overi pres SMTP
+- **Postup:** Vyhled kontaktni osoby v ARES podle ICO, odhadne e-mail z domeny a overi pres SMTP
 - **Pouziti:** Kdyz znate ICO ceske firmy
 
 #### Name rezim (`?tab=name`)

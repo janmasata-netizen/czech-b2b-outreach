@@ -247,6 +247,8 @@ node push-wf10.mjs              # WF10 daily reset
 | `push-thread-fix.mjs` | Threading fix |
 | `push-tz-fix.mjs` | Timezone fix |
 | `push-email-finder-fix.mjs` | Email finder fix |
+| `push-contacts-refactor.mjs` | Phase 3 — vsechny workflow refaktorovane na contacts tabulku |
+| `push-force-send.mjs` | Force-send workflow |
 
 Kazdy push skript:
 1. Nacte JSON soubor workflow
