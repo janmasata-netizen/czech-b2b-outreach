@@ -1,8 +1,8 @@
 import { useState, useRef, useCallback } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
+import { useTranslation } from 'react-i18next';
 import PageHeader from '@/components/layout/PageHeader';
 import Breadcrumb from '@/components/shared/Breadcrumb';
-import GlassCard from '@/components/glass/GlassCard';
 import GlassButton from '@/components/glass/GlassButton';
 
 import ConfirmDialog from '@/components/glass/ConfirmDialog';
@@ -39,7 +39,7 @@ const MONO: React.CSSProperties = { fontFamily: 'JetBrains Mono, monospace' };
 
 const DEFAULT_VARIABLES: TemplateVariable[] = [
   { name: 'company_name', label: 'company_name', description: 'Název firmy (např. Alza.cz a.s.)' },
-  { name: 'salutation', label: 'salutation', description: 'Formální oslovení s vokativem (např. Vážený pane Nováku)' },
+  { name: 'salutation', label: 'české oslovení', description: 'České formální oslovení s vokativem (např. Vážený pane Nováku) — funguje pouze pro česká jména' },
   { name: 'first_name', label: 'first_name', description: 'Křestní jméno jednatele (např. Jan)' },
   { name: 'last_name', label: 'last_name', description: 'Příjmení jednatele (např. Novák)' },
   { name: 'domain', label: 'domain', description: 'Doména firmy (např. alza.cz)' },
@@ -63,6 +63,7 @@ function SequencePanel({
   seq, templateA, templateB, allVariables,
   setId, onDelete, canDelete, displayNumber,
 }: SequencePanelProps) {
+  const { t } = useTranslation();
   const {
     attributes,
     listeners,
@@ -116,7 +117,7 @@ function SequencePanel({
   }
 
   async function handleSave() {
-    if (!subject.trim()) { toast.error('Zadejte předmět', { duration: 8000 }); return; }
+    if (!subject.trim()) { toast.error(t('templates.enterSubject'), { duration: 8000 }); return; }
     try {
       await upsertTemplate.mutateAsync({
         ...(templateA?.id ? { id: templateA.id } : {}),
@@ -129,9 +130,9 @@ function SequencePanel({
         sequence_number: seq, template_set_id: setId, variant: 'B',
       });
       setDirty(false);
-      toast.success(`Sekvence ${displayNumber} uložena`);
+      toast.success(t('templates.sequenceSaved', { num: displayNumber }));
     } catch {
-      toast.error('Chyba při ukládání', { duration: 8000 });
+      toast.error(t('templates.errorSaving'), { duration: 8000 });
     }
   }
 
@@ -161,7 +162,7 @@ function SequencePanel({
         <span
           {...attributes}
           {...listeners}
-          title="Přetáhněte pro změnu pořadí"
+          title={t('templates.dragToReorder')}
           style={{
             cursor: 'grab', color: 'var(--text-muted)', fontSize: 16,
             lineHeight: 1, flexShrink: 0, padding: '0 2px',
@@ -180,11 +181,11 @@ function SequencePanel({
             overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
             fontStyle: subject ? 'normal' : 'italic',
           }}>{subjectPreview}</span>
-        {dirty && <span style={{ fontSize: 10, color: '#f59e0b', fontWeight: 600 }}>Neuloženo</span>}
+        {dirty && <span style={{ fontSize: 10, color: '#f59e0b', fontWeight: 600 }}>{t('common.unsaved')}</span>}
         {canDelete && (
           <button
             onClick={e => { e.stopPropagation(); onDelete(); }}
-            title="Smazat sekvenci"
+            title={t('templates.deleteSeqBtn')}
             style={{
               background: 'none', border: '1px solid var(--border)', borderRadius: 6,
               cursor: 'pointer', color: 'var(--text-muted)', fontSize: 14,
@@ -198,7 +199,7 @@ function SequencePanel({
       <div style={{ padding: '0 14px 14px', display: 'flex', flexDirection: 'column', gap: 12 }}>
         {/* Subject */}
         <div style={{ display: 'flex', flexDirection: 'column', gap: 5 }}>
-          <label style={LABEL}>Předmět e-mailu</label>
+          <label style={LABEL}>{t('templates.emailSubject')}</label>
           <input
             ref={subjectRef}
             className="glass-input"
@@ -214,7 +215,7 @@ function SequencePanel({
         {/* Variable insertion buttons */}
         <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, alignItems: 'center' }}>
           <span style={{ fontSize: 11, color: 'var(--text-muted)', marginRight: 4 }}>
-            Vložit do {activeField === 'subject' ? 'předmětu' : 'těla'}:
+            {t('templates.insertInto', { field: activeField === 'subject' ? t('templates.subject') : t('templates.body') })}
           </span>
           {allVariables.map(v => (
             <button
@@ -235,7 +236,7 @@ function SequencePanel({
 
         {/* Body editor */}
         <div style={{ display: 'flex', flexDirection: 'column', gap: 5 }}>
-          <label style={LABEL}>Tělo e-mailu</label>
+          <label style={LABEL}>{t('templates.emailBody')}</label>
           <RichTextEditor
             ref={editorRef}
             value={bodyHtml}
@@ -254,7 +255,7 @@ function SequencePanel({
             onClick={handleSave}
             disabled={upsertTemplate.isPending || !dirty}
           >
-            {upsertTemplate.isPending ? 'Ukládám...' : 'Uložit sekvenci'}
+            {upsertTemplate.isPending ? t('common.saving') : t('templates.saveSequence')}
           </GlassButton>
         </div>
       </div>
@@ -264,6 +265,7 @@ function SequencePanel({
 
 /* ── Detail page component ────────────────────────────── */
 export default function TemplateSetDetailPage() {
+  const { t } = useTranslation();
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const { profile } = useAuthContext();
@@ -319,9 +321,9 @@ export default function TemplateSetDetailPage() {
           body_html: '',
         });
       }
-      toast.success(`Sekvence ${nextSeq} přidána`);
+      toast.success(t('templates.sequenceAdded', { num: nextSeq }));
     } catch {
-      toast.error('Chyba při přidávání sekvence', { duration: 8000 });
+      toast.error(t('templates.errorAddingSeq'), { duration: 8000 });
     }
   }
 
@@ -337,9 +339,9 @@ export default function TemplateSetDetailPage() {
       if (remaining.length > 0) {
         await reorderSequences.mutateAsync({ setId: id, order: remaining });
       }
-      toast.success(`Sekvence smazána`);
+      toast.success(t('templates.sequenceDeleted'));
     } catch {
-      toast.error('Chyba při mazání sekvence', { duration: 8000 });
+      toast.error(t('templates.errorDeletingSeq'), { duration: 8000 });
     } finally {
       setConfirmDeleteSeq(null);
     }
@@ -357,14 +359,14 @@ export default function TemplateSetDetailPage() {
     reordered.splice(newIndex, 0, moved);
     try {
       await reorderSequences.mutateAsync({ setId: id, order: reordered });
-      toast.success('Pořadí sekvencí změněno');
+      toast.success(t('templates.reorderDone'));
     } catch {
-      toast.error('Chyba při změně pořadí', { duration: 8000 });
+      toast.error(t('templates.errorReorder'), { duration: 8000 });
     }
   }
 
   if (isLoading) {
-    return <p style={{ color: 'var(--text-muted)', fontSize: 13, padding: 20 }}>Načítám...</p>;
+    return <p style={{ color: 'var(--text-muted)', fontSize: 13, padding: 20 }}>{t('templates.loading')}</p>;
   }
 
   const setName = selectedSet?.name ?? '';
@@ -373,7 +375,7 @@ export default function TemplateSetDetailPage() {
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
       <Breadcrumb items={[
-        { label: 'Šablony', to: '/sablony' },
+        { label: t('templates.title'), to: '/sablony' },
         { label: setName },
       ]} />
 
@@ -382,7 +384,7 @@ export default function TemplateSetDetailPage() {
         subtitle={teamName || undefined}
         actions={
           <GlassButton size="sm" variant="secondary" onClick={() => navigate('/sablony')}>
-            ← Zpět
+            {t('common.back')}
           </GlassButton>
         }
       />
@@ -396,7 +398,7 @@ export default function TemplateSetDetailPage() {
           onClick={() => setVarsExpanded(v => !v)}
           style={{ display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer', fontSize: 11, color: 'var(--text-muted)' }}
         >
-          <span>Dostupné proměnné ({DEFAULT_VARIABLES.length})</span>
+          <span>{t('templates.availableVars', { count: DEFAULT_VARIABLES.length })}</span>
           <code style={{ ...MONO, color: 'var(--text-dim)', fontSize: 10 }}>
             {DEFAULT_VARIABLES.map(v => `{{${v.name}}}`).join(' ')}
           </code>
@@ -423,7 +425,7 @@ export default function TemplateSetDetailPage() {
 
       {/* ── Sequence panels ── */}
       <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-        <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--text)' }}>Sekvence</div>
+        <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--text)' }}>{t('templates.sequences')}</div>
 
         <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
           <SortableContext items={seqNumbers} strategy={verticalListSortingStrategy}>
@@ -448,7 +450,7 @@ export default function TemplateSetDetailPage() {
 
         {seqNumbers.length === 0 && (
           <p style={{ fontSize: 13, color: 'var(--text-muted)', padding: 20, textAlign: 'center' }}>
-            Žádné sekvence
+            {t('templates.noSequences')}
           </p>
         )}
 
@@ -459,7 +461,7 @@ export default function TemplateSetDetailPage() {
           disabled={upsertTemplate.isPending}
           style={{ alignSelf: 'flex-start', marginTop: 4 }}
         >
-          + Přidat sekvenci
+          {t('templates.addSequence')}
         </GlassButton>
       </div>
 
@@ -468,13 +470,13 @@ export default function TemplateSetDetailPage() {
         open={confirmDeleteSeq !== null}
         onClose={() => setConfirmDeleteSeq(null)}
         onConfirm={handleDeleteSequence}
-        title={`Smazat sekvenci ${confirmDeleteSeq}`}
-        confirmLabel="Smazat"
+        title={t('templates.deleteSequence', { num: confirmDeleteSeq })}
+        confirmLabel={t('common.delete')}
         variant="danger"
         loading={deleteTemplate.isPending}
       >
         <div style={{ fontSize: 13, color: 'var(--text-dim)', lineHeight: 1.5 }}>
-          Smazat sekvenci {confirmDeleteSeq} (obě varianty A/B)? Tato akce je nevratná.
+          {t('templates.deleteSequenceConfirm', { num: confirmDeleteSeq })}
         </div>
       </ConfirmDialog>
     </div>

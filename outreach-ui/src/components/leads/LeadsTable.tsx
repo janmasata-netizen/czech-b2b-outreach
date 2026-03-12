@@ -1,8 +1,9 @@
 import { useNavigate } from 'react-router-dom';
+import { useTranslation } from 'react-i18next';
 import type { Lead, WaveLead } from '@/types/database';
 import StatusBadge from '@/components/shared/StatusBadge';
 import { formatDate, extractDomain, truncate } from '@/lib/utils';
-import { EMAIL_STATUS_STYLES } from '@/lib/constants';
+import { EMAIL_STATUS_STYLES, LEAD_LANGUAGE_MAP } from '@/lib/constants';
 import { TableSkeleton } from '@/components/shared/LoadingSkeleton';
 import EmptyState from '@/components/shared/EmptyState';
 import { useRemoveLeadFromWave } from '@/hooks/useLeads';
@@ -36,17 +37,18 @@ interface LeadsTableProps {
 }
 
 export default function LeadsTable({ leads, isLoading, selected, onSelect }: LeadsTableProps) {
+  const { t } = useTranslation();
   const navigate = useNavigate();
   const removeFromWave = useRemoveLeadFromWave();
 
   async function handleRemoveFromWave(e: React.MouseEvent, waveLeadId: string, leadId: string, waveName: string) {
     e.stopPropagation();
-    if (!window.confirm(`Odebrat lead z vlny "${waveName}"?\nStav leadu bude nastaven zpět na "připraven".`)) return;
+    if (!window.confirm(t('leads.removeFromWaveConfirm', { name: waveName }))) return;
     try {
       await removeFromWave.mutateAsync({ waveLeadId, leadId });
-      toast.success('Lead odebrán z vlny');
+      toast.success(t('leads.removedFromWave'));
     } catch (err: unknown) {
-      toast.error('Chyba: ' + (err instanceof Error ? err.message : 'neznámá chyba'), { duration: 8000 });
+      toast.error(t('waves.errorScheduling') + (err instanceof Error ? err.message : ''), { duration: 8000 });
     }
   }
 
@@ -59,7 +61,7 @@ export default function LeadsTable({ leads, isLoading, selected, onSelect }: Lea
   }
 
   if (isLoading) return <TableSkeleton rows={10} />;
-  if (!leads.length) return <EmptyState icon="◈" title="Žádné leady" description="Přidejte leady pomocí tlačítka výše nebo importem." />;
+  if (!leads.length) return <EmptyState icon="◈" title={t('leads.noLeads')} description={t('leads.noLeadsDesc')} />;
 
   return (
     <div style={{ overflowX: 'auto' }}>
@@ -69,7 +71,7 @@ export default function LeadsTable({ leads, isLoading, selected, onSelect }: Lea
             <th style={{ ...TH, width: 40, padding: '9px 12px' }}>
               <input type="checkbox" checked={selected.length === leads.length && leads.length > 0} onChange={toggleAll} style={{ accentColor: 'var(--green)' }} />
             </th>
-            {['Firma', 'IČO', 'Web', 'Email', 'Email stav', 'Jednatel', 'Stav', 'Vlna', 'Přidáno'].map(h => (
+            {[t('leads.tableHeaders.company'), t('leads.tableHeaders.ico'), t('leads.tableHeaders.web'), t('leads.tableHeaders.email'), t('leads.tableHeaders.emailStatus'), t('leads.tableHeaders.jednatel'), t('leads.tableHeaders.status'), t('leads.tableHeaders.wave'), t('leads.tableHeaders.added')].map(h => (
               <th key={h} style={TH}>{h}</th>
             ))}
           </tr>
@@ -109,7 +111,15 @@ export default function LeadsTable({ leads, isLoading, selected, onSelect }: Lea
                         fontSize: 10, padding: '1px 5px', borderRadius: 4,
                         background: 'rgba(139,92,246,0.15)', color: '#a78bfa',
                         marginLeft: 5, fontWeight: 500, verticalAlign: 'middle',
-                      }}>Kontakt</span>
+                      }}>{t('leads.contact')}</span>
+                    )}
+                    {lead.language && lead.language !== 'cs' && (
+                      <span style={{
+                        fontSize: 10, padding: '1px 5px', borderRadius: 4,
+                        background: 'rgba(99,102,241,0.15)', color: '#818cf8',
+                        marginLeft: 5, fontWeight: 600, verticalAlign: 'middle',
+                        textTransform: 'uppercase', letterSpacing: '0.04em',
+                      }}>{lead.language}</span>
                     )}
                   </div>
                 </td>
@@ -131,7 +141,7 @@ export default function LeadsTable({ leads, isLoading, selected, onSelect }: Lea
                       </span>
                       {canRemove && (
                         <button
-                          title="Odebrat z vlny"
+                          title={t('leads.removeFromWave')}
                           onClick={e => handleRemoveFromWave(e, wl!.id, lead.id, waveName!)}
                           disabled={removeFromWave.isPending}
                           style={{ flexShrink: 0, background: 'none', border: '1px solid rgba(248,113,113,0.35)', borderRadius: 4, cursor: 'pointer', color: '#f87171', fontSize: 13, lineHeight: 1, padding: '1px 5px' }}

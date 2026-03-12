@@ -1,4 +1,5 @@
 import { useState, type FormEvent } from 'react';
+import { useTranslation } from 'react-i18next';
 import GlassModal from '@/components/glass/GlassModal';
 import GlassButton from '@/components/glass/GlassButton';
 import GlassInput from '@/components/glass/GlassInput';
@@ -6,6 +7,10 @@ import { useTeams, useCreateLeadWithEmail } from '@/hooks/useLeads';
 import { toast } from 'sonner';
 import { checkDuplicates, extractDomain, formatMatchMessage } from '@/lib/dedup';
 import { n8nWebhookUrl, n8nHeaders } from '@/lib/n8n';
+import { LEAD_LANGUAGE_MAP } from '@/lib/constants';
+import { pickWeightedTeam, distributeEvenly, type TeamAllocation } from '@/lib/team-distribution';
+import TeamDistributionSelector from '@/components/shared/TeamDistributionSelector';
+import type { LeadLanguage } from '@/types/database';
 
 interface AddLeadDialogProps {
   open: boolean;
@@ -18,6 +23,7 @@ interface CustomFieldRow {
 }
 
 export default function AddLeadDialog({ open, onClose }: AddLeadDialogProps) {
+  const { t } = useTranslation();
   const { data: teams } = useTeams();
   const createLead = useCreateLeadWithEmail();
   const [checking, setChecking] = useState(false);
@@ -27,8 +33,11 @@ export default function AddLeadDialog({ open, onClose }: AddLeadDialogProps) {
     website: '',
     contact_name: '',
     email: '',
-    team_id: '',
+    language: 'cs' as LeadLanguage,
   });
+  const [teamAllocations, setTeamAllocations] = useState<TeamAllocation[]>(
+    teams && teams.length > 0 ? [{ teamId: teams[0].id, teamName: teams[0].name, percentage: 100 }] : []
+  );
   const [customFields, setCustomFields] = useState<CustomFieldRow[]>([]);
   const [enrichEmail, setEnrichEmail] = useState(true);
 
@@ -62,33 +71,46 @@ export default function AddLeadDialog({ open, onClose }: AddLeadDialogProps) {
     e?.preventDefault();
 
     if (!form.contact_name.trim()) {
-      toast.error('Zadejte celé jméno kontaktní osoby');
+      toast.error(t('addLeadDialog.enterContactName'));
       return;
     }
     const hasEmail = !!form.email.trim();
     const canEnrich = enrichEmail && !hasEmail && (form.website.trim() || form.ico.trim());
     if (!hasEmail && !canEnrich) {
-      toast.error('Zadejte e-mailovou adresu nebo zapněte vyhledávání e-mailu');
+      toast.error(t('addLeadDialog.enterEmailOrEnrich'));
       return;
     }
     if (hasEmail && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(form.email.trim())) {
-      toast.error('Neplatný formát e-mailové adresy');
+      toast.error(t('addLeadDialog.invalidEmail'));
       return;
     }
     if (!form.company_name.trim()) {
-      toast.error('Zadejte název firmy');
+      toast.error(t('addLeadDialog.enterCompanyName'));
       return;
     }
     if (form.ico && !/^\d{8}$/.test(form.ico)) {
-      toast.error('IČO musí mít přesně 8 číslic');
+      toast.error(t('addLeadDialog.icoMustBe8'));
       return;
     }
 
-    const team_id = form.team_id || teams?.[0]?.id || '';
-    if (!team_id) {
-      toast.error('Nejprve vytvořte tým v nastavení');
+    // Resolve team allocations (init from teams if empty)
+    const effectiveAllocations = teamAllocations.length > 0
+      ? teamAllocations
+      : teams && teams.length > 0
+        ? [{ teamId: teams[0].id, teamName: teams[0].name, percentage: 100 }]
+        : [];
+    if (effectiveAllocations.length === 0) {
+      toast.error(t('addLeadDialog.createTeamFirst'));
       return;
     }
+    const allocSum = effectiveAllocations.reduce((s, a) => s + a.percentage, 0);
+    if (effectiveAllocations.length > 1 && allocSum !== 100) {
+      toast.error(t('teamDistribution.sumWarning'));
+      return;
+    }
+    const team_id = effectiveAllocations.length === 1
+      ? effectiveAllocations[0].teamId
+      : pickWeightedTeam(effectiveAllocations);
 
     // Pre-flight dedup check
     try {
@@ -106,7 +128,7 @@ export default function AddLeadDialog({ open, onClose }: AddLeadDialogProps) {
       }
     } catch (err) {
       console.error('Dedup check failed:', err);
-      toast.error('Kontrola duplicit selhala — zkuste to znovu');
+      toast.error(t('addLeadDialog.dedupFailed'));
       return;
     } finally {
       setChecking(false);
@@ -121,6 +143,7 @@ export default function AddLeadDialog({ open, onClose }: AddLeadDialogProps) {
           ico: form.ico || null,
           website: form.website || null,
           team_id,
+          language: form.language,
         };
         if (form.contact_name) (payload as Record<string, string | null>).contact_name = form.contact_name;
         const res = await fetch(n8nWebhookUrl('lead-ingest'), {
@@ -129,11 +152,11 @@ export default function AddLeadDialog({ open, onClose }: AddLeadDialogProps) {
           body: JSON.stringify(payload),
         });
         if (res.status === 409) {
-          toast.error('Lead s tímto IČO nebo doménou již existuje');
+          toast.error(t('addLeadDialog.duplicateExists'));
           return;
         }
         if (!res.ok) throw new Error(`WF1 error: ${res.status}`);
-        toast.success('Lead přidán — vyhledávání e-mailu běží na pozadí');
+        toast.success(t('addLeadDialog.leadAddedEnriching'));
       } else {
         await createLead.mutateAsync({
           company_name: form.company_name,
@@ -144,13 +167,13 @@ export default function AddLeadDialog({ open, onClose }: AddLeadDialogProps) {
           team_id,
           custom_fields: Object.keys(cf).length > 0 ? cf : undefined,
         });
-        toast.success('Lead přidán a připraven k odeslání');
+        toast.success(t('addLeadDialog.leadAddedReady'));
       }
-      setForm({ company_name: '', ico: '', website: '', contact_name: '', email: '', team_id: '' });
+      setForm({ company_name: '', ico: '', website: '', contact_name: '', email: '', language: 'cs' });
       setCustomFields([]);
       onClose();
     } catch {
-      toast.error('Chyba při přidávání leadu');
+      toast.error(t('addLeadDialog.errorAdding'));
     }
   }
 
@@ -158,45 +181,45 @@ export default function AddLeadDialog({ open, onClose }: AddLeadDialogProps) {
     <GlassModal
       open={open}
       onClose={onClose}
-      title="Přidat nový lead"
+      title={t('leads.addLead')}
       width={480}
       footer={
         <>
-          <GlassButton variant="secondary" onClick={onClose}>Zrušit</GlassButton>
+          <GlassButton variant="secondary" onClick={onClose}>{t('common.cancel')}</GlassButton>
           <GlassButton variant="primary" onClick={e => handleSubmit(e)} disabled={createLead.isPending || checking}>
-            {checking ? 'Kontroluji…' : createLead.isPending ? 'Ukládám…' : 'Přidat lead'}
+            {checking ? t('common.checking') : createLead.isPending ? t('common.saving') : t('leads.addLeadShort')}
           </GlassButton>
         </>
       }
     >
       <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
         <GlassInput
-          label="Celé jméno"
+          label={t('addLeadDialog.fullName')}
           placeholder="Jan Novák"
           value={form.contact_name}
           onChange={e => set('contact_name', e.target.value)}
         />
         <GlassInput
-          label="E-mail"
+          label={t('addLeadDialog.email')}
           placeholder="jan.novak@firma.cz"
           value={form.email}
           onChange={e => set('email', e.target.value)}
           type="email"
         />
         <GlassInput
-          label="Název firmy"
+          label={t('addLeadDialog.companyName')}
           placeholder="Firma s.r.o."
           value={form.company_name}
           onChange={e => set('company_name', e.target.value)}
         />
         <GlassInput
-          label="Web"
+          label={t('addLeadDialog.web')}
           placeholder="www.firma.cz"
           value={form.website}
           onChange={e => set('website', e.target.value)}
         />
         <GlassInput
-          label="IČO"
+          label={t('addLeadDialog.ico')}
           placeholder="12345678"
           value={form.ico}
           onChange={e => set('ico', e.target.value)}
@@ -212,23 +235,32 @@ export default function AddLeadDialog({ open, onClose }: AddLeadDialogProps) {
               onChange={e => setEnrichEmail(e.target.checked)}
               style={{ width: 14, height: 14, accentColor: 'var(--green)' }}
             />
-            <span style={{ fontSize: 12, color: 'var(--text-dim)' }}>Spustit vyhledávání e-mailu</span>
+            <span style={{ fontSize: 12, color: 'var(--text-dim)' }}>{t('addLeadDialog.startEmailSearch')}</span>
           </label>
         )}
 
         {teams && teams.length > 1 && (
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-            <label style={{ fontSize: 12, fontWeight: 500, color: 'var(--text-dim)' }}>Tým</label>
-            <select className="glass-input" value={form.team_id} onChange={e => set('team_id', e.target.value)}>
-              {teams.map(t => <option key={t.id} value={t.id}>{t.name}</option>)}
-            </select>
-          </div>
+          <TeamDistributionSelector
+            teams={teams}
+            allocations={teamAllocations}
+            onChange={setTeamAllocations}
+          />
         )}
+
+        {/* Language selector */}
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+          <label style={{ fontSize: 12, fontWeight: 500, color: 'var(--text-dim)' }}>Jazyk</label>
+          <select className="glass-input" value={form.language} onChange={e => set('language', e.target.value)}>
+            {Object.entries(LEAD_LANGUAGE_MAP).map(([val, label]) => (
+              <option key={val} value={val}>{label}</option>
+            ))}
+          </select>
+        </div>
 
         {/* Custom fields */}
         <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginTop: 4 }}>
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-            <label style={{ fontSize: 12, fontWeight: 500, color: 'var(--text-dim)' }}>Vlastní pole</label>
+            <label style={{ fontSize: 12, fontWeight: 500, color: 'var(--text-dim)' }}>{t('addLeadDialog.customFields')}</label>
             <button
               type="button"
               onClick={addCustomField}
@@ -237,21 +269,21 @@ export default function AddLeadDialog({ open, onClose }: AddLeadDialogProps) {
                 cursor: 'pointer', color: 'var(--text-dim)', fontSize: 11, padding: '2px 8px',
               }}
             >
-              + Přidat pole
+              {t('addLeadDialog.addField')}
             </button>
           </div>
           {customFields.map((row, i) => (
             <div key={i} style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
               <input
                 className="glass-input"
-                placeholder="klíč"
+                placeholder={t('addLeadDialog.key')}
                 value={row.key}
                 onChange={e => updateCustomField(i, 'key', e.target.value.replace(/[^a-zA-Z0-9_]/g, ''))}
                 style={{ flex: 1, height: 32, fontSize: 12, fontFamily: 'JetBrains Mono, monospace' }}
               />
               <input
                 className="glass-input"
-                placeholder="hodnota"
+                placeholder={t('addLeadDialog.value')}
                 value={row.value}
                 onChange={e => updateCustomField(i, 'value', e.target.value)}
                 style={{ flex: 2, height: 32, fontSize: 12 }}

@@ -5,53 +5,53 @@ import type { LeadStatus, WaveStatus, WaveLeadStatus, EmailQueueStatus } from '@
 // ================================================================
 
 export const LEAD_STATUS_MAP: Record<LeadStatus, { label: string; color: string }> = {
-  new:             { label: 'nový',           color: 'accent'  },
-  enriching:       { label: 'obohacuje se',   color: 'orange'  },
-  enriched:        { label: 'obohacen',       color: 'orange'  },
-  email_discovery: { label: 'hledání emailu', color: 'yellow'  },
-  email_verified:  { label: 'email ověřen',   color: 'green'   },
-  ready:           { label: 'připraven',      color: 'green'   },
-  in_wave:         { label: 've vlně',        color: 'purple'  },
-  completed:       { label: 'dokončeno',      color: 'green'   },
-  replied:         { label: 'odpovězeno',     color: 'cyan'    },
-  bounced:         { label: 'bounce',         color: 'red'     },
-  failed:          { label: 'selhalo',        color: 'red'     },
-  needs_review:    { label: 'čeká na kontrolu', color: 'orange' },
-  problematic:     { label: 'problémový',     color: 'red'     },
-  info_email:      { label: 'info email',     color: 'cyan'    },
-  staff_email:     { label: 'staff email',    color: 'purple'  },
+  new:             { label: 'status.lead.new',           color: 'accent'  },
+  enriching:       { label: 'status.lead.enriching',     color: 'orange'  },
+  enriched:        { label: 'status.lead.enriched',      color: 'orange'  },
+  email_discovery: { label: 'status.lead.email_discovery', color: 'yellow'  },
+  email_verified:  { label: 'status.lead.email_verified', color: 'green'   },
+  ready:           { label: 'status.lead.ready',         color: 'green'   },
+  in_wave:         { label: 'status.lead.in_wave',       color: 'purple'  },
+  completed:       { label: 'status.lead.completed',     color: 'green'   },
+  replied:         { label: 'status.lead.replied',       color: 'cyan'    },
+  bounced:         { label: 'status.lead.bounced',       color: 'red'     },
+  failed:          { label: 'status.lead.failed',        color: 'red'     },
+  needs_review:    { label: 'status.lead.needs_review',  color: 'orange'  },
+  problematic:     { label: 'status.lead.problematic',   color: 'red'     },
+  info_email:      { label: 'status.lead.info_email',    color: 'cyan'    },
+  staff_email:     { label: 'status.lead.staff_email',   color: 'purple'  },
 };
 
 export const LEAD_STATUSES = Object.keys(LEAD_STATUS_MAP) as LeadStatus[];
 
 export const WAVE_STATUS_MAP: Record<WaveStatus, { label: string; color: string }> = {
-  draft:     { label: 'koncept',     color: 'muted'   },
-  verifying: { label: 'ověřování',   color: 'yellow'  },
-  verified:  { label: 'ověřeno',     color: 'cyan'    },
-  scheduled: { label: 'naplánováno', color: 'accent'  },
-  sending:   { label: 'odesílá se',  color: 'orange'  },
-  done:      { label: 'hotovo',      color: 'green'   },
-  completed: { label: 'dokončeno',   color: 'green'   },
-  paused:    { label: 'pozastaveno', color: 'yellow'  },
+  draft:     { label: 'status.wave.draft',     color: 'muted'   },
+  verifying: { label: 'status.wave.verifying', color: 'yellow'  },
+  verified:  { label: 'status.wave.verified',  color: 'cyan'    },
+  scheduled: { label: 'status.wave.scheduled', color: 'accent'  },
+  sending:   { label: 'status.wave.sending',   color: 'orange'  },
+  done:      { label: 'status.wave.done',      color: 'green'   },
+  completed: { label: 'status.wave.completed', color: 'green'   },
+  paused:    { label: 'status.wave.paused',    color: 'yellow'  },
 };
 
 export const WAVE_LEAD_STATUS_MAP: Record<WaveLeadStatus, { label: string; color: string }> = {
-  pending:   { label: 'čeká',         color: 'muted'  },
-  seq1_sent: { label: 'seq. 1 odesláno', color: 'accent' },
-  seq2_sent: { label: 'seq. 2 odesláno', color: 'accent' },
-  seq3_sent: { label: 'seq. 3 odesláno', color: 'purple' },
-  completed: { label: 'dokončeno',    color: 'green'  },
-  replied:   { label: 'odpovězeno',   color: 'cyan'   },
-  failed:    { label: 'selhalo',      color: 'red'    },
+  pending:   { label: 'status.waveLead.pending',   color: 'muted'  },
+  seq1_sent: { label: 'status.waveLead.seq1_sent', color: 'accent' },
+  seq2_sent: { label: 'status.waveLead.seq2_sent', color: 'accent' },
+  seq3_sent: { label: 'status.waveLead.seq3_sent', color: 'purple' },
+  completed: { label: 'status.waveLead.completed', color: 'green'  },
+  replied:   { label: 'status.waveLead.replied',   color: 'cyan'   },
+  failed:    { label: 'status.waveLead.failed',    color: 'red'    },
 };
 
 export const QUEUE_STATUS_MAP: Record<EmailQueueStatus, { label: string; color: string }> = {
-  queued:    { label: 've frontě',   color: 'accent'  },
-  sending:   { label: 'odesílá se', color: 'orange'  },
-  sent:      { label: 'odesláno',   color: 'green'   },
-  failed:    { label: 'selhalo',    color: 'red'     },
-  cancelled:    { label: 'zrušeno',      color: 'muted'   },
-  pending_prev: { label: 'čeká na předchozí', color: 'muted' },
+  queued:       { label: 'status.queue.queued',       color: 'accent'  },
+  sending:      { label: 'status.queue.sending',      color: 'orange'  },
+  sent:         { label: 'status.queue.sent',         color: 'green'   },
+  failed:       { label: 'status.queue.failed',       color: 'red'     },
+  cancelled:    { label: 'status.queue.cancelled',    color: 'muted'   },
+  pending_prev: { label: 'status.queue.pending_prev', color: 'muted'   },
 };
 
 // ================================================================
@@ -72,38 +72,38 @@ export const STATUS_COLOR_MAP: Record<string, { bg: string; border: string; text
 // ENRICHMENT STEP LABELS (Czech)
 // ================================================================
 export const ENRICHMENT_STEP_LABELS: Record<string, string> = {
-  ares_lookup:      'Vyhledání v ARES',
-  ares:             'Vyhledání v ARES',
-  kurzy_scrape:     'Načtení jednatele (kurzy.cz)',
-  kurzy:            'Načtení jednatele (kurzy.cz)',
-  email_generation: 'Generování e-mailů',
-  email_gen:        'Generování e-mailů',
-  seznam_verify:    'Ověření přes Seznam.cz',
-  seznam:           'Ověření přes Seznam.cz',
-  qev_verify:       'QuickEmailVerification',
-  qev:              'QuickEmailVerification',
-  website_fallback: 'Záchranný web scraping',
+  ares_lookup:      'enrichment.ares_lookup',
+  ares:             'enrichment.ares',
+  kurzy_scrape:     'enrichment.kurzy_scrape',
+  kurzy:            'enrichment.kurzy',
+  email_generation: 'enrichment.email_generation',
+  email_gen:        'enrichment.email_gen',
+  seznam_verify:    'enrichment.seznam_verify',
+  seznam:           'enrichment.seznam',
+  qev_verify:       'enrichment.qev_verify',
+  qev:              'enrichment.qev',
+  website_fallback: 'enrichment.website_fallback',
 };
 
 // ================================================================
 // NAV ITEMS
 // ================================================================
 export const NAV_ITEMS = [
-  { to: '/prehled',   label: 'Přehled',   icon: 'BarChart3' },
-  { to: '/leady',     label: 'Leady',     icon: 'Users'     },
-  { to: '/vlny',      label: 'Vlny',      icon: 'Send'      },
-  { to: '/nastaveni', label: 'Nastavení', icon: 'Settings'  },
+  { to: '/prehled',   label: 'nav.dashboard', icon: 'BarChart3' },
+  { to: '/leady',     label: 'nav.leads',     icon: 'Users'     },
+  { to: '/vlny',      label: 'nav.waves',     icon: 'Send'      },
+  { to: '/nastaveni', label: 'nav.settings',  icon: 'Settings'  },
 ];
 
 // ================================================================
 // PIPELINE FUNNEL STEPS
 // ================================================================
 export const PIPELINE_STEPS = [
-  { key: 'new',             label: 'Nové leady',        color: '#6c8cff' },
-  { key: 'enriched',        label: 'IČO nalezeno',       color: '#6c8cff' },
-  { key: 'has_jednatel',    label: 'Jednatel nalezen',   color: '#a78bfa' },
-  { key: 'ready',           label: 'Email ověřen',       color: '#4ade80' },
-  { key: 'replied',         label: 'Odpovědi',           color: '#22d3ee' },
+  { key: 'new',             label: 'pipeline.newLeads',      color: '#6c8cff' },
+  { key: 'enriched',        label: 'pipeline.icoFound',      color: '#6c8cff' },
+  { key: 'has_jednatel',    label: 'pipeline.jednatelFound',  color: '#a78bfa' },
+  { key: 'ready',           label: 'pipeline.emailVerified',  color: '#4ade80' },
+  { key: 'replied',         label: 'pipeline.replies',        color: '#22d3ee' },
 ];
 
 // ================================================================
@@ -118,6 +118,15 @@ export const EMAIL_STATUS_STYLES: Record<string, { color: string; bg: string; la
   pending:           { color: '#94a3b8', bg: 'rgba(148,163,184,0.12)', label: 'pending' },
   unknown:           { color: '#94a3b8', bg: 'rgba(148,163,184,0.12)', label: 'unknown' },
   info_email:        { color: '#22d3ee', bg: 'rgba(34,211,238,0.12)',  label: 'info email' },
+};
+
+// ================================================================
+// LEAD LANGUAGE MAP
+// ================================================================
+export const LEAD_LANGUAGE_MAP: Record<string, string> = {
+  cs: 'Čeština',
+  en: 'English',
+  de: 'Deutsch',
 };
 
 // ================================================================

@@ -19,6 +19,7 @@ export function useLeads(filters: LeadFilters = {}, page = 1) {
       if (filters.statuses && filters.statuses.length > 0) q = q.in('status', filters.statuses);
       else if (filters.status) q = q.eq('status', filters.status);
       if (filters.team_id) q = q.eq('team_id', filters.team_id);
+      if (filters.language) q = q.eq('language', filters.language);
       if (filters.search) {
         q = q.or(`company_name.ilike.%${filters.search}%,ico.ilike.%${filters.search}%`);
       }
@@ -110,29 +111,35 @@ export function useCreateLeadWithEmail() {
       team_id: string;
       custom_fields?: Record<string, string>;
     }) => {
-      // 1. Insert lead (status='ready')
-      const { data: lead, error: le } = await supabase
+      // 1. Call ingest_lead RPC — creates/finds company + creates/finds lead with company_id
+      const domain = extractDomain(payload.website) || null;
+      const { data: rpcResult, error: rpcErr } = await supabase.rpc('ingest_lead', {
+        p_company_name: payload.company_name,
+        p_ico: payload.ico || null,
+        p_website: payload.website || null,
+        p_domain: domain,
+        p_team_id: payload.team_id,
+        p_status: 'ready',
+        p_lead_type: 'company',
+      });
+      if (rpcErr) throw rpcErr;
+
+      const leadId = rpcResult?.lead_id;
+      if (!leadId) throw new Error('ingest_lead did not return a lead_id');
+
+      // Update custom_fields on the lead (ingest_lead doesn't handle these)
+      const cf = payload.custom_fields && Object.keys(payload.custom_fields).length > 0
+        ? payload.custom_fields : {};
+      const { error: ue } = await supabase
         .from('leads')
-        .insert({
-          company_name: payload.company_name,
-          ico: payload.ico || null,
-          website: payload.website || null,
-          domain: extractDomain(payload.website) || null,
-          team_id: payload.team_id,
-          status: 'ready',
-          lead_type: 'company',
-          custom_fields: payload.custom_fields && Object.keys(payload.custom_fields).length > 0
-            ? payload.custom_fields
-            : {},
-        })
-        .select()
-        .single();
-      if (le) throw le;
+        .update({ status: 'ready', custom_fields: cf })
+        .eq('id', leadId);
+      if (ue) throw ue;
 
       // 2. Insert jednatel with the actual contact name
       const { data: jed, error: je } = await supabase
         .from('jednatels')
-        .insert({ lead_id: lead.id, full_name: payload.contact_name })
+        .insert({ lead_id: leadId, full_name: payload.contact_name })
         .select()
         .single();
       if (je) throw je;
@@ -149,9 +156,12 @@ export function useCreateLeadWithEmail() {
         });
       if (ee) throw ee;
 
-      return lead;
+      return { id: leadId };
     },
-    onSuccess: () => qc.invalidateQueries({ queryKey: ['leads'] }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['leads'] });
+      qc.invalidateQueries({ queryKey: ['companies'] });
+    },
   });
 }
 
@@ -194,9 +204,9 @@ export function useUpdateLead() {
   });
 }
 
-export function useLeadsNotInWave(teamId: string | undefined, search?: string) {
+export function useLeadsNotInWave(teamId: string | undefined, search?: string, language?: string) {
   return useQuery({
-    queryKey: ['leads-for-wave', teamId, search],
+    queryKey: ['leads-for-wave', teamId, search, language],
     enabled: !!teamId,
     queryFn: async () => {
       // Get lead IDs already in any wave
@@ -205,18 +215,19 @@ export function useLeadsNotInWave(teamId: string | undefined, search?: string) {
 
       let q = supabase
         .from('leads')
-        .select('id, company_name, ico, website')
+        .select('id, company_name, ico, website, language')
         .eq('team_id', teamId!)
         .neq('status', 'problematic')
         .neq('master_status', 'blacklisted')
         .order('company_name');
 
       if (search) q = q.or(`company_name.ilike.%${search}%,ico.ilike.%${search}%`);
+      if (language) q = q.eq('language', language);
       if (usedIds.length > 0) q = q.not('id', 'in', `(${usedIds.join(',')})`);
 
       const { data, error } = await q;
       if (error) throw error;
-      return (data ?? []) as Array<{ id: string; company_name: string | null; ico: string | null; website: string | null }>;
+      return (data ?? []) as Array<{ id: string; company_name: string | null; ico: string | null; website: string | null; language: string }>;
     },
   });
 }

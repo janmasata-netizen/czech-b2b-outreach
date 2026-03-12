@@ -1,3 +1,5 @@
+export type LeadLanguage = 'cs' | 'en' | 'de';
+
 export type MasterStatus = 'active' | 'blacklisted' | 'archived';
 
 export type LeadStatus =
@@ -99,6 +101,7 @@ export interface Lead {
   contact_name?: string | null;
   enrichment_error?: string | null;
   master_status?: MasterStatus;
+  language?: LeadLanguage;
   custom_fields?: Record<string, string> | null;
   is_active?: boolean;
   created_at: string;
@@ -358,6 +361,7 @@ export interface LeadFilters {
   statuses?: LeadStatus[];
   team_id?: string;
   lead_type?: 'company' | 'contact';
+  language?: LeadLanguage;
 }
 
 export interface DashboardStats {

@@ -9,6 +9,10 @@ import { n8nWebhookUrl, n8nHeaders } from '@/lib/n8n';
 import { parseCsv, autoDetect } from '@/lib/csv-utils';
 import { toast } from 'sonner';
 import { checkDuplicates, extractDomain, type DedupResult, type DuplicateMatch } from '@/lib/dedup';
+import { LEAD_LANGUAGE_MAP } from '@/lib/constants';
+import { assignTeamToRows, distributeEvenly, type TeamAllocation } from '@/lib/team-distribution';
+import TeamDistributionSelector from '@/components/shared/TeamDistributionSelector';
+import type { LeadLanguage } from '@/types/database';
 
 interface CsvImportDialogProps {
   open: boolean;
@@ -35,9 +39,10 @@ export default function CsvImportDialog({ open, onClose }: CsvImportDialogProps)
   const [headers, setHeaders] = useState<string[]>([]);
   const [rows, setRows] = useState<string[][]>([]);
   const [mapping, setMapping] = useState({ company_name: '', ico: '', website: '', contact_name: '', email: '' });
-  const [teamId, setTeamId] = useState('');
+  const [teamAllocations, setTeamAllocations] = useState<TeamAllocation[]>([]);
   const [progress, setProgress] = useState<Progress>({ done: 0, errors: 0, duplicates: 0, total: 0 });
   const [mapError, setMapError] = useState('');
+  const [language, setLanguage] = useState<LeadLanguage>('cs');
   const [enrichmentLevel, setEnrichmentLevel] = useState<EnrichmentLevel>('import_only');
   const [dedupResult, setDedupResult] = useState<DedupResult | null>(null);
   const [dedupChecking, setDedupChecking] = useState(false);
@@ -48,9 +53,10 @@ export default function CsvImportDialog({ open, onClose }: CsvImportDialogProps)
     setHeaders([]);
     setRows([]);
     setMapping({ company_name: '', ico: '', website: '', contact_name: '', email: '' });
-    setTeamId('');
+    setTeamAllocations([]);
     setProgress({ done: 0, errors: 0, duplicates: 0, total: 0 });
     setMapError('');
+    setLanguage('cs');
     setEnrichmentLevel('import_only');
     setDedupResult(null);
     setDedupChecking(false);
@@ -74,7 +80,7 @@ export default function CsvImportDialog({ open, onClose }: CsvImportDialogProps)
       setRows(dataRows);
       setFileName(file.name);
       setMapping(autoDetect(headerRow));
-      setTeamId(teams?.[0]?.id ?? '');
+      setTeamAllocations(teams && teams.length > 0 ? [{ teamId: teams[0].id, teamName: teams[0].name, percentage: 100 }] : []);
     };
     reader.onerror = () => {
       toast.error('Nepodařilo se přečíst soubor');
@@ -126,7 +132,16 @@ export default function CsvImportDialog({ open, onClose }: CsvImportDialogProps)
     let done = 0, errors = 0, duplicates = 0;
     setProgress({ done: 0, errors: 0, duplicates: 0, total });
 
-    const effectiveTeamId = teamId || teams?.[0]?.id || '';
+    const effectiveAllocations = teamAllocations.length > 0
+      ? teamAllocations
+      : teams && teams.length > 0
+        ? [{ teamId: teams[0].id, teamName: teams[0].name, percentage: 100 }]
+        : [];
+
+    // Count non-skipped rows for team distribution
+    const activeCount = rows.filter((_, i) => !skipIndices.has(i)).length;
+    const teamForRow = assignTeamToRows(activeCount, effectiveAllocations);
+    let activeIdx = 0;
 
     // Determine unmapped columns for custom_fields
     const mappedCols = new Set(Object.values(mapping).filter(Boolean));
@@ -142,6 +157,8 @@ export default function CsvImportDialog({ open, onClose }: CsvImportDialogProps)
         setProgress({ done, errors, duplicates, total });
         continue;
       }
+
+      const rowTeamId = teamForRow[activeIdx++] || effectiveAllocations[0]?.teamId || '';
 
       const company_name = getRowValue(row, 'company_name');
       const ico          = getRowValue(row, 'ico');
@@ -175,9 +192,10 @@ export default function CsvImportDialog({ open, onClose }: CsvImportDialogProps)
               ico: ico || null,
               website: website || null,
               domain: extractDomain(website) || null,
-              team_id: effectiveTeamId || null,
+              team_id: rowTeamId || null,
               status: 'ready',
               lead_type: 'company',
+              language,
               custom_fields: Object.keys(custom_fields).length > 0 ? custom_fields : {},
             })
             .select()
@@ -211,7 +229,8 @@ export default function CsvImportDialog({ open, onClose }: CsvImportDialogProps)
             company_name: company_name || contact_name || null,
             ico: ico || null,
             website: website || null,
-            team_id: effectiveTeamId || null,
+            team_id: rowTeamId || null,
+            language,
           };
           if (contact_name) payload.contact_name = contact_name;
           if (Object.keys(custom_fields).length > 0) payload.custom_fields = custom_fields;
@@ -234,9 +253,10 @@ export default function CsvImportDialog({ open, onClose }: CsvImportDialogProps)
               ico: ico || null,
               website: website || null,
               domain: extractDomain(website) || null,
-              team_id: effectiveTeamId || null,
+              team_id: rowTeamId || null,
               status: 'new',
               lead_type: 'company',
+              language,
               custom_fields: Object.keys(custom_fields).length > 0 ? custom_fields : {},
             });
           if (le) errors++;
@@ -378,20 +398,29 @@ export default function CsvImportDialog({ open, onClose }: CsvImportDialogProps)
         </div>
       ))}
 
-      {/* Team selector */}
+      {/* Team distribution selector */}
       {teams && teams.length > 1 && (
-        <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-          <span style={{ fontSize: 13, color: 'var(--text-dim)', minWidth: 110 }}>Tým</span>
-          <select
-            className="glass-input"
-            style={{ flex: 1, height: 34, fontSize: 13 }}
-            value={teamId}
-            onChange={e => setTeamId(e.target.value)}
-          >
-            {teams.map(t => <option key={t.id} value={t.id}>{t.name}</option>)}
-          </select>
-        </div>
+        <TeamDistributionSelector
+          teams={teams}
+          allocations={teamAllocations}
+          onChange={setTeamAllocations}
+        />
       )}
+
+      {/* Language selector */}
+      <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+        <span style={{ fontSize: 13, color: 'var(--text-dim)', minWidth: 110 }}>Jazyk leadů</span>
+        <select
+          className="glass-input"
+          style={{ flex: 1, height: 34, fontSize: 13 }}
+          value={language}
+          onChange={e => setLanguage(e.target.value as LeadLanguage)}
+        >
+          {Object.entries(LEAD_LANGUAGE_MAP).map(([val, label]) => (
+            <option key={val} value={val}>{label}</option>
+          ))}
+        </select>
+      </div>
 
       {/* Enrichment level */}
       <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginTop: 4 }}>
