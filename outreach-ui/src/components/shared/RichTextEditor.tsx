@@ -25,8 +25,6 @@ export interface RichTextEditorRef {
   insertVariable: (varName: string) => void;
 }
 
-const AUTO_VARS = ['company_name', 'salutation', 'first_name', 'last_name', 'domain', 'ico', 'full_name'];
-
 const RichTextEditor = forwardRef<RichTextEditorRef, RichTextEditorProps>(
   ({ value, onChange, variables, placeholder, minHeight = 250 }, ref) => {
     const internalUpdate = useRef(false);
@@ -94,10 +92,6 @@ const RichTextEditor = forwardRef<RichTextEditorRef, RichTextEditorProps>(
       setLinkUrl('');
     }
 
-    const customVars = variables?.filter(v => !AUTO_VARS.includes(v.name)) ?? [];
-    const autoVarsToShow = AUTO_VARS.filter(name => !(variables ?? []).some(v => v.name === name));
-    const hasVariables = (variables && variables.length > 0) || autoVarsToShow.length > 0;
-
     return (
       <div className="tiptap-editor" style={{ minHeight }}>
         {/* Formatting toolbar */}
@@ -164,30 +158,15 @@ const RichTextEditor = forwardRef<RichTextEditorRef, RichTextEditorProps>(
         </div>
 
         {/* Variable insertion buttons */}
-        {hasVariables && (
+        {variables && variables.length > 0 && (
           <div className="tiptap-variables">
             <span className="var-label">Vložit:</span>
-            {customVars.map(v => (
+            {variables.map(v => (
               <button
                 key={v.name}
                 type="button"
                 onClick={() => editor.chain().focus().insertContent(`{{${v.name}}}`).run()}
               >{`{{${v.name}}}`}</button>
-            ))}
-            {variables?.filter(v => AUTO_VARS.includes(v.name)).map(v => (
-              <button
-                key={v.name}
-                type="button"
-                onClick={() => editor.chain().focus().insertContent(`{{${v.name}}}`).run()}
-              >{`{{${v.name}}}`}</button>
-            ))}
-            {autoVarsToShow.map(name => (
-              <button
-                key={name}
-                type="button"
-                className="auto-var"
-                onClick={() => editor.chain().focus().insertContent(`{{${name}}}`).run()}
-              >{`{{${name}}}`}</button>
             ))}
           </div>
         )}
