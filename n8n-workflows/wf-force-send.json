@@ -270,7 +270,7 @@
             },
             {
               "name": "select",
-              "value": "outreach_accounts(email_address,display_name,sends_today,daily_send_limit),waves(salesmen(email))"
+              "value": "leads(teams(id,daily_send_limit,sends_today)),waves(from_email,salesmen(email))"
             },
             {
               "name": "limit",
@@ -295,7 +295,7 @@
     {
       "parameters": {
         "mode": "runOnceForEachItem",
-        "jsCode": "const emailItem = $('Loop Items').first().json;\nconst wlData = $input.item.json;\nconst oa = wlData.outreach_accounts || {};\nconst salesman = (wlData.waves || {}).salesmen || {};\nreturn { json: {\n  ...emailItem,\n  outreach_email: oa.email_address || '',\n  display_name: oa.display_name || oa.email_address || '',\n  salesman_email: salesman.email || '',\n  fresh_sends_today: oa.sends_today || 0,\n  fresh_daily_limit: oa.daily_send_limit || 130\n}};"
+        "jsCode": "const emailItem = $('Loop Items').first().json;\nconst wlData = $input.item.json;\nconst team = (wlData.leads || {}).teams || {};\nconst wave = wlData.waves || {};\nconst salesman = wave.salesmen || {};\nreturn { json: {\n  ...emailItem,\n  team_id: team.id || '',\n  outreach_email: wave.from_email || '',\n  display_name: wave.from_email || '',\n  salesman_email: salesman.email || '',\n  fresh_sends_today: team.sends_today || 0,\n  fresh_daily_limit: team.daily_send_limit || 130\n}};"
       },
       "id": "fs-0010",
       "name": "Parse Limit Check",
@@ -526,7 +526,7 @@
         },
         "sendBody": true,
         "specifyBody": "json",
-        "jsonBody": "={{ JSON.stringify({ p_account_id: $('Check Send Result').first().json.outreach_account_id }) }}",
+        "jsonBody": "={{ JSON.stringify({ p_team_id: $('Parse Limit Check').first().json.team_id }) }}",
         "options": {
           "timeout": 30000,
           "neverError": true

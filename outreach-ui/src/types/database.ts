@@ -38,19 +38,6 @@ export interface Team {
   updated_at?: string;
 }
 
-export interface OutreachAccount {
-  id: string;
-  team_id: string;
-  email_address: string;
-  display_name?: string | null;
-  smtp_credential_name: string | null;
-  daily_send_limit?: number | null;
-  sends_today?: number;
-  is_active?: boolean;
-  created_at?: string;
-  teams?: { name: string };
-}
-
 export interface Company {
   id: string;
   company_name: string | null;
@@ -176,6 +163,7 @@ export interface EmailCandidate {
 export interface TemplateVariable {
   name: string;   // variable key, used as {{name}} in templates
   label: string;  // Czech display label for UI
+  description?: string; // Czech explanation of what the variable resolves to
 }
 
 export interface TemplateSet {
@@ -424,6 +412,19 @@ export interface RetargetHistoryEntry {
   updated_at?: string;
   waves?: { id: string; name: string; status: string; completed_at: string | null; created_at: string } | null;
   sent_emails?: { id: string; sequence_number: number; sent_at: string; subject?: string | null }[];
+}
+
+export interface WavePreset {
+  id: string;
+  team_id: string;
+  name: string;
+  template_set_id: string | null;
+  from_email: string | null;
+  salesman_id: string | null;
+  created_at?: string;
+  updated_at?: string;
+  template_set?: TemplateSet;
+  salesman?: Salesman;
 }
 
 export interface RetargetPoolLead {

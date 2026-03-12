@@ -15,10 +15,9 @@ import CompanyDetailPage from '@/pages/CompanyDetailPage';
 import RetargetPoolPage from '@/pages/RetargetPoolPage';
 import AdminRoute from '@/components/AdminRoute';
 import TeamsSettings from '@/components/settings/TeamsSettings';
-import OutreachAccountsSettings from '@/components/settings/OutreachAccountsSettings';
 import ApiKeysSettings from '@/components/settings/ApiKeysSettings';
-import TemplateSetEditor from '@/components/settings/TemplateSetEditor';
 import TemplateSetDetailPage from '@/pages/TemplateSetDetailPage';
+import TemplatesPage from '@/pages/TemplatesPage';
 import SalesmenSettings from '@/components/settings/SalesmenSettings';
 import UsersSettings from '@/components/settings/UsersSettings';
 import SystemHealthPage from '@/pages/SystemHealthPage';
@@ -45,7 +44,7 @@ export default function App() {
           <Route path="/vlny/:id" element={<WaveDetailPage />} />
           <Route path="/email-finder" element={<AdminRoute><EmailFinderPage /></AdminRoute>} />
           <Route path="/system" element={<AdminRoute><SystemHealthPage /></AdminRoute>} />
-          <Route path="/sablony" element={<TemplateSetEditor />} />
+          <Route path="/sablony" element={<TemplatesPage />} />
           <Route path="/sablony/:id" element={<TemplateSetDetailPage />} />
           <Route path="/retarget" element={<RetargetPoolPage />} />
           <Route path="/nastaveni" element={<AdminRoute><SettingsPage /></AdminRoute>}>
@@ -53,7 +52,6 @@ export default function App() {
             <Route path="tymy" element={<TeamsSettings />} />
             <Route path="obchodnici" element={<SalesmenSettings />} />
             <Route path="uzivatele" element={<UsersSettings />} />
-            <Route path="ucty" element={<OutreachAccountsSettings />} />
             <Route path="api-klice" element={<ApiKeysSettings />} />
           </Route>
           <Route path="/" element={<Navigate to="/prehled" replace />} />

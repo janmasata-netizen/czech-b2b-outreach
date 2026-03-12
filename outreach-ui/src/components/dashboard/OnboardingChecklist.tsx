@@ -9,16 +9,14 @@ function useOnboardingStatus() {
   return useQuery({
     queryKey: ['onboarding-status'],
     queryFn: async () => {
-      const [teams, accounts, templateSets, leads, waves] = await Promise.all([
+      const [teams, templateSets, leads, waves] = await Promise.all([
         supabase.from('teams').select('id', { count: 'exact', head: true }),
-        supabase.from('outreach_accounts').select('id', { count: 'exact', head: true }),
         supabase.from('template_sets').select('id', { count: 'exact', head: true }),
         supabase.from('leads').select('id', { count: 'exact', head: true }),
         supabase.from('waves').select('id', { count: 'exact', head: true }),
       ]);
       return {
         hasTeam: (teams.count ?? 0) > 0,
-        hasAccount: (accounts.count ?? 0) > 0,
         hasTemplateSet: (templateSets.count ?? 0) > 0,
         hasLeads: (leads.count ?? 0) > 0,
         hasWave: (waves.count ?? 0) > 0,
@@ -30,7 +28,6 @@ function useOnboardingStatus() {
 
 const STEPS: { key: string; label: string; description: string; href: string }[] = [
   { key: 'hasTeam', label: 'Vytvořit tým', description: 'Nastavte tým pro organizaci leadů a obchodníků', href: '/nastaveni/tymy' },
-  { key: 'hasAccount', label: 'Přidat odesílací účet', description: 'Nakonfigurujte SMTP účet pro odesílání e-mailů', href: '/nastaveni/ucty' },
   { key: 'hasTemplateSet', label: 'Vytvořit sadu šablon', description: 'Připravte e-mailové šablony pro vaše kampaně', href: '/nastaveni/sablony' },
   { key: 'hasLeads', label: 'Importovat leady', description: 'Přidejte leady ručně, z CSV nebo Google Sheets', href: '/leady' },
   { key: 'hasWave', label: 'Vytvořit první vlnu', description: 'Naplánujte a spusťte svou první outreach kampaň', href: '/vlny' },
