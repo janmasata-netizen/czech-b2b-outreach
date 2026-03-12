@@ -102,15 +102,19 @@ export default function CreateWaveDialog({ open, onClose, onCreated, preselected
             </select>
           </div>
         )}
-        {presets && presets.length > 0 && (
-          <div style={{ display: "flex", flexDirection: "column", gap: 5 }}>
-            <label style={LABEL}>Preset</label>
+        <div style={{ display: "flex", flexDirection: "column", gap: 5 }}>
+          <label style={LABEL}>Preset</label>
+          {presets?.length ? (
             <select className="glass-input" value={presetId} onChange={e => setPresetId(e.target.value)}>
               <option value="">— Bez presetu —</option>
               {presets.map((p: WavePreset) => <option key={p.id} value={p.id}>{p.name}</option>)}
             </select>
-          </div>
-        )}
+          ) : (
+            <select className="glass-input" disabled>
+              <option>Žádné presety — vytvořte na stránce vlny</option>
+            </select>
+          )}
+        </div>
         {retargetMode && preselectedLeadIds && preselectedLeadIds.length > 0 && (
           <p style={{ fontSize: 12, color: 'var(--cyan)', margin: 0, padding: '8px 10px', background: 'var(--bg-subtle)', borderRadius: 6, border: '1px solid var(--border)' }}>
             {preselectedLeadIds.length} lead{preselectedLeadIds.length > 1 ? 'ů' : ''} bude automaticky přidáno do vlny.
