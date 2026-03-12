@@ -47,8 +47,10 @@ export default function AddLeadsToWaveDialog({ open, onClose, waveId, teamId }: 
       toast.success(`Přidáno ${selected.length} leadů do vlny`);
       setSelected([]);
       onClose();
-    } catch {
-      toast.error('Chyba při přidávání leadů', { duration: 8000 });
+    } catch (e: unknown) {
+      const msg = e instanceof Error ? e.message : 'neznámá chyba';
+      toast.error(`Chyba při přidávání leadů: ${msg}`, { duration: 8000 });
+      console.error('AddLeadsToWave error:', e);
     }
   }
 
