@@ -19,3 +19,4 @@
 | Branch | Agent | Files (exact paths) | Started | Last Updated | PR |
 |---|---|---|---|---|---|
 | claude/fix-wave-add-and-enrichment | claude-opus | outreach-ui/src/components/waves/AddLeadsToWaveDialog.tsx, n8n-workflows/push-contacts-refactor.mjs, n8n-workflows/push-fix-keys.mjs | 2026-03-12 | 2026-03-12 | — |
+| claude/lead-language | claude-opus | outreach-ui/src/types/database.ts, outreach-ui/src/lib/constants.ts, outreach-ui/src/hooks/useLeads.ts, outreach-ui/src/components/leads/CsvImportDialog.tsx, outreach-ui/src/components/leads/GoogleSheetImportDialog.tsx, outreach-ui/src/components/leads/AddLeadDialog.tsx, outreach-ui/src/components/leads/LeadsFilters.tsx, outreach-ui/src/components/leads/LeadsTable.tsx, outreach-ui/src/pages/TemplateSetDetailPage.tsx, n8n-workflows/migrate-lead-language.mjs | 2026-03-12 | 2026-03-12 | — |
