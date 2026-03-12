@@ -101,7 +101,7 @@
       "parameters": {
         "resource": "row",
         "operation": "getAll",
-        "tableId": "jednatels",
+        "tableId": "contacts",
         "returnAll": true,
         "filters": {
           "conditions": [
@@ -114,7 +114,7 @@
         }
       },
       "id": "wf05c-n05",
-      "name": "Get Jednatels",
+      "name": "Get Contacts",
       "type": "n8n-nodes-base.supabase",
       "typeVersion": 1,
       "position": [
@@ -131,10 +131,10 @@
     {
       "parameters": {
         "mode": "runOnceForAllItems",
-        "jsCode": "const ids = $input.all().map(i => i.json.id).filter(Boolean);\nconst cfg = $('Extract Config').first().json;\nreturn [{ json: { jednatel_ids: ids, seznam_from_email: cfg.seznam_from_email, qev_key: cfg.qev_key, lead_id: cfg.lead_id } }];"
+        "jsCode": "const ids = $input.all().map(i => i.json.id).filter(Boolean);\nconst cfg = $('Extract Config').first().json;\nreturn [{ json: { contact_ids: ids, seznam_from_email: cfg.seznam_from_email, qev_key: cfg.qev_key, lead_id: cfg.lead_id } }];"
       },
       "id": "wf05c-n06",
-      "name": "Build Jednatel IDs",
+      "name": "Build Contact IDs",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
@@ -163,8 +163,8 @@
         "queryParameters": {
           "parameters": [
             {
-              "name": "jednatel_id",
-              "value": "={{ 'in.(' + $json.jednatel_ids.join(',') + ')' }}"
+              "name": "contact_id",
+              "value": "={{ 'in.(' + $json.contact_ids.join(',') + ')' }}"
             },
             {
               "name": "seznam_status",
@@ -172,7 +172,7 @@
             },
             {
               "name": "select",
-              "value": "id,email_address,jednatel_id"
+              "value": "id,email_address,contact_id"
             }
           ]
         },
@@ -193,7 +193,7 @@
     {
       "parameters": {
         "mode": "runOnceForAllItems",
-        "jsCode": "const cfg = $('Build Jednatel IDs').first().json;\nreturn $input.all().map(i => ({ json: {\n  ...i.json,\n  seznam_from_email: cfg.seznam_from_email,\n  qev_key: cfg.qev_key,\n  lead_id: cfg.lead_id\n} }));"
+        "jsCode": "const cfg = $('Build Contact IDs').first().json;\nreturn $input.all().map(i => ({ json: {\n  ...i.json,\n  seznam_from_email: cfg.seznam_from_email,\n  qev_key: cfg.qev_key,\n  lead_id: cfg.lead_id\n} }));"
       },
       "id": "wf05c-n08",
       "name": "Add Config",
@@ -431,7 +431,7 @@
     {
       "parameters": {
         "method": "POST",
-        "url": "https://cycapkswtucbucyegdsn.supabase.co/rest/v1/rpc/mark_jednatels_email_status",
+        "url": "https://cycapkswtucbucyegdsn.supabase.co/rest/v1/rpc/mark_contacts_email_status",
         "sendHeaders": true,
         "headerParameters": {
           "parameters": [
@@ -458,7 +458,7 @@
         }
       },
       "id": "wf05c-n23",
-      "name": "Mark Jednatels",
+      "name": "Mark Contacts",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
       "position": [
@@ -744,6 +744,50 @@
         6000,
         390
       ]
+    },
+    {
+      "parameters": {
+        "method": "GET",
+        "url": "https://cycapkswtucbucyegdsn.supabase.co/rest/v1/leads",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "apikey",
+              "value": "SUPABASE_SERVICE_ROLE_KEY_PLACEHOLDER"
+            },
+            {
+              "name": "Authorization",
+              "value": "Bearer SUPABASE_SERVICE_ROLE_KEY_PLACEHOLDER"
+            }
+          ]
+        },
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            {
+              "name": "id",
+              "value": "={{ 'eq.' + $json.lead_id }}"
+            },
+            {
+              "name": "select",
+              "value": "company_id"
+            }
+          ]
+        },
+        "options": {
+          "timeout": 30000,
+          "neverError": true
+        }
+      },
+      "id": "wf05-get-lead-company",
+      "name": "Get Lead Company",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        300,
+        300
+      ]
     }
   ],
   "connections": {
@@ -784,25 +828,25 @@
       "main": [
         [
           {
-            "node": "Get Jednatels",
+            "node": "Get Lead Company",
             "type": "main",
             "index": 0
           }
         ]
       ]
     },
-    "Get Jednatels": {
+    "Get Contacts": {
       "main": [
         [
           {
-            "node": "Build Jednatel IDs",
+            "node": "Build Contact IDs",
             "type": "main",
             "index": 0
           }
         ]
       ]
     },
-    "Build Jednatel IDs": {
+    "Build Contact IDs": {
       "main": [
         [
           {
@@ -939,14 +983,14 @@
       "main": [
         [
           {
-            "node": "Mark Jednatels",
+            "node": "Mark Contacts",
             "type": "main",
             "index": 0
           }
         ]
       ]
     },
-    "Mark Jednatels": {
+    "Mark Contacts": {
       "main": [
         [
           {
@@ -1005,6 +1049,17 @@
     "Log Failed": {
       "main": [
         []
+      ]
+    },
+    "Get Lead Company": {
+      "main": [
+        [
+          {
+            "node": "Get Contacts",
+            "type": "main",
+            "index": 0
+          }
+        ]
       ]
     }
   },

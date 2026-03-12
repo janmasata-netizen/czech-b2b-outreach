@@ -90,7 +90,7 @@
     {
       "parameters": {
         "method": "POST",
-        "url": "https://cycapkswtucbucyegdsn.supabase.co/rest/v1/rpc/get_jednatels_for_lead",
+        "url": "https://cycapkswtucbucyegdsn.supabase.co/rest/v1/rpc/get_contacts_for_lead",
         "sendHeaders": true,
         "headerParameters": {
           "parameters": [
@@ -117,7 +117,7 @@
         }
       },
       "id": "wf04-0000-0000-0000-000000000004",
-      "name": "Get Jednatels",
+      "name": "Get Contacts",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
       "position": [
@@ -128,7 +128,7 @@
     {
       "parameters": {
         "mode": "runOnceForAllItems",
-        "jsCode": "function stripDiacritics(str) {\n  return str.normalize('NFD').replace(/[\\u0300-\\u036f]/g, '').toLowerCase().replace(/[^a-z0-9]/g, '');\n}\n\nconst lead      = $('Get Lead').first().json;\nconst rpcResult = $('Get Jednatels').first().json;\nconst jednatels = rpcResult.jednatels ?? [];\nconst lead_id   = $('Extract Lead ID').first().json.lead_id;\n\nlet domain = lead.domain || lead.website || '';\ndomain = domain.replace(/^https?:\\/\\/(www\\.)?/, '').replace(/\\/.*$/, '').trim();\nif (!domain) {\n  return { json: { lead_id, candidates_count: 0, no_candidates_reason: 'no_domain' } };\n}\n\nif (jednatels.length === 0) {\n  return { json: { lead_id, candidates_count: 0, no_candidates_reason: 'no_jednatels' } };\n}\n\nconst allCandidates = [];\nfor (const j of jednatels) {\n  const first = stripDiacritics(j.first_name || '');\n  const last  = stripDiacritics(j.last_name  || '');\n  if (!first || !last) continue;\n  const combos = [\n    `${first}.${last}`, `${last}.${first}`, `${first[0]}.${last}`,\n    last, first, `${first}${last}`, `${last}${first[0]}`,\n    `${first}.${last[0]}`, `${first[0]}.${last[0]}`, `${first[0]}${last}`,\n  ].map(local => ({ jednatel_id: j.id, email_address: `${local}@${domain}`, seznam_status: 'pending' }));\n  allCandidates.push(...combos);\n}\n\nreturn { json: {\n  lead_id,\n  candidates:       allCandidates,\n  candidates_count: allCandidates.length,\n  no_candidates_reason: null,\n} };"
+        "jsCode": "function stripDiacritics(str) {\n  return str.normalize('NFD').replace(/[\\u0300-\\u036f]/g, '').toLowerCase().replace(/[^a-z0-9]/g, '');\n}\n\nconst lead      = $('Get Lead').first().json;\nconst rpcResult = $('Get Contacts').first().json;\nconst contacts = rpcResult.contacts ?? [];\nconst lead_id   = $('Extract Lead ID').first().json.lead_id;\n\nlet domain = lead.domain || lead.website || '';\ndomain = domain.replace(/^https?:\\/\\/(www\\.)?/, '').replace(/\\/.*$/, '').trim();\nif (!domain) {\n  return { json: { lead_id, candidates_count: 0, no_candidates_reason: 'no_domain' } };\n}\n\nif (contacts.length === 0) {\n  return { json: { lead_id, candidates_count: 0, no_candidates_reason: 'no_jednatels' } };\n}\n\nconst allCandidates = [];\nfor (const j of contacts) {\n  const first = stripDiacritics(j.first_name || '');\n  const last  = stripDiacritics(j.last_name  || '');\n  if (!first || !last) continue;\n  const combos = [\n    `${first}.${last}`, `${last}.${first}`, `${first[0]}.${last}`,\n    last, first, `${first}${last}`, `${last}${first[0]}`,\n    `${first}.${last[0]}`, `${first[0]}.${last[0]}`, `${first[0]}${last}`,\n  ].map(local => ({ contact_id: j.id, email_address: `${local}@${domain}`, seznam_status: 'pending' }));\n  allCandidates.push(...combos);\n}\n\nreturn { json: {\n  lead_id,\n  candidates:       allCandidates,\n  candidates_count: allCandidates.length,\n  no_candidates_reason: null,\n} };"
       },
       "id": "wf04-0000-0000-0000-000000000006",
       "name": "Generate Combinations",
@@ -398,7 +398,7 @@
         },
         "sendBody": true,
         "specifyBody": "json",
-        "jsonBody": "={{ JSON.stringify({ status: 'failed', enrichment_error: 'WF4: ' + ($json.no_candidates_reason === 'no_domain' ? 'No domain set for lead' : 'No jednatels found — check WF3 scrape') }) }}",
+        "jsonBody": "={{ JSON.stringify({ status: 'failed', enrichment_error: 'WF4: ' + ($json.no_candidates_reason === 'no_domain' ? 'No domain set for lead' : 'No contacts found — check WF3 scrape') }) }}",
         "options": {
           "timeout": 30000,
           "neverError": true
@@ -479,14 +479,14 @@
       "main": [
         [
           {
-            "node": "Get Jednatels",
+            "node": "Get Contacts",
             "type": "main",
             "index": 0
           }
         ]
       ]
     },
-    "Get Jednatels": {
+    "Get Contacts": {
       "main": [
         [
           {

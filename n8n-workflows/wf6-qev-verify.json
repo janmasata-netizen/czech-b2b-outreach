@@ -62,15 +62,15 @@
           "parameters": [
             {
               "name": "select",
-              "value": "id,email_address,jednatel_id,source,jednatels!inner(lead_id,first_name,last_name)"
+              "value": "id,email_address,jednatel_id,source,contacts!inner(company_id,first_name,last_name)"
             },
             {
               "name": "seznam_status",
               "value": "eq.likely_valid"
             },
             {
-              "name": "jednatels.lead_id",
-              "value": "={{ 'eq.' + $json.lead_id }}"
+              "name": "contacts.company_id",
+              "value": "={{ 'eq.' + $('Get Lead Company ID').first().json[0].company_id }}"
             }
           ]
         },
@@ -149,7 +149,7 @@
     {
       "parameters": {
         "mode": "runOnceForAllItems",
-        "jsCode": "const candidates = $('Get Likely Valid Candidates').all().map(i => i.json);\nconst lead_id = $('Extract Lead ID').first().json.lead_id;\n\nconst filtered = candidates.filter(c => {\n  const j = c.jednatels;\n  return j && (Array.isArray(j) ? j.some(x => x.lead_id === lead_id) : j.lead_id === lead_id);\n});\n\nreturn filtered.map(c => ({\n  json: {\n    id:            c.id,\n    email_address: c.email_address,\n    lead_id,\n    jednatel_id:   c.jednatel_id,\n    source:        c.source || 'combo_generation',\n    first_name:    c.jednatels?.[0]?.first_name ?? (c.jednatels?.first_name ?? ''),\n    last_name:     c.jednatels?.[0]?.last_name  ?? (c.jednatels?.last_name  ?? ''),\n  }\n}));"
+        "jsCode": "const candidates = $('Get Likely Valid Candidates').all().map(i => i.json);\nconst lead_id = $('Extract Lead ID').first().json.lead_id;\nconst company_id = $('Get Lead Company ID').first().json[0].company_id;\n\nconst filtered = candidates.filter(c => {\n  const j = c.contacts;\n  return j && (Array.isArray(j) ? j.some(x => x.company_id === company_id) : j.company_id === company_id);\n});\n\nreturn filtered.map(c => ({\n  json: {\n    id:            c.id,\n    email_address: c.email_address,\n    lead_id,\n    jednatel_id:   c.jednatel_id,\n    source:        c.source || 'combo_generation',\n    first_name:    c.contacts?.[0]?.first_name ?? (c.contacts?.first_name ?? ''),\n    last_name:     c.contacts?.[0]?.last_name  ?? (c.contacts?.last_name  ?? ''),\n  }\n}));"
       },
       "id": "wf06-0000-0000-0000-000000000004",
       "name": "Flatten Candidates",
@@ -429,11 +429,11 @@
           "parameters": [
             {
               "name": "select",
-              "value": "id,is_verified,is_catch_all,qev_status,type,jednatels!inner(lead_id)"
+              "value": "id,is_verified,is_catch_all,qev_status,type,contacts!inner(company_id)"
             },
             {
-              "name": "jednatels.lead_id",
-              "value": "={{ 'eq.' + $('Extract Lead ID').first().json.lead_id }}"
+              "name": "contacts.company_id",
+              "value": "={{ 'eq.' + $('Get Lead Company ID').first().json[0].company_id }}"
             },
             {
               "name": "qev_checked_at",
@@ -458,7 +458,7 @@
     {
       "parameters": {
         "mode": "runOnceForAllItems",
-        "jsCode": "const items   = $input.all().map(i => i.json);\nconst lead_id = $('Extract Lead ID').first().json.lead_id;\n\nconst mine = items.filter(c => {\n  const j = Array.isArray(c.jednatels) ? c.jednatels[0] : c.jednatels;\n  return j?.lead_id === lead_id;\n});\n\nconst hasVerified = mine.some(c => c.is_verified === true);\nconst hasCatchAll = mine.some(c => c.is_catch_all === true);\n\nconst bestVerified = mine.find(c => c.is_verified && c.type === 'jednatel')\n  || mine.find(c => c.is_verified);\nconst bestVerifiedType = bestVerified?.type || null;\n\nreturn [{ json: {\n  lead_id,\n  has_verified:             hasVerified,\n  has_catch_all_candidates: hasCatchAll,\n  best_verified_type:       bestVerifiedType,\n} }];"
+        "jsCode": "const items   = $input.all().map(i => i.json);\nconst lead_id = $('Extract Lead ID').first().json.lead_id;\nconst company_id = $('Get Lead Company ID').first().json[0].company_id;\n\nconst mine = items.filter(c => {\n  const j = Array.isArray(c.contacts) ? c.jednatels[0] : c.jednatels;\n  return ct?.company_id === company_id;\n});\n\nconst hasVerified = mine.some(c => c.is_verified === true);\nconst hasCatchAll = mine.some(c => c.is_catch_all === true);\n\nconst bestVerified = mine.find(c => c.is_verified && c.type === 'jednatel')\n  || mine.find(c => c.is_verified);\nconst bestVerifiedType = bestVerified?.type || null;\n\nreturn [{ json: {\n  lead_id,\n  has_verified:             hasVerified,\n  has_catch_all_candidates: hasCatchAll,\n  best_verified_type:       bestVerifiedType,\n} }];"
       },
       "id": "wf06-compute-qev-outcome",
       "name": "Compute Lead QEV Outcome",
@@ -471,7 +471,7 @@
     },
     {
       "id": "wf06-mark-jednatel-status",
-      "name": "Mark Jednatels Email Status",
+      "name": "Mark Contacts Email Status",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4,
       "position": [
@@ -480,7 +480,7 @@
       ],
       "parameters": {
         "method": "POST",
-        "url": "https://cycapkswtucbucyegdsn.supabase.co/rest/v1/rpc/mark_jednatels_email_status",
+        "url": "https://cycapkswtucbucyegdsn.supabase.co/rest/v1/rpc/mark_contacts_email_status",
         "sendHeaders": true,
         "headerParameters": {
           "parameters": [
@@ -816,6 +816,50 @@
         2880,
         720
       ]
+    },
+    {
+      "parameters": {
+        "method": "GET",
+        "url": "https://cycapkswtucbucyegdsn.supabase.co/rest/v1/leads",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "apikey",
+              "value": "SUPABASE_SERVICE_ROLE_KEY_PLACEHOLDER"
+            },
+            {
+              "name": "Authorization",
+              "value": "Bearer SUPABASE_SERVICE_ROLE_KEY_PLACEHOLDER"
+            }
+          ]
+        },
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            {
+              "name": "id",
+              "value": "={{ 'eq.' + $json.lead_id }}"
+            },
+            {
+              "name": "select",
+              "value": "company_id"
+            }
+          ]
+        },
+        "options": {
+          "timeout": 30000,
+          "neverError": true
+        }
+      },
+      "id": "wf06-get-lead-company-id",
+      "name": "Get Lead Company ID",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        360,
+        300
+      ]
     }
   ],
   "connections": {
@@ -834,7 +878,7 @@
       "main": [
         [
           {
-            "node": "Get Likely Valid Candidates",
+            "node": "Get Lead Company ID",
             "type": "main",
             "index": 0
           }
@@ -1003,14 +1047,14 @@
       "main": [
         [
           {
-            "node": "Mark Jednatels Email Status",
+            "node": "Mark Contacts Email Status",
             "type": "main",
             "index": 0
           }
         ]
       ]
     },
-    "Mark Jednatels Email Status": {
+    "Mark Contacts Email Status": {
       "main": [
         [
           {
@@ -1089,12 +1133,22 @@
           }
         ]
       ]
+    },
+    "Get Lead Company ID": {
+      "main": [
+        [
+          {
+            "node": "Get Likely Valid Candidates",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
     }
   },
   "settings": {
     "executionOrder": "v1",
-    "callerPolicy": "workflowsFromSameOwner",
-    "availableInMCP": false
+    "callerPolicy": "workflowsFromSameOwner"
   },
   "staticData": null,
   "meta": null,
