@@ -38,8 +38,14 @@ const LABEL: React.CSSProperties = { fontSize: 12, fontWeight: 500, color: 'var(
 const MONO: React.CSSProperties = { fontFamily: 'JetBrains Mono, monospace' };
 
 const DEFAULT_VARIABLES: TemplateVariable[] = [
-  'company_name', 'salutation', 'first_name', 'last_name', 'domain', 'ico', 'full_name',
-].map(name => ({ name, label: name }));
+  { name: 'company_name', label: 'company_name', description: 'Název firmy (např. Alza.cz a.s.)' },
+  { name: 'salutation', label: 'salutation', description: 'Formální oslovení s vokativem (např. Vážený pane Nováku)' },
+  { name: 'first_name', label: 'first_name', description: 'Křestní jméno jednatele (např. Jan)' },
+  { name: 'last_name', label: 'last_name', description: 'Příjmení jednatele (např. Novák)' },
+  { name: 'domain', label: 'domain', description: 'Doména firmy (např. alza.cz)' },
+  { name: 'ico', label: 'ico', description: 'IČO firmy (např. 27082440)' },
+  { name: 'full_name', label: 'full_name', description: 'Celé jméno jednatele (např. Jan Novák)' },
+];
 
 /* ── Sequence Panel sub-component ─────────────────────── */
 interface SequencePanelProps {
@@ -271,6 +277,7 @@ export default function TemplateSetDetailPage() {
   const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 5 } }));
 
   const [confirmDeleteSeq, setConfirmDeleteSeq] = useState<number | null>(null);
+  const [varsExpanded, setVarsExpanded] = useState(false);
 
   const selectedSet = sets?.find(s => s.id === id);
   const templates: EmailTemplate[] = selectedSet?.email_templates ?? [];
@@ -380,15 +387,38 @@ export default function TemplateSetDetailPage() {
         }
       />
 
-      {/* ── Variables info ── */}
+      {/* ── Variables info (expandable) ── */}
       <div style={{
         padding: '10px 16px', borderRadius: 8,
         background: 'rgba(62,207,142,0.04)', border: '1px solid rgba(62,207,142,0.15)',
-        fontSize: 11, color: 'var(--text-muted)',
       }}>
-        Dostupné proměnné: <code style={{ ...MONO, color: 'var(--text-dim)', fontSize: 10 }}>
-          {'{{company_name}} {{ico}} {{domain}} {{first_name}} {{last_name}} {{salutation}} {{full_name}}'}
-        </code>
+        <div
+          onClick={() => setVarsExpanded(v => !v)}
+          style={{ display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer', fontSize: 11, color: 'var(--text-muted)' }}
+        >
+          <span>Dostupné proměnné ({DEFAULT_VARIABLES.length})</span>
+          <code style={{ ...MONO, color: 'var(--text-dim)', fontSize: 10 }}>
+            {DEFAULT_VARIABLES.map(v => `{{${v.name}}}`).join(' ')}
+          </code>
+          <span style={{
+            marginLeft: 'auto', fontSize: 10, color: 'var(--text-dim)',
+            transform: varsExpanded ? 'rotate(180deg)' : 'none',
+            transition: 'transform 0.2s',
+          }}>▼</span>
+        </div>
+
+        {varsExpanded && (
+          <div style={{ marginTop: 10, display: 'flex', flexDirection: 'column', gap: 6 }}>
+            {DEFAULT_VARIABLES.map(v => (
+              <div key={v.name} style={{ display: 'flex', alignItems: 'baseline', gap: 8, fontSize: 11 }}>
+                <code style={{ ...MONO, color: '#3ECF8E', fontSize: 11, flexShrink: 0 }}>
+                  {`{{${v.name}}}`}
+                </code>
+                <span style={{ color: 'var(--text-muted)' }}>— {v.description}</span>
+              </div>
+            ))}
+          </div>
+        )}
       </div>
 
       {/* ── Sequence panels ── */}
