@@ -63,7 +63,7 @@ export default function EmailCandidatesTable({ candidates, leadId, leadStatus, l
       await verifyCand.mutateAsync({ id: c.id, leadId });
       toast.success(`${c.email_address} ověřen, lead přesunut do Připraven`);
     } catch {
-      toast.error('Chyba při ověřování');
+      toast.error('Chyba při ověřování', { duration: 8000 });
     }
   }
 
@@ -72,7 +72,7 @@ export default function EmailCandidatesTable({ candidates, leadId, leadStatus, l
       await unverifyCand.mutateAsync({ id, leadId });
       toast.success('Ověření zrušeno');
     } catch {
-      toast.error('Chyba při rušení ověření');
+      toast.error('Chyba při rušení ověření', { duration: 8000 });
     }
     setConfirmUnverify(null);
   }
@@ -82,7 +82,7 @@ export default function EmailCandidatesTable({ candidates, leadId, leadStatus, l
       await verifyCand.mutateAsync({ id: c.id, leadId });
       toast.success(`${c.email_address} ručně ověřen`);
     } catch {
-      toast.error('Chyba při ověřování');
+      toast.error('Chyba při ověřování', { duration: 8000 });
     }
     setConfirmForce(null);
   }

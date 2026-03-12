@@ -72,7 +72,7 @@ export default function WaveLeadsManager({ waveId, waveLeads, waveStatus, teamId
       await removeFromWave.mutateAsync({ waveLeadId: wl.id, leadId: wl.lead_id });
       toast.success('Lead odebrán z vlny');
     } catch (e: unknown) {
-      toast.error('Chyba: ' + ((e as Error)?.message ?? 'neznámá chyba'));
+      toast.error('Chyba: ' + ((e as Error)?.message ?? 'neznámá chyba'), { duration: 8000 });
     }
   }
 

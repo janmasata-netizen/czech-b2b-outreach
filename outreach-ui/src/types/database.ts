@@ -33,6 +33,7 @@ export interface Team {
   daily_send_limit?: number;
   sends_today?: number;
   is_active?: boolean;
+  retarget_lockout_days?: number;
   created_at: string;
   updated_at?: string;
 }
@@ -234,6 +235,11 @@ export interface Wave {
   completed_at?: string | null;
   created_at?: string;
   updated_at?: string;
+  scheduling_report?: {
+    queued: number;
+    skipped: number;
+    skipped_leads: Array<{ lead_id: string; company_name: string; reason: string }>;
+  } | null;
   team?: Team;
   salesman?: Salesman;
   template_set?: TemplateSet;
@@ -337,6 +343,11 @@ export interface WaveAnalytics {
   variant_b_replies: number;
   variant_a_reply_rate: number;
   variant_b_reply_rate: number;
+  scheduling_report?: {
+    queued: number;
+    skipped: number;
+    skipped_leads: Array<{ lead_id: string; company_name: string; reason: string }>;
+  } | null;
 }
 
 export interface Profile {

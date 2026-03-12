@@ -2,22 +2,53 @@ import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/lib/supabase';
 import type { DashboardStats, WaveAnalytics } from '@/types/database';
 
-export function useDashboardStats() {
+export function useDashboardStats(days = 0) {
   return useQuery<DashboardStats>({
-    queryKey: ['dashboard', 'stats'],
+    queryKey: ['dashboard', 'stats', days],
     queryFn: async () => {
-      const { data, error } = await supabase.rpc('get_dashboard_stats');
-      if (error) throw error;
-      const s = data as Record<string, number>;
+      if (days === 0) {
+        // All-time stats via RPC
+        const { data, error } = await supabase.rpc('get_dashboard_stats');
+        if (error) throw error;
+        const s = data as Record<string, number>;
+        return {
+          totalLeads: s.totalLeads ?? 0,
+          enrichedLeads: s.enrichedLeads ?? 0,
+          verifiedLeads: s.verifiedLeads ?? 0,
+          repliedLeads: s.repliedLeads ?? 0,
+          bouncedLeads: s.bouncedLeads ?? 0,
+          sentEmails: s.sentEmails ?? 0,
+          pendingQueue: s.pendingQueue ?? 0,
+          replyRate: s.sentEmails > 0 ? (s.replyCount / s.sentEmails) * 100 : 0,
+        };
+      }
+
+      // Time-filtered stats via direct queries
+      const since = new Date(Date.now() - days * 86_400_000).toISOString();
+      const [leadsRes, sentRes, repliesRes, bouncedRes, queueRes] = await Promise.all([
+        supabase.from('leads').select('id, status', { count: 'exact', head: false }).gte('created_at', since),
+        supabase.from('sent_emails').select('id', { count: 'exact', head: true }).gte('sent_at', since),
+        supabase.from('lead_replies').select('id', { count: 'exact', head: true }).gte('created_at', since),
+        supabase.from('leads').select('id', { count: 'exact', head: true }).eq('status', 'bounced').gte('updated_at', since),
+        supabase.from('email_queue').select('id', { count: 'exact', head: true }).in('status', ['queued', 'sending']),
+      ]);
+
+      const leads = leadsRes.data ?? [];
+      const totalLeads = leads.length;
+      const enrichedLeads = leads.filter(l => !['new', 'enriching'].includes(l.status)).length;
+      const verifiedLeads = leads.filter(l => ['ready', 'in_wave', 'completed', 'replied'].includes(l.status)).length;
+      const sentEmails = sentRes.count ?? 0;
+      const repliedLeads = repliesRes.count ?? 0;
+
       return {
-        totalLeads: s.totalLeads ?? 0,
-        enrichedLeads: s.enrichedLeads ?? 0,
-        verifiedLeads: s.verifiedLeads ?? 0,
-        repliedLeads: s.repliedLeads ?? 0,
-        bouncedLeads: s.bouncedLeads ?? 0,
-        sentEmails: s.sentEmails ?? 0,
-        pendingQueue: s.pendingQueue ?? 0,
-        replyRate: s.sentEmails > 0 ? (s.replyCount / s.sentEmails) * 100 : 0,
+        totalLeads,
+        enrichedLeads,
+        verifiedLeads,
+        repliedLeads,
+        bouncedLeads: bouncedRes.count ?? 0,
+        sentEmails,
+        pendingQueue: queueRes.count ?? 0,
+        replyRate: sentEmails > 0 ? (repliedLeads / sentEmails) * 100 : 0,
       };
     },
   });

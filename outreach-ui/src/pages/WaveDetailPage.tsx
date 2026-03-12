@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import DOMPurify from 'dompurify';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useQueryClient } from '@tanstack/react-query';
-import { useWave, useTemplateSets, useDeleteWave, useUpdateWave, useCreateWave } from '@/hooks/useWaves';
+import { useWave, useTemplateSets, useDeleteWave, useUpdateWave, useCreateWave, useFailedEmails, useRetryFailedEmail } from '@/hooks/useWaves';
 import { useForceSendSequence } from '@/hooks/useForceSend';
 import { supabase } from '@/lib/supabase';
 import { n8nWebhookUrl, n8nHeaders } from '@/lib/n8n';
@@ -94,6 +94,8 @@ export default function WaveDetailPage() {
   const [showPreview, setShowPreview] = useState(false);
   const forceSend = useForceSendSequence(id ?? '');
   const createWave = useCreateWave();
+  const { data: failedEmails } = useFailedEmails(id ?? '');
+  const retryFailed = useRetryFailedEmail();
 
   if (isLoading) return <LoadingSkeleton />;
   if (error || !data) return (
@@ -233,11 +235,19 @@ export default function WaveDetailPage() {
         body: JSON.stringify({ wave_id: wave.id }),
       });
       if (!res.ok) throw new Error(`WF7 vrátil ${res.status}`);
-      toast.success('Vlna naplánována — SEQ1: ' + fmtDate(seqDates[1]) + ' ' + seqTimes[1]);
+      // Parse WF7 response for scheduling report
+      let reportMsg = '';
+      try {
+        const wf7Data = await res.json();
+        if (wf7Data?.scheduling_report?.skipped > 0) {
+          reportMsg = ` (${wf7Data.scheduling_report.skipped} leadů přeskočeno)`;
+        }
+      } catch { /* response may not be JSON */ }
+      toast.success('Vlna naplánována — SEQ1: ' + fmtDate(seqDates[1]) + ' ' + seqTimes[1] + reportMsg);
       qc.invalidateQueries({ queryKey: ['waves', id] });
       qc.invalidateQueries({ queryKey: ['waves'] });
     } catch (e: unknown) {
-      toast.error('Chyba: ' + (e as Error).message);
+      toast.error('Chyba: ' + (e as Error).message, { duration: Infinity, closeButton: true });
     } finally {
       setScheduling(false);
       setConfirmSchedule(false);
@@ -431,6 +441,7 @@ export default function WaveDetailPage() {
             template_set_id: wave.template_set_id,
             salesman_id: wave.salesman_id,
             outreach_account_id: wave.outreach_account_id,
+            from_email: wave.from_email,
             team_id: wave.team_id,
             is_dummy: wave.is_dummy,
             dummy_email: wave.dummy_email,
@@ -517,6 +528,75 @@ export default function WaveDetailPage() {
       />
 
       <WaveResults wave={wave} waveLeads={waveLeads} />
+
+      {/* Scheduling report - skipped leads warning */}
+      {wave.scheduling_report && wave.scheduling_report.skipped > 0 && (
+        <GlassCard padding={16} style={{ marginBottom: 16 }}>
+          <div style={{
+            padding: '12px 16px', borderRadius: 8,
+            background: 'rgba(251,191,36,0.08)', border: '1px solid rgba(251,191,36,0.25)',
+          }}>
+            <div style={{ fontSize: 13, fontWeight: 600, color: '#fbbf24', marginBottom: 8 }}>
+              {wave.scheduling_report.skipped} leadů přeskočeno (chybí ověřený e-mail)
+            </div>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+              {wave.scheduling_report.skipped_leads.map((sl, i) => (
+                <div key={i} style={{ fontSize: 12, color: 'var(--text-dim)' }}>
+                  • {sl.company_name} — {sl.reason === 'no_verified_email' ? 'žádný ověřený e-mail' : sl.reason}
+                </div>
+              ))}
+            </div>
+            <div style={{ fontSize: 11, color: 'var(--text-muted)', marginTop: 8 }}>
+              Naplánováno: {wave.scheduling_report.queued} e-mailů
+            </div>
+          </div>
+        </GlassCard>
+      )}
+
+      {/* Failed emails section */}
+      {failedEmails && failedEmails.length > 0 && (
+        <GlassCard padding={20} style={{ marginBottom: 16 }}>
+          <h3 style={{ fontSize: 14, fontWeight: 600, color: '#f87171', marginBottom: 12 }}>
+            Neúspěšné e-maily ({failedEmails.length})
+          </h3>
+          <div style={{ overflowX: 'auto', borderRadius: 6, border: '1px solid var(--border)' }}>
+            <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 12 }}>
+              <thead>
+                <tr style={{ background: 'rgba(255,255,255,0.03)' }}>
+                  <th style={{ padding: '8px 12px', textAlign: 'left', color: 'var(--text-dim)', fontWeight: 500, borderBottom: '1px solid var(--border)' }}>E-mail</th>
+                  <th style={{ padding: '8px 12px', textAlign: 'left', color: 'var(--text-dim)', fontWeight: 500, borderBottom: '1px solid var(--border)' }}>Seq</th>
+                  <th style={{ padding: '8px 12px', textAlign: 'left', color: 'var(--text-dim)', fontWeight: 500, borderBottom: '1px solid var(--border)' }}>Chyba</th>
+                  <th style={{ padding: '8px 12px', textAlign: 'left', color: 'var(--text-dim)', fontWeight: 500, borderBottom: '1px solid var(--border)' }}>Pokusy</th>
+                  <th style={{ padding: '8px 12px', textAlign: 'right', color: 'var(--text-dim)', fontWeight: 500, borderBottom: '1px solid var(--border)' }}></th>
+                </tr>
+              </thead>
+              <tbody>
+                {failedEmails.map((fe) => (
+                  <tr key={fe.id} style={{ borderBottom: '1px solid var(--border)' }}>
+                    <td style={{ padding: '8px 12px', fontFamily: 'JetBrains Mono, monospace', color: 'var(--text)' }}>{fe.email_address}</td>
+                    <td style={{ padding: '8px 12px', color: 'var(--text-dim)' }}>SEQ{fe.sequence_number}</td>
+                    <td style={{ padding: '8px 12px', color: '#f87171', fontSize: 11, maxWidth: 300, overflow: 'hidden', textOverflow: 'ellipsis' }}>{fe.error_message || '—'}</td>
+                    <td style={{ padding: '8px 12px', color: 'var(--text-dim)', fontFamily: 'JetBrains Mono, monospace' }}>{fe.retry_count ?? 0}</td>
+                    <td style={{ padding: '8px 12px', textAlign: 'right' }}>
+                      <button
+                        onClick={() => retryFailed.mutate(fe.id)}
+                        disabled={retryFailed.isPending}
+                        style={{
+                          background: 'rgba(74,222,128,0.1)', border: '1px solid rgba(74,222,128,0.3)',
+                          borderRadius: 4, padding: '3px 10px', fontSize: 11, color: 'var(--green)',
+                          cursor: 'pointer', fontWeight: 500,
+                        }}
+                      >
+                        Zkusit znovu
+                      </button>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </GlassCard>
+      )}
 
       {/* ── Draft: per-sequence schedule card ── */}
       {wave.status === 'draft' && (

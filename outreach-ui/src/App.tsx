@@ -21,6 +21,7 @@ import TemplateSetEditor from '@/components/settings/TemplateSetEditor';
 import TemplateSetDetailPage from '@/pages/TemplateSetDetailPage';
 import SalesmenSettings from '@/components/settings/SalesmenSettings';
 import UsersSettings from '@/components/settings/UsersSettings';
+import SystemHealthPage from '@/pages/SystemHealthPage';
 
 export default function App() {
   return (
@@ -43,6 +44,7 @@ export default function App() {
           <Route path="/vlny" element={<WavesPage />} />
           <Route path="/vlny/:id" element={<WaveDetailPage />} />
           <Route path="/email-finder" element={<AdminRoute><EmailFinderPage /></AdminRoute>} />
+          <Route path="/system" element={<AdminRoute><SystemHealthPage /></AdminRoute>} />
           <Route path="/sablony" element={<TemplateSetEditor />} />
           <Route path="/sablony/:id" element={<TemplateSetDetailPage />} />
           <Route path="/retarget" element={<RetargetPoolPage />} />

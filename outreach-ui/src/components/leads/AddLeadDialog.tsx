@@ -5,6 +5,7 @@ import GlassInput from '@/components/glass/GlassInput';
 import { useTeams, useCreateLeadWithEmail } from '@/hooks/useLeads';
 import { toast } from 'sonner';
 import { checkDuplicates, extractDomain, formatMatchMessage } from '@/lib/dedup';
+import { n8nWebhookUrl, n8nHeaders } from '@/lib/n8n';
 
 interface AddLeadDialogProps {
   open: boolean;
@@ -29,6 +30,7 @@ export default function AddLeadDialog({ open, onClose }: AddLeadDialogProps) {
     team_id: '',
   });
   const [customFields, setCustomFields] = useState<CustomFieldRow[]>([]);
+  const [enrichEmail, setEnrichEmail] = useState(true);
 
   function set(field: string, value: string) {
     setForm(f => ({ ...f, [field]: value }));
@@ -63,11 +65,13 @@ export default function AddLeadDialog({ open, onClose }: AddLeadDialogProps) {
       toast.error('Zadejte celé jméno kontaktní osoby');
       return;
     }
-    if (!form.email.trim()) {
-      toast.error('Zadejte e-mailovou adresu');
+    const hasEmail = !!form.email.trim();
+    const canEnrich = enrichEmail && !hasEmail && (form.website.trim() || form.ico.trim());
+    if (!hasEmail && !canEnrich) {
+      toast.error('Zadejte e-mailovou adresu nebo zapněte vyhledávání e-mailu');
       return;
     }
-    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(form.email.trim())) {
+    if (hasEmail && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(form.email.trim())) {
       toast.error('Neplatný formát e-mailové adresy');
       return;
     }
@@ -110,16 +114,38 @@ export default function AddLeadDialog({ open, onClose }: AddLeadDialogProps) {
 
     try {
       const cf = buildCustomFieldsObj();
-      await createLead.mutateAsync({
-        company_name: form.company_name,
-        ico: form.ico,
-        website: form.website,
-        contact_name: form.contact_name,
-        email: form.email,
-        team_id,
-        custom_fields: Object.keys(cf).length > 0 ? cf : undefined,
-      });
-      toast.success('Lead přidán a připraven k odeslání');
+      if (canEnrich) {
+        // Call WF1 webhook for enrichment
+        const payload: Record<string, string | null> = {
+          company_name: form.company_name || form.contact_name || null,
+          ico: form.ico || null,
+          website: form.website || null,
+          team_id,
+        };
+        if (form.contact_name) (payload as Record<string, string | null>).contact_name = form.contact_name;
+        const res = await fetch(n8nWebhookUrl('lead-ingest'), {
+          method: 'POST',
+          headers: n8nHeaders(),
+          body: JSON.stringify(payload),
+        });
+        if (res.status === 409) {
+          toast.error('Lead s tímto IČO nebo doménou již existuje');
+          return;
+        }
+        if (!res.ok) throw new Error(`WF1 error: ${res.status}`);
+        toast.success('Lead přidán — vyhledávání e-mailu běží na pozadí');
+      } else {
+        await createLead.mutateAsync({
+          company_name: form.company_name,
+          ico: form.ico,
+          website: form.website,
+          contact_name: form.contact_name,
+          email: form.email,
+          team_id,
+          custom_fields: Object.keys(cf).length > 0 ? cf : undefined,
+        });
+        toast.success('Lead přidán a připraven k odeslání');
+      }
       setForm({ company_name: '', ico: '', website: '', contact_name: '', email: '', team_id: '' });
       setCustomFields([]);
       onClose();
@@ -176,6 +202,19 @@ export default function AddLeadDialog({ open, onClose }: AddLeadDialogProps) {
           onChange={e => set('ico', e.target.value)}
           style={{ fontFamily: 'JetBrains Mono, monospace' }}
         />
+
+        {/* Enrichment checkbox - shown when email is empty but website or ICO present */}
+        {!form.email.trim() && (form.website.trim() || form.ico.trim()) && (
+          <label style={{ display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer', padding: '8px 0' }}>
+            <input
+              type="checkbox"
+              checked={enrichEmail}
+              onChange={e => setEnrichEmail(e.target.checked)}
+              style={{ width: 14, height: 14, accentColor: 'var(--green)' }}
+            />
+            <span style={{ fontSize: 12, color: 'var(--text-dim)' }}>Spustit vyhledávání e-mailu</span>
+          </label>
+        )}
 
         {teams && teams.length > 1 && (
           <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>

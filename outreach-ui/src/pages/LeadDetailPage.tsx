@@ -40,7 +40,7 @@ export default function LeadDetailPage() {
   }
 
   async function handleSaveEdit() {
-    if (!editForm.company_name) { toast.error('Zadejte název firmy'); return; }
+    if (!editForm.company_name) { toast.error('Zadejte název firmy', { duration: 8000 }); return; }
     try {
       await updateLead.mutateAsync({
         id: lead!.id,
@@ -54,7 +54,7 @@ export default function LeadDetailPage() {
       toast.success('Lead aktualizován');
       setEditing(false);
     } catch {
-      toast.error('Chyba při ukládání');
+      toast.error('Chyba při ukládání', { duration: 8000 });
     }
   }
 

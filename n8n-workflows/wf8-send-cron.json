@@ -62,7 +62,7 @@
     {
       "parameters": {
         "mode": "runOnceForAllItems",
-        "jsCode": "const body = $input.all().map(i => i.json);\nif (body.length === 0) return [{ json: { has_emails: false } }];\n\nconst emails = body.map(eq => ({\n  has_emails: true,\n  id:                  eq.id,\n  wave_lead_id:        eq.wave_lead_id,\n  jednatel_id:         eq.jednatel_id,\n  email_address:       eq.email_address,\n  sequence_number:     eq.sequence_number,\n  outreach_account_id: eq.outreach_account_id,\n  smtp_message_id_ref: eq.smtp_message_id_ref,\n  subject_rendered:    eq.subject_rendered,\n  body_rendered:       eq.body_rendered,\n  thread_subject:      eq.thread_subject || '',\n  max_sequence_number: eq.max_sequence_number || 3,\n  retry_count:         eq.retry_count || 0,\n}));\nreturn emails.map(e => ({ json: e }));"
+        "jsCode": "const body = $input.all().map(i => i.json);\nif (body.length === 0) return [{ json: { has_emails: false } }];\n\nconst emails = body.map(eq => ({\n  has_emails: true,\n  id:                  eq.id,\n  wave_lead_id:        eq.wave_lead_id,\n  jednatel_id:         eq.jednatel_id,\n  email_address:       eq.email_address,\n  sequence_number:     eq.sequence_number,\n  smtp_message_id_ref: eq.smtp_message_id_ref,\n  subject_rendered:    eq.subject_rendered,\n  body_rendered:       eq.body_rendered,\n  thread_subject:      eq.thread_subject || '',\n  max_sequence_number: eq.max_sequence_number || 3,\n  retry_count:         eq.retry_count || 0,\n}));\nreturn emails.map(e => ({ json: e }));"
       },
       "id": "wf08-0000-0000-0000-000000000003",
       "name": "Flatten Email Queue",
@@ -142,7 +142,7 @@
             },
             {
               "name": "select",
-              "value": "outreach_accounts(email_address,display_name,sends_today,daily_send_limit),waves(salesmen(email))"
+              "value": "waves(from_email,team_id,teams(daily_send_limit,sends_today),salesmen(email))"
             },
             {
               "name": "limit",
@@ -167,7 +167,7 @@
     {
       "parameters": {
         "mode": "runOnceForEachItem",
-        "jsCode": "const emailItem = $('Loop Emails').first().json;\nconst wlData = $input.item.json;\nconst oa = wlData.outreach_accounts || {};\nconst salesman = (wlData.waves || {}).salesmen || {};\nreturn { json: {\n  ...emailItem,\n  outreach_email: oa.email_address || '',\n  display_name: oa.display_name || oa.email_address || '',\n  salesman_email: salesman.email || '',\n  fresh_sends_today: oa.sends_today || 0,\n  fresh_daily_limit: oa.daily_send_limit || 130\n}};"
+        "jsCode": "const emailItem = $('Loop Emails').first().json;\nconst wlData = $input.item.json;\nconst waveData = wlData.waves || {};\nconst team = waveData.teams || {};\nconst salesman = waveData.salesmen || {};\nreturn { json: {\n  ...emailItem,\n  outreach_email: waveData.from_email || '',\n  display_name: waveData.from_email || '',\n  salesman_email: salesman.email || '',\n  team_id: waveData.team_id || '',\n  fresh_sends_today: team.sends_today || 0,\n  fresh_daily_limit: team.daily_send_limit || 130\n}};"
       },
       "id": "wf08-0000-0000-0000-000000000024",
       "name": "Parse Limit Check",
@@ -299,7 +299,7 @@
     {
       "parameters": {
         "mode": "runOnceForEachItem",
-        "jsCode": "const sendOutput = $input.item.json;\nconst e = $('Prepare Email').first().json;\n\n// smtp-proxy returns { success, messageId, response } or { success: false, error }\nconst proxySuccess = sendOutput.success === true;\nconst base = {\n  id: e.id,\n  wave_lead_id: e.wave_lead_id,\n  jednatel_id: e.jednatel_id,\n  email_address: e.email_address,\n  sequence_number: e.sequence_number,\n  outreach_account_id: e.outreach_account_id,\n  outreach_email: e.outreach_email,\n  salesman_email: e.salesman_email,\n  subject_rendered: e.subject_rendered,\n  smtp_subject: e.smtp_subject,\n  smtp_message_id: e.generated_message_id,\n  max_sequence_number: e.max_sequence_number || 3,\n  retry_count: e.retry_count || 0,\n};\n\nif (!proxySuccess) {\n  return { json: { ...base, success: false, error: sendOutput.error || 'SMTP proxy send failed' } };\n}\n\nreturn { json: { ...base, success: true } };"
+        "jsCode": "const sendOutput = $input.item.json;\nconst e = $('Prepare Email').first().json;\n\n// smtp-proxy returns { success, messageId, response } or { success: false, error }\nconst proxySuccess = sendOutput.success === true;\nconst base = {\n  id: e.id,\n  wave_lead_id: e.wave_lead_id,\n  jednatel_id: e.jednatel_id,\n  email_address: e.email_address,\n  sequence_number: e.sequence_number,\n  outreach_email: e.outreach_email,\n  salesman_email: e.salesman_email,\n  team_id: e.team_id,\n  subject_rendered: e.subject_rendered,\n  smtp_subject: e.smtp_subject,\n  smtp_message_id: e.generated_message_id,\n  max_sequence_number: e.max_sequence_number || 3,\n  retry_count: e.retry_count || 0,\n};\n\nif (!proxySuccess) {\n  return { json: { ...base, success: false, error: sendOutput.error || 'SMTP proxy send failed' } };\n}\n\nreturn { json: { ...base, success: true } };"
       },
       "id": "wf08-0000-0000-0000-000000000011",
       "name": "Check Send Result",
@@ -360,7 +360,7 @@
         },
         "sendBody": true,
         "specifyBody": "json",
-        "jsonBody": "={{ JSON.stringify({ queue_id: $json.id, wave_lead_id: $json.wave_lead_id, jednatel_id: $json.jednatel_id, email_address: $json.email_address, sequence_number: $json.sequence_number, outreach_account_id: $json.outreach_account_id, smtp_message_id: $json.smtp_message_id, subject: $json.smtp_subject, sent_at: new Date().toISOString() }) }}",
+        "jsonBody": "={{ JSON.stringify({ queue_id: $json.id, wave_lead_id: $json.wave_lead_id, jednatel_id: $json.jednatel_id, email_address: $json.email_address, sequence_number: $json.sequence_number, smtp_message_id: $json.smtp_message_id, subject: $json.smtp_subject, sent_at: new Date().toISOString() }) }}",
         "options": {
           "timeout": 30000,
           "neverError": true
@@ -445,7 +445,7 @@
         },
         "sendBody": true,
         "specifyBody": "json",
-        "jsonBody": "={{ JSON.stringify({ p_account_id: $('Check Send Result').first().json.outreach_account_id }) }}",
+        "jsonBody": "={{ JSON.stringify({ p_team_id: $('Parse Limit Check').first().json.team_id }) }}",
         "options": {
           "timeout": 30000,
           "neverError": true
@@ -463,7 +463,7 @@
     {
       "parameters": {
         "mode": "runOnceForEachItem",
-        "jsCode": "const eq = $('Check Send Result').first().json;\nconst prepEmail = $('Prepare Email').first().json;\nconst currentSeq = eq.sequence_number;\nconst maxSeq = eq.max_sequence_number || 3;\n\nif (currentSeq >= maxSeq) {\n  return { json: { action: \"complete\", wave_lead_id: eq.wave_lead_id, sequence_number: currentSeq } };\n}\n\n// Build cumulative references: previous chain + current message ID\nconst currentRefs = prepEmail.references || '';\nconst refsForNext = (currentRefs ? currentRefs + ' ' : '') + eq.smtp_message_id;\n\nreturn { json: {\n  action:       \"activate_next\",\n  wave_lead_id: eq.wave_lead_id,\n  sequence_number: currentSeq,\n  next_sequence_number: currentSeq + 1,\n  smtp_message_id: eq.smtp_message_id,\n  smtp_refs_for_next: refsForNext,\n} };"
+        "jsCode": "const eq = $('Check Send Result').first().json;\nconst prepEmail = $('Prepare Email').first().json;\nconst currentSeq = eq.sequence_number;\nconst maxSeq = eq.max_sequence_number || 3;\n\nif (currentSeq >= maxSeq) {\n  return { json: { action: \"complete\", wave_lead_id: eq.wave_lead_id, sequence_number: currentSeq } };\n}\n\n// Build cumulative references: previous chain + current message ID\nconst currentRefs = prepEmail.references || '';\nconst smtpMid = eq.smtp_message_id || '';\nconst refsForNext = smtpMid\n  ? ((currentRefs ? currentRefs + ' ' : '') + smtpMid)\n  : (currentRefs || null);\n\nreturn { json: {\n  action:       \"activate_next\",\n  wave_lead_id: eq.wave_lead_id,\n  sequence_number: currentSeq,\n  next_sequence_number: currentSeq + 1,\n  smtp_message_id: eq.smtp_message_id,\n  smtp_refs_for_next: refsForNext,\n} };"
       },
       "id": "wf08-0000-0000-0000-000000000016",
       "name": "Schedule Next Seq",
@@ -606,7 +606,7 @@
     {
       "parameters": {
         "mode": "runOnceForEachItem",
-        "jsCode": "const eq = $('Check Send Result').first().json;\nconst retryCount = (eq.retry_count || 0) + 1;\nreturn { json: {\n  id: eq.id,\n  wave_lead_id: eq.wave_lead_id,\n  email_address: eq.email_address,\n  sequence_number: eq.sequence_number,\n  outreach_account_id: eq.outreach_account_id,\n  retry_count: retryCount,\n  final_fail: retryCount >= 3\n} };"
+        "jsCode": "const eq = $('Check Send Result').first().json;\nconst retryCount = (eq.retry_count || 0) + 1;\nreturn { json: {\n  id: eq.id,\n  wave_lead_id: eq.wave_lead_id,\n  email_address: eq.email_address,\n  sequence_number: eq.sequence_number,\n  retry_count: retryCount,\n  final_fail: retryCount >= 3\n} };"
       },
       "id": "wf08-0000-0000-0000-000000000020",
       "name": "Handle Send Failure",

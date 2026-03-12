@@ -33,7 +33,7 @@ export default function ApiKeysSettings() {
       await upsertConfig.mutateAsync({ key, value: values[key] ?? '' });
       toast.success('Uloženo');
     } catch {
-      toast.error('Chyba při ukládání');
+      toast.error('Chyba při ukládání', { duration: 8000 });
     }
   }
 

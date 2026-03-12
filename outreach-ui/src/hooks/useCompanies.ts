@@ -53,7 +53,7 @@ export function useCompanies(filters: CompanyFilters = {}, page = 1) {
         return { ...company, contacts, email_candidates, tags };
       });
 
-      return { data: mapped as (Company & { tags: Array<{ id: string; name: string; color: string }> })[], count: count ?? 0 };
+      return { data: mapped as unknown as (Company & { tags: Array<{ id: string; name: string; color: string }> })[], count: count ?? 0 };
     },
   });
 }

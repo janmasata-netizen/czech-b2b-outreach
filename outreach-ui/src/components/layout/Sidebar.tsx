@@ -3,7 +3,7 @@ import { Link, useLocation, useSearchParams } from 'react-router-dom';
 import {
   LayoutDashboard, Users, Send, Search, Database, RefreshCcw,
   Building2, UserCheck, UserCog,
-  AtSign, Key, FileText, X,
+  AtSign, Key, FileText, X, Activity,
   LayoutList, Zap, Archive, AlertTriangle, CircleCheck, Plus, Ban, Upload,
   Hash, UserSearch, MailCheck, Radar,
 } from 'lucide-react';
@@ -33,6 +33,7 @@ const CONFIG_ITEMS = [
   { to: '/nastaveni/ucty',      label: 'Outreach účty', Icon: AtSign,   exact: true },
   { to: '/nastaveni/api-klice', label: 'API klíče',     Icon: Key,      exact: true },
   { to: '/email-finder',        label: 'Email Finder',  Icon: Search,   exact: false },
+  { to: '/system',              label: 'Systém',        Icon: Activity,  exact: true  },
 ];
 
 /* SubPanel sections — duplicated here for mobile drawer */
@@ -59,6 +60,7 @@ const FINDER_SUBS: SubItem[] = [
   { label: 'Podle jména',  to: '/email-finder', tabParam: 'name',      Icon: UserSearch },
   { label: 'Ověřit e-mail',to: '/email-finder', tabParam: 'verify',    Icon: MailCheck  },
   { label: 'Přímá sonda',  to: '/email-finder', tabParam: 'probe',     Icon: Radar      },
+  { label: 'Hromadné',    to: '/email-finder', tabParam: 'bulk',      Icon: Upload      },
 ];
 
 const W_COLLAPSED = 44;

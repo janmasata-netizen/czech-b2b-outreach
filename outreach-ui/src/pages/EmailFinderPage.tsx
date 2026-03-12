@@ -8,9 +8,10 @@ import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/comp
 import { toast } from 'sonner';
 import { n8nWebhookUrl, n8nHeaders } from '@/lib/n8n';
 import { exportCsv } from '@/lib/export';
+import { supabase } from '@/lib/supabase';
 import useMobile from '@/hooks/useMobile';
 
-type Mode = 'ico' | 'name' | 'verify' | 'probe';
+type Mode = 'ico' | 'name' | 'verify' | 'probe' | 'bulk';
 
 interface Candidate {
   email: string;
@@ -40,6 +41,7 @@ const MODE_DESC: Record<Mode, string> = {
   name: 'Vygeneruje možné e-mailové adresy ze jména a domény, ověří přes SMTP.',
   verify: 'Ověří, zda konkrétní e-mailová adresa existuje (SMTP + MX check).',
   probe: 'Odešle sondovací e-mail a čeká na odraz (~3 min). Spolehlivější pro catch-all domény.',
+  bulk: 'Hromadné vyhledávání e-mailů — nahrajte CSV se jmény a doménami.',
 };
 
 function StatusBadge({ status }: { status: string }) {
@@ -94,7 +96,7 @@ export default function EmailFinderPage() {
   const isMobile = useMobile();
   const [searchParams] = useSearchParams();
   const rawTab = searchParams.get('tab');
-  const mode: Mode = (rawTab === 'name' || rawTab === 'verify' || rawTab === 'probe') ? rawTab : 'ico';
+  const mode: Mode = (rawTab === 'name' || rawTab === 'verify' || rawTab === 'probe' || rawTab === 'bulk') ? rawTab : 'ico';
   const [loading, setLoading] = useState(false);
   const [probeActive, setProbeActive] = useState(false);
   const [recheckLoading, setRecheckLoading] = useState(false);
@@ -105,11 +107,26 @@ export default function EmailFinderPage() {
   const [startTime, setStartTime] = useState<number | null>(null);
   const [elapsed, setElapsed] = useState(0);
 
-  // Results history (session-level)
-  const [history, setHistory] = useState<HistoryEntry[]>([]);
+  // Results history (persisted to localStorage)
+  const [history, setHistory] = useState<HistoryEntry[]>(() => {
+    try { return JSON.parse(localStorage.getItem('email-finder-history') || '[]'); }
+    catch { return []; }
+  });
 
   // Field errors for inline validation
   const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
+
+  // Persist history to localStorage
+  useEffect(() => {
+    localStorage.setItem('email-finder-history', JSON.stringify(history));
+  }, [history]);
+
+  // Bulk mode state
+  const [bulkFile, setBulkFile] = useState<File | null>(null);
+  const [bulkRows, setBulkRows] = useState<Array<{ first_name: string; last_name: string; domain: string }>>([]);
+  const [bulkResults, setBulkResults] = useState<Array<{ row: { first_name: string; last_name: string; domain: string }; result: FinderResult | null; error?: string }>>([]);
+  const [bulkRunning, setBulkRunning] = useState(false);
+  const [bulkProgress, setBulkProgress] = useState({ done: 0, total: 0 });
 
   // ICO mode
   const [ico, setIco]               = useState('');
@@ -165,6 +182,112 @@ export default function EmailFinderPage() {
       const next = [entry, ...prev];
       return next.slice(0, 10);
     });
+  }
+
+  function handleBulkFile(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setBulkFile(file);
+    const reader = new FileReader();
+    reader.onload = (ev) => {
+      const text = ev.target?.result as string;
+      const lines = text.split('\n').map(l => l.trim()).filter(Boolean);
+      if (lines.length < 2) { toast.error('CSV mus\u00ed m\u00edt hlavi\u010dku a alespo\u0148 1 \u0159\u00e1dek'); return; }
+      const header = lines[0].split(/[,;\t]/).map(h => h.trim().toLowerCase());
+      const fnIdx = header.findIndex(h => h.includes('first') || h === 'jmeno' || h === 'jm\u00e9no');
+      const lnIdx = header.findIndex(h => h.includes('last') || h === 'prijmeni' || h === 'p\u0159\u00edjmen\u00ed');
+      const domIdx = header.findIndex(h => h.includes('domain') || h.includes('domen') || h.includes('dom\u00e9na') || h === 'web' || h === 'website');
+      const nameIdx = header.findIndex(h => h === 'name' || h === 'full_name' || h === 'cel\u00e9_jm\u00e9no' || h === 'cele_jmeno');
+
+      const rows = lines.slice(1).map(line => {
+        const cols = line.split(/[,;\t]/).map(c => c.trim());
+        let firstName = fnIdx >= 0 ? cols[fnIdx] : '';
+        let lastName = lnIdx >= 0 ? cols[lnIdx] : '';
+        if (!firstName && !lastName && nameIdx >= 0) {
+          const parts = (cols[nameIdx] || '').split(/\s+/);
+          firstName = parts[0] || '';
+          lastName = parts.slice(1).join(' ') || '';
+        }
+        const domain = domIdx >= 0 ? cols[domIdx]?.replace(/^https?:\/\//, '').replace(/\/.*$/, '') : '';
+        return { first_name: firstName, last_name: lastName, domain };
+      }).filter(r => r.domain && (r.first_name || r.last_name));
+
+      setBulkRows(rows);
+      setBulkResults([]);
+      toast.success(`Na\u010dteno ${rows.length} \u0159\u00e1dk\u016f`);
+    };
+    reader.readAsText(file, 'UTF-8');
+  }
+
+  async function handleBulkRun() {
+    if (bulkRows.length === 0) return;
+    setBulkRunning(true);
+    setBulkProgress({ done: 0, total: bulkRows.length });
+    const results: typeof bulkResults = [];
+
+    for (let i = 0; i < bulkRows.length; i++) {
+      const row = bulkRows[i];
+      try {
+        const res = await fetch(n8nWebhookUrl('wf-email-finder-v2'), {
+          method: 'POST',
+          headers: n8nHeaders(),
+          body: JSON.stringify({
+            mode: 'name',
+            first_name: row.first_name,
+            last_name: row.last_name,
+            domain: row.domain,
+          }),
+        });
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        const data: FinderResult = await res.json();
+        results.push({ row, result: data });
+      } catch (err) {
+        results.push({ row, result: null, error: (err as Error).message });
+      }
+      setBulkProgress({ done: i + 1, total: bulkRows.length });
+      setBulkResults([...results]);
+      if (i < bulkRows.length - 1) await new Promise(r => setTimeout(r, 500));
+    }
+
+    setBulkRunning(false);
+    toast.success(`Hromadn\u00e9 hled\u00e1n\u00ed dokon\u010deno: ${results.filter(r => r.result && r.result.total > 0).length}/${results.length} nalezeno`);
+  }
+
+  async function handleBulkSave(onlyWithEmail: boolean) {
+    let saved = 0, errors = 0;
+    for (const entry of bulkResults) {
+      if (!entry.result) continue;
+      const bestCandidate = entry.result.candidates.find(c => c.status === 'valid' || c.status === 'likely_valid');
+      if (onlyWithEmail && !bestCandidate) continue;
+
+      try {
+        const { data: lead, error: le } = await supabase.from('leads').insert({
+          company_name: entry.row.domain,
+          domain: entry.row.domain,
+          status: bestCandidate ? 'ready' : 'new',
+          lead_type: 'company',
+        }).select().single();
+        if (le) { errors++; continue; }
+
+        const { data: jed, error: je } = await supabase.from('jednatels').insert({
+          lead_id: lead.id,
+          full_name: `${entry.row.first_name} ${entry.row.last_name}`.trim(),
+        }).select().single();
+        if (je) { errors++; continue; }
+
+        if (bestCandidate) {
+          await supabase.from('email_candidates').insert({
+            jednatel_id: jed.id,
+            email_address: bestCandidate.email,
+            is_verified: bestCandidate.status === 'valid',
+            qev_status: bestCandidate.status === 'valid' ? 'valid' : 'unknown',
+            seznam_status: bestCandidate.status === 'likely_valid' ? 'likely_valid' : 'pending',
+          });
+        }
+        saved++;
+      } catch { errors++; }
+    }
+    toast.success(`Ulo\u017eeno ${saved} lead\u016f` + (errors > 0 ? `, ${errors} chyb` : ''));
   }
 
   function copyAllEmails() {
@@ -416,11 +539,31 @@ export default function EmailFinderPage() {
           </div>
         )}
 
-        <GlassButton variant="primary" type="submit" disabled={loading} style={{ marginTop: 4 }}>
-          {loading
-            ? loadingText
-            : (mode === 'probe' ? 'Sondovat →' : mode === 'verify' ? 'Ověřit →' : 'Hledat →')}
-        </GlassButton>
+        {mode === 'bulk' && (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+            <div style={{ fontSize: 12, color: 'var(--text-dim)', padding: '8px 12px', background: 'rgba(255,255,255,0.03)', border: '1px solid var(--border)', borderRadius: 6 }}>
+              CSV form\u00e1t: <code>first_name, last_name, domain</code> (nebo <code>name, domain</code>)
+            </div>
+            <input type="file" accept=".csv,text/csv" onChange={handleBulkFile} style={{ fontSize: 13 }} />
+            {bulkRows.length > 0 && (
+              <div style={{ fontSize: 12, color: 'var(--green)' }}>
+                P\u0159ipraveno {bulkRows.length} \u0159\u00e1dk\u016f ke zpracov\u00e1n\u00ed
+              </div>
+            )}
+          </div>
+        )}
+
+        {mode !== 'bulk' ? (
+          <GlassButton variant="primary" type="submit" disabled={loading} style={{ marginTop: 4 }}>
+            {loading
+              ? loadingText
+              : (mode === 'probe' ? 'Sondovat \u2192' : mode === 'verify' ? 'Ov\u011b\u0159it \u2192' : 'Hledat \u2192')}
+          </GlassButton>
+        ) : (
+          <GlassButton variant="primary" type="button" onClick={handleBulkRun} disabled={bulkRunning || bulkRows.length === 0} style={{ marginTop: 4 }}>
+            {bulkRunning ? `Hled\u00e1m... ${bulkProgress.done}/${bulkProgress.total}` : `Spustit hromadn\u00e9 hled\u00e1n\u00ed (${bulkRows.length})`}
+          </GlassButton>
+        )}
       </form>
 
       {/* Loading with elapsed timer */}
@@ -610,6 +753,61 @@ export default function EmailFinderPage() {
                 </span>
               </button>
             ))}
+          </div>
+        </GlassCard>
+      )}
+
+      {/* Bulk results */}
+      {bulkResults.length > 0 && (
+        <GlassCard style={{ marginTop: 16, padding: isMobile ? 12 : 24 }}>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+              <div style={{ fontSize: 14, fontWeight: 600, color: 'var(--text)' }}>
+                Hromadn\u00e9 v\u00fdsledky ({bulkResults.filter(r => r.result && r.result.total > 0).length}/{bulkResults.length} nalezeno)
+              </div>
+              <div style={{ display: 'flex', gap: 6 }}>
+                <GlassButton variant="primary" onClick={() => handleBulkSave(true)} style={{ fontSize: 12 }}>
+                  Ulo\u017eit jen s e-mailem
+                </GlassButton>
+                <GlassButton variant="secondary" onClick={() => handleBulkSave(false)} style={{ fontSize: 12 }}>
+                  Ulo\u017eit v\u0161e
+                </GlassButton>
+              </div>
+            </div>
+            <div style={{ overflowX: 'auto', borderRadius: 6, border: '1px solid var(--border)' }}>
+              <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 12 }}>
+                <thead>
+                  <tr style={{ background: 'rgba(255,255,255,0.03)' }}>
+                    <th style={TH}>Jm\u00e9no</th>
+                    <th style={TH}>Dom\u00e9na</th>
+                    <th style={TH}>Nalezen\u00fd e-mail</th>
+                    <th style={TH}>Status</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {bulkResults.map((entry, i) => {
+                    const best = entry.result?.candidates?.find(c => c.status === 'valid' || c.status === 'likely_valid')
+                      || entry.result?.candidates?.[0];
+                    return (
+                      <tr key={i} style={{ borderBottom: '1px solid var(--border)' }}>
+                        <td style={{ padding: '8px 12px', color: 'var(--text)' }}>{entry.row.first_name} {entry.row.last_name}</td>
+                        <td style={{ padding: '8px 12px', color: 'var(--text-dim)', fontFamily: 'JetBrains Mono, monospace' }}>{entry.row.domain}</td>
+                        <td style={{ padding: '8px 12px', fontFamily: 'JetBrains Mono, monospace', color: best ? 'var(--text)' : 'var(--text-muted)' }}>
+                          {best?.email || (entry.error ? 'Chyba' : '\u2014')}
+                        </td>
+                        <td style={{ padding: '8px 12px' }}>
+                          {best ? <StatusBadge status={best.status} /> : entry.error ? (
+                            <span style={{ color: '#f87171', fontSize: 11 }}>{entry.error}</span>
+                          ) : (
+                            <span style={{ color: 'var(--text-muted)', fontSize: 11 }}>Nenalezeno</span>
+                          )}
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
           </div>
         </GlassCard>
       )}

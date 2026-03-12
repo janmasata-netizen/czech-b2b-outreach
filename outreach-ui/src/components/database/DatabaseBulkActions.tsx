@@ -40,7 +40,7 @@ export default function DatabaseBulkActions({ selected, onClear, teamId }: Datab
       toast.success(`Štítek přidán k ${selected.length} firmám`);
       setShowTagPicker(false);
     } catch {
-      toast.error('Chyba při přidávání štítku');
+      toast.error('Chyba při přidávání štítku', { duration: 8000 });
     }
   }
 
@@ -56,7 +56,7 @@ export default function DatabaseBulkActions({ selected, onClear, teamId }: Datab
       toast.success(`${selected.length} firem přidáno na blacklist`);
       onClear();
     } catch {
-      toast.error('Chyba při blacklistování');
+      toast.error('Chyba při blacklistování', { duration: 8000 });
     }
   }
 
@@ -66,7 +66,7 @@ export default function DatabaseBulkActions({ selected, onClear, teamId }: Datab
       toast.success(`${selected.length} firem archivováno`);
       onClear();
     } catch {
-      toast.error('Chyba při archivaci');
+      toast.error('Chyba při archivaci', { duration: 8000 });
     }
   }
 
@@ -77,7 +77,7 @@ export default function DatabaseBulkActions({ selected, onClear, teamId }: Datab
       onClear();
       setConfirmDelete(false);
     } catch {
-      toast.error('Chyba při mazání');
+      toast.error('Chyba při mazání', { duration: 8000 });
     }
   }
 

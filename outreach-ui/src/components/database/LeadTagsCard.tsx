@@ -20,7 +20,7 @@ export default function LeadTagsCard({ leadId }: { leadId: string }) {
       await addTag.mutateAsync({ leadId, tagId, tagName });
       setShowPicker(false);
     } catch {
-      toast.error('Chyba při přidávání štítku');
+      toast.error('Chyba při přidávání štítku', { duration: 8000 });
     }
   }
 
@@ -28,7 +28,7 @@ export default function LeadTagsCard({ leadId }: { leadId: string }) {
     try {
       await removeTag.mutateAsync({ leadId, tagId, tagName });
     } catch {
-      toast.error('Chyba při odebírání štítku');
+      toast.error('Chyba při odebírání štítku', { duration: 8000 });
     }
   }
 

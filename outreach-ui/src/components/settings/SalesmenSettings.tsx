@@ -23,10 +23,10 @@ export default function SalesmenSettings() {
   const [confirmDelete, setConfirmDelete] = useState<Salesman | null>(null);
 
   async function handleSave() {
-    if (!editing?.name?.trim()) { toast.error('Zadejte jméno obchodníka'); return; }
-    if (!editing?.email?.trim()) { toast.error('Zadejte e-mail obchodníka'); return; }
-    if (!editing?.imap_credential_name?.trim()) { toast.error('Zadejte název IMAP credentialu v n8n'); return; }
-    if (!editing?.team_id) { toast.error('Vyberte tým'); return; }
+    if (!editing?.name?.trim()) { toast.error('Zadejte jméno obchodníka', { duration: 8000 }); return; }
+    if (!editing?.email?.trim()) { toast.error('Zadejte e-mail obchodníka', { duration: 8000 }); return; }
+    if (!editing?.imap_credential_name?.trim()) { toast.error('Zadejte název IMAP credentialu v n8n', { duration: 8000 }); return; }
+    if (!editing?.team_id) { toast.error('Vyberte tým', { duration: 8000 }); return; }
     try {
       await upsert.mutateAsync(editing);
       toast.success('Obchodník uložen');
@@ -34,9 +34,9 @@ export default function SalesmenSettings() {
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : String(err);
       if (msg.includes('Maximum 5')) {
-        toast.error('Nelze přidat více než 5 aktivních obchodníků');
+        toast.error('Nelze přidat více než 5 aktivních obchodníků', { duration: 8000 });
       } else {
-        toast.error('Chyba při ukládání: ' + msg);
+        toast.error('Chyba při ukládání: ' + msg, { duration: 8000 });
       }
     }
   }
@@ -48,7 +48,7 @@ export default function SalesmenSettings() {
       toast.success('Obchodník smazán');
       setConfirmDelete(null);
     } catch {
-      toast.error('Chyba při mazání obchodníka');
+      toast.error('Chyba při mazání obchodníka', { duration: 8000 });
     }
   }
 

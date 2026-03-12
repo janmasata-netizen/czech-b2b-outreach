@@ -32,7 +32,7 @@ export function useUsers() {
 
       const { data: profiles, error: profError } = await supabase
         .from('profiles')
-        .select('*, team:teams(name)');
+        .select('*, team:teams(name, daily_send_limit, sends_today, is_active)');
       if (profError) throw profError;
 
       const profileMap = new Map((profiles ?? []).map((p: Profile & { team?: Team }) => [p.id, p]));
@@ -88,6 +88,19 @@ export function useUpdateUserPassword() {
   return useMutation({
     mutationFn: async ({ userId, password }: { userId: string; password: string }) => {
       await adminApi('updatePassword', { userId, password });
+    },
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['users'] }),
+  });
+}
+
+export function useUpdateProfile() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async ({ id, full_name, team_id, is_admin }: {
+      id: string; full_name: string; team_id: string | null; is_admin: boolean;
+    }) => {
+      const { error } = await supabase.from('profiles').update({ full_name, team_id, is_admin }).eq('id', id);
+      if (error) throw error;
     },
     onSuccess: () => qc.invalidateQueries({ queryKey: ['users'] }),
   });

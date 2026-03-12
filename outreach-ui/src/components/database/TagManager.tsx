@@ -26,7 +26,7 @@ export default function TagManager({ teamId }: { teamId?: string }) {
       setName('');
       toast.success('Štítek vytvořen');
     } catch {
-      toast.error('Chyba při vytváření štítku');
+      toast.error('Chyba při vytváření štítku', { duration: 8000 });
     }
   }
 
@@ -35,7 +35,7 @@ export default function TagManager({ teamId }: { teamId?: string }) {
       await deleteTag.mutateAsync(id);
       toast.success('Štítek smazán');
     } catch {
-      toast.error('Chyba při mazání štítku');
+      toast.error('Chyba při mazání štítku', { duration: 8000 });
     }
   }
 

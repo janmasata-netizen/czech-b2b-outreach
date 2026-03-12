@@ -5,6 +5,7 @@ import GlassButton from '@/components/glass/GlassButton';
 import GlassProgress from '@/components/glass/GlassProgress';
 import { useTeams } from '@/hooks/useLeads';
 import { supabase } from '@/lib/supabase';
+import { n8nWebhookUrl, n8nHeaders } from '@/lib/n8n';
 import { parseCsv, autoDetect } from '@/lib/csv-utils';
 import { toast } from 'sonner';
 import { checkDuplicates, extractDomain, type DedupResult, type DuplicateMatch } from '@/lib/dedup';
@@ -15,6 +16,7 @@ interface CsvImportDialogProps {
 }
 
 type Step = 'upload' | 'map' | 'review' | 'importing' | 'done';
+type EnrichmentLevel = 'import_only' | 'find_emails' | 'full_pipeline';
 
 interface Progress {
   done: number;
@@ -36,6 +38,7 @@ export default function CsvImportDialog({ open, onClose }: CsvImportDialogProps)
   const [teamId, setTeamId] = useState('');
   const [progress, setProgress] = useState<Progress>({ done: 0, errors: 0, duplicates: 0, total: 0 });
   const [mapError, setMapError] = useState('');
+  const [enrichmentLevel, setEnrichmentLevel] = useState<EnrichmentLevel>('import_only');
   const [dedupResult, setDedupResult] = useState<DedupResult | null>(null);
   const [dedupChecking, setDedupChecking] = useState(false);
 
@@ -48,6 +51,7 @@ export default function CsvImportDialog({ open, onClose }: CsvImportDialogProps)
     setTeamId('');
     setProgress({ done: 0, errors: 0, duplicates: 0, total: 0 });
     setMapError('');
+    setEnrichmentLevel('import_only');
     setDedupResult(null);
     setDedupChecking(false);
   }
@@ -201,8 +205,28 @@ export default function CsvImportDialog({ open, onClose }: CsvImportDialogProps)
               if (ee) errors++;
             }
           }
+        } else if (enrichmentLevel !== 'import_only' && (website || ico)) {
+          // Enrichment mode: call WF1 webhook for leads without email
+          const payload: Record<string, string | null | Record<string, string>> = {
+            company_name: company_name || contact_name || null,
+            ico: ico || null,
+            website: website || null,
+            team_id: effectiveTeamId || null,
+          };
+          if (contact_name) payload.contact_name = contact_name;
+          if (Object.keys(custom_fields).length > 0) payload.custom_fields = custom_fields;
+
+          try {
+            const res = await fetch(n8nWebhookUrl('lead-ingest'), {
+              method: 'POST',
+              headers: n8nHeaders(),
+              body: JSON.stringify(payload),
+            });
+            if (res.status === 409) duplicates++;
+            else if (!res.ok) errors++;
+          } catch { errors++; }
         } else {
-          // Lead-only insert: status='new'
+          // Import only: direct DB insert, status='new'
           const { error: le } = await supabase
             .from('leads')
             .insert({
@@ -227,6 +251,9 @@ export default function CsvImportDialog({ open, onClose }: CsvImportDialogProps)
 
     qc.invalidateQueries({ queryKey: ['leads'] });
     setStep('done');
+    if (enrichmentLevel !== 'import_only') {
+      toast.info('Pipeline běží na pozadí — e-maily budou generovány a ověřovány automaticky.');
+    }
   }
 
   // ---- STEP: review (dedup) ----
@@ -366,9 +393,46 @@ export default function CsvImportDialog({ open, onClose }: CsvImportDialogProps)
         </div>
       )}
 
+      {/* Enrichment level */}
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginTop: 4 }}>
+        <span style={{ fontSize: 12, fontWeight: 500, color: 'var(--text-dim)' }}>Úroveň obohacení</span>
+        {([
+          { value: 'import_only' as const, label: 'Pouze import', desc: 'Uloží leady do DB bez obohacení' },
+          { value: 'find_emails' as const, label: 'Najít e-maily', desc: 'Vygeneruje a ověří e-maily z jména + webu' },
+          { value: 'full_pipeline' as const, label: 'Kompletní pipeline', desc: 'Hledá IČO na webu → ARES → e-maily → ověření' },
+        ]).map(opt => (
+          <label
+            key={opt.value}
+            style={{
+              display: 'flex', alignItems: 'flex-start', gap: 10, cursor: 'pointer',
+              padding: '8px 12px', borderRadius: 6,
+              background: enrichmentLevel === opt.value ? 'rgba(99,102,241,0.08)' : 'transparent',
+              border: `1px solid ${enrichmentLevel === opt.value ? 'rgba(99,102,241,0.3)' : 'var(--border)'}`,
+            }}
+          >
+            <input
+              type="radio"
+              name="csv-enrichment"
+              checked={enrichmentLevel === opt.value}
+              onChange={() => setEnrichmentLevel(opt.value)}
+              style={{ marginTop: 2 }}
+            />
+            <div>
+              <div style={{ fontSize: 13, fontWeight: 500, color: 'var(--text)' }}>{opt.label}</div>
+              <div style={{ fontSize: 11, color: 'var(--text-dim)' }}>{opt.desc}</div>
+            </div>
+          </label>
+        ))}
+      </div>
+
       {/* Note about email column */}
       <div style={{ fontSize: 12, color: 'var(--text-dim)', padding: '8px 12px', background: 'rgba(255,255,255,0.03)', border: '1px solid var(--border)', borderRadius: 6 }}>
-        Řádky s e-mailem → stav <strong style={{ color: 'var(--green)' }}>Připraven</strong>. Řádky bez e-mailu → stav <strong>Nový</strong> (lze doplnit přes Email Finder).
+        {enrichmentLevel === 'import_only'
+          ? <>Řádky s e-mailem → stav <strong style={{ color: 'var(--green)' }}>Připraven</strong>. Řádky bez e-mailu → stav <strong>Nový</strong>.</>
+          : enrichmentLevel === 'find_emails'
+          ? <>Řádky s e-mailem → <strong style={{ color: 'var(--green)' }}>Připraven</strong>. Řádky bez e-mailu → spustí se automatické vyhledávání e-mailů.</>
+          : <>Řádky bez IČO → scrape z webu. Všechny bez e-mailu → plný enrichment pipeline.</>
+        }
       </div>
 
       {/* Custom fields info */}

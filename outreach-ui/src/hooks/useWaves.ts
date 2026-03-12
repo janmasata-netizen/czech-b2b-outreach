@@ -53,6 +53,22 @@ export function useWave(id: string | undefined) {
   });
 }
 
+export function useFromEmailSuggestions() {
+  return useQuery<string[]>({
+    queryKey: ['from-email-suggestions'],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('waves')
+        .select('from_email')
+        .not('from_email', 'is', null)
+        .order('created_at', { ascending: false });
+      if (error) throw error;
+      const unique = [...new Set((data ?? []).map(d => d.from_email).filter(Boolean))] as string[];
+      return unique;
+    },
+  });
+}
+
 export function useTemplateSets(teamId?: string) {
   return useQuery({
     queryKey: ['template-sets', teamId ?? 'all'],
@@ -159,6 +175,48 @@ export function useUpdateEmailQueue(waveId: string) {
     },
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['waves', waveId] });
+    },
+  });
+}
+
+export function useFailedEmails(waveId: string) {
+  return useQuery({
+    queryKey: ['failed-emails', waveId],
+    enabled: !!waveId,
+    queryFn: async () => {
+      // Get all wave_lead IDs for this wave
+      const { data: waveLeads } = await supabase
+        .from('wave_leads')
+        .select('id')
+        .eq('wave_id', waveId);
+      if (!waveLeads?.length) return [];
+
+      const wlIds = waveLeads.map(wl => wl.id);
+      const { data, error } = await supabase
+        .from('email_queue')
+        .select('id, wave_lead_id, email_address, sequence_number, error_message, retry_count, status, scheduled_at')
+        .in('wave_lead_id', wlIds)
+        .eq('status', 'failed')
+        .order('scheduled_at', { ascending: false });
+      if (error) throw error;
+      return data ?? [];
+    },
+  });
+}
+
+export function useRetryFailedEmail() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (emailQueueId: string) => {
+      const { error } = await supabase
+        .from('email_queue')
+        .update({ status: 'queued', retry_count: 0, error_message: null })
+        .eq('id', emailQueueId);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['failed-emails'] });
+      qc.invalidateQueries({ queryKey: ['waves'] });
     },
   });
 }
