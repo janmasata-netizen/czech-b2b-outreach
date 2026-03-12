@@ -374,7 +374,7 @@ node deploy.mjs
 
 > **POZOR:** Na VPS musite nastavit promennou `PROXY_AUTH_TOKEN` v `.env` souboru vedle `docker-compose.yml`. Pouzijte stejny token jako u IMAP proxy.
 
-> **POZOR:** Nazev credential v `config.json` musi presne odpovidat nazvu SMTP credential v tabulce `outreach_accounts`.
+> **POZOR:** Nazev credential v `config.json` musi presne odpovidat nazvu SMTP credential pouzitemu v n8n workflow.
 
 ### Krok 4.4 — Pridani noveho obchodnika (salesman)
 
@@ -387,7 +387,7 @@ node deploy.mjs
 3. Restartujte oba kontejnery: `docker restart imap-proxy smtp-proxy`
 4. Pridejte obchodnika do tabulky `salesmen` v Supabase s odpovidajicimi nazvy credentials
 
-> **TIP:** Nazvy credentials v `config.json` musi presne odpovidat hodnotam v databazovych tabulkach (`salesmen.imap_credential_name`, `outreach_accounts`).
+> **TIP:** Nazvy credentials v `config.json` musi presne odpovidat hodnotam v databazovych tabulkach (`salesmen.imap_credential_name`).
 
 ---
 
@@ -461,7 +461,8 @@ node migrate-team-lockout.mjs
 
 | Migrace | Popis |
 |---------|-------|
-| `migrate-from-email.mjs` | Presunula FROM e-mail z `outreach_accounts` do `waves.from_email`; denni limity do `teams` |
+| `migrate-from-email.mjs` | Presunula FROM e-mail do `waves.from_email`; denni limity do `teams` |
+| `migrate-drop-outreach-accounts.sql` | Odstranila tabulku `outreach_accounts` (nahrazena `teams` + `waves.from_email`) |
 | `migrate-companies.mjs` | Vytvorila tabulky `companies`, `contacts`, `company_tags`; pridala FK vazby |
 | `migrate-companies-rpc.mjs` | Nove RPC funkce (`get_contacts_for_company`, `get_contacts_for_lead`, `mark_contacts_email_status`) |
 | `migrate-scheduling-report.mjs` | Pridava sloupec `scheduling_report` (jsonb) do tabulky `waves` |

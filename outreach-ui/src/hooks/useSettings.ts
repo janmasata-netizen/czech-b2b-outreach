@@ -1,6 +1,6 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/lib/supabase';
-import type { Team, OutreachAccount, ConfigEntry, Salesman, TemplateVariable } from '@/types/database';
+import type { Team, ConfigEntry, Salesman, TemplateVariable } from '@/types/database';
 
 export function useTeamsSettings() {
   return useQuery<Team[]>({
@@ -28,37 +28,6 @@ export function useUpsertTeam() {
       }
     },
     onSuccess: () => qc.invalidateQueries({ queryKey: ['settings', 'teams'] }),
-  });
-}
-
-export function useOutreachAccounts(teamId?: string) {
-  return useQuery<OutreachAccount[]>({
-    queryKey: ['settings', 'outreach-accounts', teamId ?? 'all'],
-    queryFn: async () => {
-      let q = supabase.from('outreach_accounts').select('*, teams(name)').order('created_at');
-      if (teamId) q = q.eq('team_id', teamId);
-      const { data, error } = await q;
-      if (error) throw error;
-      return data ?? [];
-    },
-    refetchInterval: 30_000,
-  });
-}
-
-export function useUpsertOutreachAccount() {
-  const qc = useQueryClient();
-  return useMutation({
-    mutationFn: async (account: Partial<OutreachAccount> & { id?: string }) => {
-      if (account.id) {
-        const { id, ...updates } = account;
-        const { error } = await supabase.from('outreach_accounts').update(updates).eq('id', id!);
-        if (error) throw error;
-      } else {
-        const { error } = await supabase.from('outreach_accounts').insert(account);
-        if (error) throw error;
-      }
-    },
-    onSuccess: () => qc.invalidateQueries({ queryKey: ['settings', 'outreach-accounts'] }),
   });
 }
 

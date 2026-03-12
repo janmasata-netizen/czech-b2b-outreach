@@ -3,7 +3,7 @@ import { Link, useLocation, useSearchParams } from 'react-router-dom';
 import {
   LayoutDashboard, Users, Send, Search, Database, RefreshCcw,
   Building2, UserCheck, UserCog,
-  AtSign, Key, FileText, X, Activity,
+  Key, FileText, X, Activity,
   LayoutList, Zap, Archive, AlertTriangle, CircleCheck, Plus, Ban, Upload,
   Hash, UserSearch, MailCheck, Radar,
 } from 'lucide-react';
@@ -30,7 +30,6 @@ const PEOPLE_ITEMS = [
 ];
 
 const CONFIG_ITEMS = [
-  { to: '/nastaveni/ucty',      label: 'Outreach účty', Icon: AtSign,   exact: true },
   { to: '/nastaveni/api-klice', label: 'API klíče',     Icon: Key,      exact: true },
   { to: '/email-finder',        label: 'Email Finder',  Icon: Search,   exact: false },
   { to: '/system',              label: 'Systém',        Icon: Activity,  exact: true  },

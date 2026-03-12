@@ -27,7 +27,7 @@ export function useForceSendSequence(waveId: string) {
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['waves', waveId] });
       qc.invalidateQueries({ queryKey: ['waves'] });
-      qc.invalidateQueries({ queryKey: ['settings', 'outreach-accounts'] });
+      qc.invalidateQueries({ queryKey: ['settings', 'teams'] });
     },
   });
 }

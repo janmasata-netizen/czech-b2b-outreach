@@ -350,7 +350,6 @@ Kompletni seznam vsech n8n workflow s identifikatory:
 | Tabulka | Popis | Klicove sloupce |
 |---|---|---|
 | `teams` | Tymy (organizace) | id, daily_send_limit, sends_today, salesman_email, retarget_lockout_days |
-| `outreach_accounts` | Outreach ucty (1 na tym, UNIQUE team_id) | id, team_id, smtp/imap konfigurace |
 | `companies` | **Master CRM** — vsechny firmy | id, company_name, ico, website, domain, master_status, team_id, created_at, updated_at |
 | `leads` | **Email outreach vrstva** — navazano na companies | id, company_id (FK → companies), status, team_id |
 | `contacts` | Kontaktni osoby firem (nahrazuje jednatels) | id, company_id (FK → companies), full_name, first_name, last_name, salutation, role, phone, linkedin, other_contact, notes, created_at, updated_at |
