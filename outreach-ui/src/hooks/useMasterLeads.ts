@@ -1,13 +1,17 @@
+/**
+ * @deprecated Use useCompanies from '@/hooks/useCompanies' instead.
+ * This file is kept for backward compatibility during the migration.
+ */
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/lib/supabase';
 import type { Lead, MasterLeadFilters, EmailCandidate } from '@/types/database';
 import { PAGE_SIZE } from '@/lib/constants';
 
+/** @deprecated Use useCompanies instead */
 export function useMasterLeads(filters: MasterLeadFilters = {}, page = 1) {
   return useQuery({
     queryKey: ['master-leads', filters, page],
     queryFn: async () => {
-      // If filtering by tags, first get matching lead IDs
       let tagLeadIds: string[] | null = null;
       if (filters.tag_ids && filters.tag_ids.length > 0) {
         const { data: tagRows, error: te } = await supabase
@@ -54,6 +58,7 @@ export function useMasterLeads(filters: MasterLeadFilters = {}, page = 1) {
   });
 }
 
+/** @deprecated Use useUpdateCompanyMasterStatus instead */
 export function useUpdateMasterStatus() {
   const qc = useQueryClient();
   return useMutation({
@@ -68,6 +73,7 @@ export function useUpdateMasterStatus() {
   });
 }
 
+/** @deprecated Use useUpdateContact instead */
 export function useUpdateJednatelContact() {
   const qc = useQueryClient();
   return useMutation({

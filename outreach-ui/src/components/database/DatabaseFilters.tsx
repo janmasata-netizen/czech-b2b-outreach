@@ -1,10 +1,10 @@
 import { useTags } from '@/hooks/useTags';
 import { useTeams } from '@/hooks/useLeads';
-import type { MasterLeadFilters, MasterStatus } from '@/types/database';
+import type { CompanyFilters, MasterStatus } from '@/types/database';
 
 interface DatabaseFiltersProps {
-  filters: MasterLeadFilters;
-  onChange: (filters: MasterLeadFilters) => void;
+  filters: CompanyFilters;
+  onChange: (filters: CompanyFilters) => void;
 }
 
 const STATUS_OPTIONS: { value: MasterStatus | ''; label: string }[] = [

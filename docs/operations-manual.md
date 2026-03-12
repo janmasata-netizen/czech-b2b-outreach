@@ -59,10 +59,11 @@
 Typicky den operatora:
 
 1. **Rano:** Zkontrolovat dashboard (`/prehled`) — nove odpovedi, stav vln
-2. **Leady:** Pridat nove leady (`/leady`) — system je automaticky obohati
-3. **Vlny:** Zkontrolovat prubeh aktivnich vln (`/vlny`) — odeslane/cekajici/chyby
-4. **Odpovedi:** Zpracovat nove odpovedi — viditelne na detailu vlny i leadu
-5. **Retarget:** Presunout leady bez odpovedi do retarget poolu pro opetovne osloveni
+2. **Firmy:** Zkontrolovat databazi firem (`/databaze`) — prehled vsech firem v CRM, detail firmy na `/databaze/:id`
+3. **Leady:** Pridat nove leady (`/leady`) — system je automaticky obohati a propoji s firmou
+4. **Vlny:** Zkontrolovat prubeh aktivnich vln (`/vlny`) — odeslane/cekajici/chyby
+5. **Odpovedi:** Zpracovat nove odpovedi — viditelne na detailu vlny i leadu
+6. **Retarget:** Presunout leady bez odpovedi do retarget poolu pro opetovne osloveni
 
 ---
 
@@ -157,20 +158,22 @@ docker restart smtp-proxy
 
 **Vysledek:** Obchodnik vytvoren v tabulce `salesmen`.
 
-### Krok 1.4 — Nastavit outreach ucet
+### Krok 1.4 — Nastavit outreach ucet a denni limit
 
-**Cil:** Propojit odesilaci ucet s tymem.
+**Cil:** Propojit SMTP credentials s tymem a nastavit denni limit odesilani.
 
 **Predpoklady:** Obchodnik pridan v kroku 1.3.
 
 **Postup:**
 
 1. Prejdete na **Nastaveni > Outreach ucty** (`/nastaveni/ucty`)
-2. Nastavte nazev credential presne podle `config.json`
+2. Nastavte nazev SMTP credential presne podle `config.json`
+3. Prejdete na **Nastaveni > Tymy** (`/nastaveni/tymy`)
+4. Nastavte `daily_send_limit` pro dany tym (denni limit odesilani)
 
-**Vysledek:** Tym muze odesilat e-maily.
+**Vysledek:** Tym muze odesilat e-maily. Denni limit je sledovan na urovni tymu (`teams.sends_today`).
 
-> POZOR: Kazdy tym muze mit prave **jeden** outreach ucet (UNIQUE constraint v databazi). Pokud se pokusite pridat druhy, system vrati chybu.
+> POZNAMKA: FROM e-mail se nastavuje primo na kazde vlne (pole `from_email`) — neni to vlastnost outreach uctu. Viz krok 2.2.
 
 > Caste chyby:
 > - Preklep v nazvu credential — musi presne odpovidat (case-sensitive, vcetne mezer)
@@ -215,9 +218,12 @@ Kontrola probiha globalne (pres vsechny tymy) a porovnava 4 pole: ICO, domena, e
 3. Vyplnte:
    - **Tym** — ktery tym vlnu odesila
    - **Sada sablon** — e-mailova sekvence k pouziti
-   - **Nastaveni** — denni limit odesilani, casovani
+   - **FROM e-mail** — odesilaci adresa (volny text s autocomplete naseptavacem z drive pouzitych adres)
+   - **Nastaveni** — casovani sekvenci
 
 **Vysledek:** Vlna ve stavu `draft`.
+
+> POZNAMKA: Denni limit odesilani se nastavuje na urovni tymu (Nastaveni > Tymy), ne na vlne. FROM e-mail je volne textove pole — muzete zadat libovolnou adresu, ktera odpovida SMTP credentials.
 
 ### Krok 2.3 — Pridat leady do vlny
 
@@ -254,7 +260,8 @@ Kontrola probiha globalne (pres vsechny tymy) a porovnava 4 pole: ICO, domena, e
 
 **WF8** (odesilaci cron) bezi kazdych 5 minut:
 - Prevezme davku e-mailu z fronty pres `claim_queued_emails()` (atomicky)
-- Zkontroluje denni limit pres `increment_and_check_sends()`
+- Nacte `from_email` z vlny (`waves.from_email`) a denni limit z tymu (`teams.daily_send_limit`)
+- Zkontroluje denni limit pres `increment_and_check_sends(p_team_id)` — operuje na tabulce `teams`
 - Odesle pres SMTP proxy
 - Zaznamenavdo `sent_emails`
 - Zavola `auto_complete_waves()` po dokonceni
@@ -281,10 +288,10 @@ Kazda sada sablon obsahuje sablony organizovane podle:
 
 | Promenna | Zdroj | Priklad |
 |----------|-------|---------|
-| `{{salutation}}` | `jednatels.salutation` | `Vazeny pane Novaku` |
-| `{{company_name}}` | `leads.company_name` | `ACME s.r.o.` |
-| `{{first_name}}` | `jednatels.first_name` | `Jan` |
-| `{{last_name}}` | `jednatels.last_name` | `Novak` |
+| `{{salutation}}` | `contacts.salutation` (nebo `jednatels.salutation` pro starsi leady) | `Vazeny pane Novaku` |
+| `{{company_name}}` | `companies.company_name` (nebo `leads.company_name`) | `ACME s.r.o.` |
+| `{{first_name}}` | `contacts.first_name` | `Jan` |
+| `{{last_name}}` | `contacts.last_name` | `Novak` |
 
 > TIP: Pouzivejte `{{salutation}},` primo v sablone — osloveni uz obsahuje predponu "Vazeny pane" / "Vazena pani". Nepridavejte predponu znovu.
 
@@ -408,7 +415,7 @@ Bouncy se zaznamenavaji do `email_probe_bounces`. Stare zaznamy maze WF10 kazdy 
 ### 7.3 — Denni reset (WF10)
 
 Bezi v pulnoci:
-- Zavola `reset_daily_sends()` — vynuluje vsechna pocitadla denniho odesilani
+- Zavola `reset_daily_sends()` — vynuluje `teams.sends_today` na 0 pro vsechny tymy
 - Smaze stare zaznamy z `email_probe_bounces`
 
 ### 7.4 — Health checky
@@ -453,9 +460,9 @@ Tabulka `config` v Supabase obsahuje runtime konfiguraci:
 |---------------|-----------|--------|
 | E-maily uvazly ve fronte | Zkontrolujte `email_queue` v Supabase — hledejte stav `queued` nebo `sending` | Pockejte na dalsi beh WF8 (kazdych 5 min) |
 | SMTP proxy nefunguje | SSH na VPS: `curl http://localhost:3002/health` | Restartujte: `docker restart smtp-proxy` |
-| Dosazeny denni limit | Funkce `increment_and_check_sends()` blokuje | Pockejte na pulnocni reset, nebo rucne vynulujte v databazi |
+| Dosazeny denni limit | Funkce `increment_and_check_sends(p_team_id)` blokuje (limit na tabulce `teams`) | Pockejte na pulnocni reset, nebo rucne vynulujte `teams.sends_today` v databazi |
 | Chyba ve WF8 | Otevrete n8n UI, zkontrolujte historii spusteni WF8 | Opravte chybu podle logu |
-| Nesedi nazev credential | `outreach_accounts.smtp_credential_name` nesouhlasi s `smtp-proxy/config.json` | Opravte nazev tak, aby presne odpovidal |
+| Nesedi nazev credential | SMTP credential v `outreach_accounts` nesouhlasi s `smtp-proxy/config.json` | Opravte nazev tak, aby presne odpovidal |
 
 ### Odpovedi se nedetekuji
 
@@ -522,12 +529,14 @@ docker restart imap-proxy smtp-proxy
 
 | Pojem | Vysvetleni |
 |-------|-----------|
-| **Lead** | Firma nebo kontakt urceny k osloveni — identifikovan ICO, nazvem nebo jmenem |
-| **Jednatel** | Statutarni organ firmy (reditel, jednatel) — osoba, ktere se odesila e-mail |
+| **Firma (Company)** | Master CRM zaznam firmy — centralni evidence v tabulce `companies`, pristupna na `/databaze` |
+| **Kontakt (Contact)** | Kontaktni osoba firmy — ulozena v tabulce `contacts`, navazana na firmu (nahrazuje jednatels) |
+| **Lead** | Firma nebo kontakt urceny k osloveni — identifikovan ICO, nazvem nebo jmenem, propojen s firmou pres `company_id` |
+| **Jednatel** | Statutarni organ firmy (reditel, jednatel) — legacy pojem, v novem modelu nahrazen pojmem "kontakt" |
 | **Vlna (Wave)** | E-mailova kampan — seskupeni leadu, kteri dostanou sekvenci az 3 e-mailu |
 | **Sekvence** | Poradi e-mailu v kampani: seq1 (prvni osloveni) → seq2 (+3 dny) → seq3 (+5 dni) |
 | **Template set** | Sada e-mailovych sablon — 3 sekvence x 2 A/B varianty |
-| **Obohaceni** | Automaticky proces doplneni dat: ARES → jednatele → e-maily → overeni |
+| **Obohaceni** | Automaticky proces doplneni dat: ARES → kontakty (contacts) → e-maily → overeni |
 | **Retarget pool** | Sbirka leadu bez odpovedi, pripravenych k opetovnemu osloveni |
 | **Bounce / NDR** | Nedorucitelny e-mail — adresa neexistuje nebo server odmitl zpravou |
 | **Claim** | Atomicke prevzeti e-mailu z fronty — zabranni duplicitnimu odeslani |

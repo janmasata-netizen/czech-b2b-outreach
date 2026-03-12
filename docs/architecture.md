@@ -104,7 +104,7 @@ Hostovana Supabase instance poskytuje:
 
 | Sluzba | Popis |
 |--------|-------|
-| **PostgreSQL** | 20 tabulek — leady, kontakty, e-maily, vlny, sablony, konfigurace |
+| **PostgreSQL** | 23+ tabulek — firmy, kontakty, leady, e-maily, vlny, sablony, konfigurace |
 | **Auth** | Autentizace uzivatelu (e-mail + heslo), role (admin / bezny uzivatel) |
 | **RLS** | Row-level security politiky na tabulkach |
 | **Realtime** | Subscriptions pro live aktualizace v UI |
@@ -134,7 +134,8 @@ Jednostrankova webova aplikace (SPA).
 |-------|---------|---------|------|
 | `/login` | Prihlaseni | Verejne | Prihlaseni do systemu |
 | `/prehled` | Dashboard | Prihlaseny | Prehled statistik a grafu |
-| `/databaze` | Databaze | Prihlaseny | Hlavni databaze leadu |
+| `/databaze` | Databaze | Prihlaseny | Hlavni databaze firem (companies) |
+| `/databaze/:id` | Detail firmy | Prihlaseny | Detail jedne firmy — kontakty, tagy, propojene leady |
 | `/leady` | Leady | Prihlaseny | Sprava a obohacovani leadu |
 | `/leady/:id` | Detail leadu | Prihlaseny | Detail jednoho leadu |
 | `/vlny` | Vlny | Prihlaseny | Sprava e-mailovych kampani |
@@ -142,16 +143,16 @@ Jednostrankova webova aplikace (SPA).
 | `/email-finder` | Email Finder | Prihlaseny | Nastroj pro vyhledavani e-mailu (4 rezimy: Podle ICO, Podle jmena, Overit e-mail, Prima sonda) |
 | `/retarget` | Retarget Pool | Prihlaseny | Sprava leadu k opetovnemu osloveni |
 | `/nastaveni` | Nastaveni | Pouze admin | Rozcestnik nastaveni |
-| `/nastaveni/tymy` | Tymy | Pouze admin | Sprava tymu |
+| `/nastaveni/tymy` | Tymy | Pouze admin | Sprava tymu (vcetne daily_send_limit) |
 | `/nastaveni/obchodnici` | Obchodnici | Pouze admin | Sprava obchodniku |
 | `/nastaveni/uzivatele` | Uzivatele | Pouze admin | Sprava uzivatelu |
-| `/nastaveni/ucty` | Outreach ucty | Pouze admin | Konfigurace odesilacich uctu |
+| `/nastaveni/ucty` | Outreach ucty | Pouze admin | Konfigurace SMTP credentials |
 | `/nastaveni/api-klice` | API klice | Pouze admin | Sprava API klicu |
 | `/nastaveni/sablony` | Sablony | Pouze admin | Editor e-mailovych sablon |
 
 **Navigace v sidebar:**
 - Polozky jsou rozdelene do dvou skupin odelenych vizualni carou:
-  - **Datova sekce:** Prehled, Databaze, Leady
+  - **Datova sekce:** Prehled, Databaze (firmy/companies), Leady
   - **Akcni sekce:** Vlny, Email Finder, Retarget
 - Stranky Databaze, Leady, Vlny a Email Finder maji podzalozky v postrannim SubPanelu (desktop) nebo v rozbalovaciim menu (mobil)
 
@@ -165,15 +166,25 @@ Jednostrankova webova aplikace (SPA).
 | `useDashboard` | Statistiky, grafy, obnova dat |
 | `useForceSend` | Rucni odeslani vlny |
 | `useLeads` | CRUD operace s leady, filtry, strankování |
-| `useMasterLeads` | Pohled na hlavni databazi leadu |
+| `useCompanies` | CRUD operace s firmami, filtry, strankování |
+| `useContacts` | CRUD operace s kontakty, vazba na firmy |
+| `useMasterLeads` | Pohled na hlavni databazi leadu (legacy) |
 | `useWaves` | CRUD operace s vlnami, stav, sekvence |
 | `useRealtime` | Supabase realtime subscriptions |
 | `useRetargetPool` | Logika retarget poolu |
 | `useSettings` | Konfigurace, credentials, sablony |
-| `useTags` | System stitkovani leadu |
+| `useTags` | System stitkovani leadu a firem |
 | `useUsers` | Sprava uzivatelu |
 | `useMobile` | Detekce responzivniho breakpointu |
 | `useMobileNav` | Stav mobilni navigace |
+
+#### Klicove komponenty pro CRM vrstvu
+
+| Komponenta | Ucel |
+|------------|------|
+| `CompanyDetailPage` | Stranka `/databaze/:id` — zobrazuje detail firmy s kartami kontaktu, tagu a propojenych leadu |
+| `ContactsCard` | Karta zobrazujici kontaktni osoby firmy (nahrazuje JednatelsCard) |
+| `CompanyTagsCard` | Karta zobrazujici a spravujici stitky prirazene firme |
 
 ### 4. IMAP Proxy (imap-proxy/)
 
@@ -224,16 +235,16 @@ Docker mikrosluzba na portu 3002 (pouze localhost).
 ICO / Rucni zadani
        |
        v
-[WF1: Ingest leadu] --> tabulka leads (status: new)
-       |
+[WF1: Ingest leadu] --> tabulka companies (najde/vytvori firmu)
+       |                 tabulka leads (status: new, company_id → companies)
        v
-[WF2: ARES Lookup] --> enrichment_log, jednatels
-       |               (firemni data, jednatele)
+[WF2: ARES Lookup] --> enrichment_log, contacts (+ jednatels pro zpetnou kompatibilitu)
+       |               (firemni data, kontaktni osoby)
        v
-[WF3: Kurzy Scrape] --> jednatels
-       |                (doplneni dat o jednatelich)
+[WF3: Kurzy Scrape] --> contacts (+ jednatels)
+       |                (doplneni dat o kontaktech)
        v
-[WF4: Generovani e-mailu] --> email_candidates
+[WF4: Generovani e-mailu] --> email_candidates (contact_id + jednatel_id)
        |                      (vzory e-mailovych adres)
        v
 [WF5: Seznam verifikace] --> email_candidates (SMTP VRFY kontrola)
@@ -248,21 +259,23 @@ Lead status: ready (ma overeny e-mail)
 ### Pipeline odesilani e-mailu
 
 ```
-Operator vytvori vlnu v UI
+Operator vytvori vlnu v UI (vybere from_email na vlne)
        |
        v
 [WF7: Planovani vlny] --> email_queue
-       |                   (naplni frontu e-mailu podle sekvence)
+       |                   (naplni frontu e-mailu podle sekvence,
+       |                    pouzije wave.from_email primo)
        v
 [WF8: Odesilaci cron] --> smtp-proxy --> SMTP server
   (kazdych 5 min)        sent_emails
-       |                 (atomicky claim + kontrola denniho limitu)
+       |                 (atomicky claim + kontrola denniho limitu
+       |                  na tabulce teams)
        v
 [WF9: Detekce odpovedi] --> imap-proxy --> IMAP server
   (kazdou 1 min)             lead_replies
        |
        v
-[WF10: Denni reset] --> vynulovani pocitadel v pulnoci
+[WF10: Denni reset] --> vynulovani teams.sends_today v pulnoci
   (pulnocni cron)       cisteni starych bounce zaznamu
 ```
 
@@ -317,21 +330,41 @@ Operator vytvori vlnu v UI
 
 ### Prehled tabulek
 
+#### CRM vrstva (companies + contacts)
+
 | Tabulka | Ucel | Klicove sloupce |
 |---------|------|-----------------|
-| `teams` | Metadata organizace/tymu | id, name, salesman_email |
-| `outreach_accounts` | Odsilaci e-mailove ucty (1 na tym, UNIQUE) | id, team_id, credential_name |
-| `leads` | Firemni leady | id, team_id, ico, company_name, status, master_status |
+| `companies` | Master CRM vrstva — zakladni evidence firem | id, company_name, ico, website, domain, master_status, team_id, created_at, updated_at |
+| `contacts` | Kontaktni osoby firem (nahradi jednatels) | id, company_id, full_name, first_name, last_name, salutation, role, phone, linkedin, other_contact, notes, created_at, updated_at |
+| `company_tags` | Stitky prirazene firmam | company_id, tag_id |
+
+#### Leady a obohacovani
+
+| Tabulka | Ucel | Klicove sloupce |
+|---------|------|-----------------|
+| `teams` | Metadata organizace/tymu | id, name, salesman_email, daily_send_limit, sends_today |
+| `outreach_accounts` | Odsilaci e-mailove ucty (SMTP credentials) | id, team_id, credential_name |
+| `leads` | Firemni leady | id, team_id, ico, company_name, status, master_status, **company_id** (FK → companies) |
 | `enrichment_log` | Historie kroku obohaceni | id, lead_id, step, status, data |
-| `jednatels` | Jednatele/kontakty firem | id, lead_id, full_name, first_name, last_name, salutation |
-| `email_candidates` | Vygenerovane/overene e-mailove adresy | id, jednatel_id, email, verified, source |
+| `jednatels` | Jednatele/kontakty firem (**legacy, docasne zachovano pro zpetnou kompatibilitu**) | id, lead_id, full_name, first_name, last_name, salutation |
+| `email_candidates` | Vygenerovane/overene e-mailove adresy | id, jednatel_id, **contact_id** (FK → contacts), email, verified, source |
+
+#### E-mailove kampane
+
+| Tabulka | Ucel | Klicove sloupce |
+|---------|------|-----------------|
 | `template_sets` | Skupiny e-mailovych sablon | id, team_id, name |
 | `email_templates` | Jednotlive sablony s A/B variantami | id, set_id, sequence, variant, subject, body |
-| `waves` | E-mailove kampane (vlny) | id, team_id, template_set_id, status, scheduled_at |
+| `waves` | E-mailove kampane (vlny) | id, team_id, template_set_id, from_email, status, scheduled_at |
 | `wave_leads` | Leady prirazene do vln | id, wave_id, lead_id, status |
 | `email_queue` | Fronta e-mailu k odeslani | id, wave_lead_id, sequence, status, scheduled_at |
 | `sent_emails` | Zaznamy o odeslanych e-mailech | id, queue_id, message_id, to, subject, sent_at |
 | `lead_replies` | Zaznamy o prijatych odpovedich | id, sent_email_id, lead_id, body, received_at |
+
+#### Systemove a podpurne
+
+| Tabulka | Ucel | Klicove sloupce |
+|---------|------|-----------------|
 | `config` | Runtime konfigurace (klic/hodnota) | key, value |
 | `salesmen` | Obchodnici tymu | id, team_id, name, email |
 | `email_verifications` | Cache overovacu e-mailu | id, email, provider, result |
@@ -342,10 +375,13 @@ Operator vytvori vlnu v UI
 
 ### Klicove vztahy mezi tabulkami
 
-- `leads` patri do `teams` (pres team_id)
-- `outreach_accounts` patri do `teams` (UNIQUE constraint: 1 na tym)
-- `jednatels` patri k `leads` (pres lead_id)
-- `email_candidates` patri k `jednatels` (pres jednatel_id)
+- `companies` patri do `teams` (pres team_id) — master CRM vrstva
+- `contacts` patri k `companies` (pres company_id)
+- `company_tags` propojuje `companies` a tagy (pres company_id, tag_id)
+- `leads` patri do `teams` (pres team_id) a odkazuje na `companies` (pres company_id)
+- `outreach_accounts` patri do `teams` (SMTP credentials)
+- `jednatels` patri k `leads` (pres lead_id) — **legacy, docasne zachovano**
+- `email_candidates` patri k `jednatels` (pres jednatel_id) a/nebo ke `contacts` (pres contact_id)
 - `waves` patri do `teams` a odkazuje na `template_sets`
 - `wave_leads` propojuje `waves` a `leads`
 - `email_queue` odkazuje na `wave_leads`
@@ -355,32 +391,49 @@ Operator vytvori vlnu v UI
 
 ### Databazove funkce
 
+#### Funkce pro CRM vrstvu (companies + contacts)
+
 | Funkce | Ucel |
 |--------|------|
-| `ingest_lead()` | Zpracovani a vlozeni noveho leadu |
-| `reset_daily_sends()` | Vynulovani dennich pocitadel odeslani (volano v pulnoci) |
+| `get_contacts_for_company()` | Ziskani vsech kontaktu pro danou firmu |
+| `get_contacts_for_lead()` | Ziskani vsech kontaktu pro dany lead (pres company_id) |
+| `mark_contacts_email_status()` | Aktualizace stavu overeni e-mailu na kontaktech v tabulce contacts |
+
+#### Puvodni funkce (aktualizovane)
+
+| Funkce | Ucel |
+|--------|------|
+| `ingest_lead()` | Zpracovani a vlozeni noveho leadu — **nyni nejdriv vytvori/najde firmu (company) a propoji lead** |
+| `reset_daily_sends()` | Vynulovani `teams.sends_today` (volano v pulnoci) |
 | `claim_queued_emails()` | Atomicky claim davky e-mailu z fronty |
-| `increment_and_check_sends()` | Atomicka kontrola a inkrementace denniho limitu |
+| `increment_and_check_sends(p_team_id)` | Atomicka kontrola a inkrementace denniho limitu na tabulce `teams` |
 | `get_dashboard_stats()` | Agregovane metriky pro dashboard |
-| `get_jednatels_for_lead()` | Ziskani vsech kontaktu pro dany lead |
+| `get_jednatels_for_lead()` | Ziskani kontaktu pro dany lead — **nyni wrapper nad tabulkou contacts** |
 | `check_email_cache()` | Vyhledani v cache overeni e-mailu |
-| `mark_jednatels_email_status()` | Aktualizace stavu overeni e-mailu na kontaktech |
+| `mark_jednatels_email_status()` | Aktualizace stavu overeni e-mailu (legacy, deleguje na mark_contacts_email_status) |
 | `check_max_salesmen()` | Kontrola limitu poctu obchodniku |
 | `parse_full_name()` | Rozdeleni full_name na first_name a last_name |
 | `generate_salutation()` | Generovani ceskeho osloveni ve vokativu |
-| `backfill_salutations()` | Hromadna regenerace osloveni pro vsechny kontakty |
+| `backfill_salutations()` | Hromadna regenerace osloveni — **nyni pracuje s tabulkou contacts** |
 | `check_and_mark_reply_processed()` | Deduplikace zpracovani odpovedi |
 | `check_lead_duplicates(candidates)` | Kontrola duplicit leadu pred importem (ICO, domena, e-mail, nazev firmy) — globalne pres vsechny tymy |
 | `auto_complete_waves()` | Oznaceni vlny jako dokoncene, kdyz jsou vsechny e-maily odeslany |
 | `reorder_template_sequences()` | Prerazeni poradovych cisel sablon |
 | `handle_lead_reply()` | Trigger funkce pro zpracovani odpovedi |
 
+### Databazove pohledy (views)
+
+| Pohled | Ucel |
+|--------|------|
+| `wave_analytics` | Agregovane statistiky vln — pocty odeslanych, odpovedi, bouncu, stav. Obsahuje `from_email` z tabulky `waves` |
+
 ### Databazove triggery
 
 | Trigger | Tabulka | Udalost | Chovani |
 |---------|---------|---------|---------|
 | `trg_auto_salutation` | `jednatels` | INSERT/UPDATE | Rozlozi `full_name` na krestni/prijmeni, vygeneruje ceske osloveni ve vokativu s predponou "Vazeny pane" / "Vazena pani" |
-| `trg_refresh_salutations_on_wave_add` | `wave_leads` | AFTER INSERT | Aktualizuje `jednatels.updated_at` pro obnovu osloveni u leadu pridanych do vlny |
+| `trg_auto_salutation` | `contacts` | INSERT/UPDATE | Stejna logika jako na jednatels — rozlozi `full_name`, vygeneruje ceske osloveni ve vokativu |
+| `trg_refresh_salutations_on_wave_add` | `wave_leads` | AFTER INSERT | Aktualizuje `contacts.updated_at` (a `jednatels.updated_at` pro zpetnou kompatibilitu) pro obnovu osloveni u leadu pridanych do vlny |
 
 ### Pravidla ceskeho vokativu
 
@@ -422,8 +475,10 @@ System generuje formalni ceska osloveni ve vokativu. Pravidla (v poradi priority
 
 | Pojem | Vysvetleni |
 |-------|-----------|
-| **Lead** | Firemnickontakt urceny k osloveni (identifikovany ICO nebo nazvem firmy) |
-| **Jednatel** | Statutarni organ (reditel, jednatel) firmy — osoba, ktere se odesila e-mail |
+| **Firma (Company)** | Master CRM zaznam firmy — zakladni identifikace (ICO, nazev, domena). Firmy jsou centralni entitou databaze |
+| **Kontakt (Contact)** | Kontaktni osoba firmy (jednatel, reditel, manazer) — ulozena v tabulce `contacts`, navazana na firmu |
+| **Lead** | Firemnickontakt urceny k osloveni (identifikovany ICO nebo nazvem firmy), nyni propojen s firmou pres `company_id` |
+| **Jednatel** | Statutarni organ firmy — legacy pojem, v novem modelu nahrazen pojmem "kontakt" (tabulka `contacts`) |
 | **Vlna (Wave)** | E-mailova kampan — skupina leadu, kteri dostanou sekvenci e-mailu |
 | **Sekvence** | Rada az 3 e-mailu odeslanychpostupne s casovym odstupem (seq1 → seq2 → seq3) |
 | **Template set** | Sada e-mailovych sablon pro vlnu (3 sekvence x 2 A/B varianty) |
