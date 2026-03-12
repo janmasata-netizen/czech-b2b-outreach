@@ -1,7 +1,7 @@
 # Architektura systemu
 
-> Tento dokument popisuje technickou architekturu automatizovaneho B2B e-mail outreach systemu.
-> **Cast 1** obsahuje rychly prehled pro orientaci. **Cast 2** je detailni reference.
+> Tento dokument popisuje technickou architekturu Czech B2B Email Outreach systemu.
+> **Cast 1** obsahuje rychly prehled. **Cast 2** je detailni reference.
 
 ---
 
@@ -21,22 +21,24 @@
 
 ## Co system dela
 
-Czech B2B Email Outreach je automatizovany system pro osloveni ceskych firem studenymi e-maily. System:
+System automatizuje B2B cold email outreach na ceskem trhu. Cely proces:
 
-1. **Prijme firmu** (podle ICO nebo rucne)
-2. **Obohati data** — dohledani v ARES, scrapovani jednatelu z kurzy.cz
-3. **Vygeneruje a overi e-maily** — vzory adres, SMTP verifikace, QEV kontrola
-4. **Odesle e-mailove sekvence** — az 3 e-maily s casovym odstupem
-5. **Detekuje odpovedi** — automaticke parovani prichozich odpovedi
+1. **Nacte firmy** (CSV import nebo rucni pridani) s ruznou urovni enrichmentu (`import_only`, `find_emails`, `full_pipeline`)
+2. **Obohati data** — ARES (ICO lookup), kurzy.cz (jednatele), generovani emailu, verifikace (Seznam, QEV)
+3. **Naplani vlny** — prirazeni leadu do vln, planovani odeslani
+4. **Odesle emaily** — pres SMTP proxy s korektnim threadingem (Message-ID, In-Reply-To, References)
+5. **Detekuje odpovedi** — IMAP proxy + NDR monitoring, automaticke prirazeni k leadum
+
+Cely pipeline je rizen 26+ n8n workflow, data jsou v Supabase (PostgreSQL) a uzivatelske rozhrani je React SPA.
 
 ## Ctyri hlavni komponenty
 
-| # | Komponenta | Co dela | Kde bezi |
-|---|-----------|---------|----------|
-| 1 | **n8n** | Workflow engine — ridici logika celeho pipeline | VPS (Docker) |
-| 2 | **Supabase** | Databaze (PostgreSQL) + autentizace uzivatelu | Cloud (supabase.co) |
-| 3 | **React UI** | Webove rozhrani pro operatory | VPS (Docker, Nginx) |
-| 4 | **IMAP/SMTP proxy** | Mikrosluzby pro e-mailovou komunikaci | VPS (Docker, localhost) |
+| Komponenta | Technologie | Ucel |
+|---|---|---|
+| **n8n** | Self-hosted na Hostinger VPS | Orchestrace vsech workflow (enrichment, odesilani, detekce odpovedi) |
+| **Supabase** | Hostovana PostgreSQL + Auth + Realtime | Databaze, autentizace, Row Level Security, realtime subscriptions |
+| **React UI** | React 19 + Vite + TailwindCSS | Webove rozhrani pro spravu firem, leadu, vln, sablon a nastaveni |
+| **Docker proxy** | Node.js mikro-servisy (IMAP + SMTP) | Reseni omezenych moznosti n8n pro email (threading, \Seen flag) |
 
 ---
 
@@ -45,501 +47,504 @@ Czech B2B Email Outreach je automatizovany system pro osloveni ceskych firem stu
 ## Diagram architektury
 
 ```
-                        +------------------+
-                        |   Operator (UI)  |
-                        +--------+---------+
-                                 |
-                         HTTPS (Vite SPA)
-                                 |
-                        +--------v---------+
-                        |   React UI       |
-                        |   (outreach-ui)  |
-                        +--------+---------+
-                                 |
-                    +------------+------------+
-                    |                         |
-           +-------v--------+       +--------v--------+
-           |   Supabase     |       |   n8n           |
-           |   (DB + Auth)  |       |   (Workflow)    |
-           +-------+--------+       +--------+--------+
-                   |                          |
-                   |            +-------------+-------------+
-                   |            |             |             |
-              PostgreSQL  +----v----+  +-----v-----+ +----v----+
-                          |  SMTP   |  |   IMAP    | | HTTP    |
-                          |  Proxy  |  |   Proxy   | | Pozadav.|
-                          |  :3002  |  |   :3001   | | (ARES,  |
-                          +----+----+  +-----+-----+ | kurzy)  |
-                               |             |        +---------+
-                          SMTP servery  IMAP servery
-                          (odchozi)     (prichozi)
+                         +-----------------------+
+                         |     React UI (SPA)    |
+                         |  Vite + TailwindCSS   |
+                         |  deploy: VPS static   |
+                         +-----------+-----------+
+                                     |
+                            Supabase JS SDK
+                                     |
+              +----------------------+----------------------+
+              |                                             |
+   +----------v----------+                     +------------v-----------+
+   |      Supabase        |                     |         n8n            |
+   |  - PostgreSQL DB     |<--- HTTP/REST ----->|  - 26+ workflow        |
+   |  - Auth (JWT)        |                     |  - Cron + Webhook      |
+   |  - Realtime          |                     |  - Self-hosted VPS     |
+   |  - Row Level Sec.    |                     +--+------------------+--+
+   +----------------------+                        |                  |
+                                                   |                  |
+                                        +----------v---+    +---------v------+
+                                        | IMAP Proxy   |    | SMTP Proxy     |
+                                        | port 3001    |    | port 3002      |
+                                        | imapflow     |    | nodemailer     |
+                                        | BODY.PEEK[]  |    | threading hdr  |
+                                        +--------------+    +----------------+
+                                               |                   |
+                                        +------v---+        +------v---+
+                                        | Mailbox  |        |  SMTP    |
+                                        | (IMAP)   |        |  Server  |
+                                        +----------+        +----------+
 ```
-
-**Legenda:**
-- **Operator** — uzivatel systemu, ktery spravuje leady a vlny
-- **React UI** — webova aplikace (SPA) pristupna pres prohlizec
-- **Supabase** — cloudova databaze s autentizaci
-- **n8n** — workflow engine, ktery ridi veskerou automatizaci
-- **SMTP/IMAP Proxy** — mikrosluzby pro odesilani a prijem e-mailu
-
----
 
 ## Komponenty
 
-### 1. n8n (Workflow Engine)
+### n8n (Orchestrace)
 
-Self-hosted na Hostinger VPS pres Docker. Pristupny na URL nastavene v `N8N_BASE_URL`.
+Self-hosted na Hostinger VPS. Vsechny workflow jsou ulozeny jako JSON v `n8n-workflows/` a spravovany pres API.
 
-**Klicove vlastnosti:**
-- Vsechny workflow jsou ulozeny jako JSON v `n8n-workflows/`
-- Workflow se nahraji pres helper skripty (`push-*.mjs`, `import.mjs`)
-- Webhook endpointy pouzivaji bearer token autentizaci (`N8N_MCP_BEARER`)
-- UI vola n8n webhooky pro spousteni operaci (ingest leadu, planovani vln)
+**Klicova pravidla:**
+- Zadne `$env.*` promenne — Supabase URL/key hardcoded v JSON (bezpecne, bezi na VPS)
+- Code node nema pristup k `fetch` ani `require('https')` — externi volani vzdy pres HTTP Request node
+- Webhook nody musi mit `webhookId` field shodny s `path`
+- emailSend v2.1 nepodporuje custom headers — proto existuje SMTP proxy
 
-> TIP: Seznam vsech workflow s jejich ID najdete v sekci [Reference workflow](#reference-workflow).
+### Supabase (Databaze + Auth)
 
-### 2. Supabase (Databaze + Auth)
+- **23 tabulek** (viz [Databazove schema](#databazove-schema))
+- Autentizace pres Supabase Auth (JWT tokeny)
+- Row Level Security (RLS) na vsech tabulkach
+- Realtime subscriptions pro live aktualizace v UI
+- `config` tabulka pro runtime secrets (seznam_from_email, qev_api_key_1/2/3)
 
-Hostovana Supabase instance poskytuje:
+### React UI
 
-| Sluzba | Popis |
-|--------|-------|
-| **PostgreSQL** | 23+ tabulek — firmy, kontakty, leady, e-maily, vlny, sablony, konfigurace |
-| **Auth** | Autentizace uzivatelu (e-mail + heslo), role (admin / bezny uzivatel) |
-| **RLS** | Row-level security politiky na tabulkach |
-| **Realtime** | Subscriptions pro live aktualizace v UI |
+**Tech stack:**
+- React 19 + TypeScript 5.9
+- Vite 7 (build + dev server)
+- TailwindCSS 3 + tailwindcss-animate
+- Radix UI primitives (dialog, dropdown, tabs, toast, tooltip, atd.)
+- TanStack React Query 5 (server state management)
+- Recharts 3 (grafy na dashboardu)
+- Tiptap 3 (WYSIWYG editor pro sablony)
+- dnd-kit (drag & drop pro razeni sablon)
+- date-fns 4 (formatovani dat)
+- sonner 2 (toast notifikace)
+- cmdk (command palette)
+- DOMPurify (sanitizace HTML)
+- Lucide React (ikony)
 
-UI se pripojuje pres `@supabase/supabase-js` — anon klic (frontend) a service role klic (backend skripty).
+**Deploy:** `npm run build` + `node deploy-ssh2.mjs` (SCP na VPS pres SSH)
 
-### 3. React UI (outreach-ui/)
+#### Routes
 
-Jednostrankova webova aplikace (SPA).
+| Cesta | Stranka | Pristup | Popis |
+|---|---|---|---|
+| `/prehled` | DashboardPage | Vsichni | Hlavni dashboard se statistikami (podporuje casove filtrovani 7d/30d/all) |
+| `/databaze` | DatabasePage | Vsichni | Seznam firem (master CRM) s CSV importem (podporuje enrichment levels) |
+| `/databaze/:id` | CompanyDetailPage | Vsichni | Detail firmy — kontakty, leady, tagy |
+| `/leady` | LeadsPage | Vsichni | Seznam leadu (email outreach vrstva) |
+| `/leady/:id` | LeadDetailPage | Vsichni | Detail leadu — historie emailu, enrichment log |
+| `/vlny` | WavesPage | Vsichni | Seznam vln s planovacim reportem |
+| `/vlny/:id` | WaveDetailPage | Vsichni | Detail vlny — odeslane, neuspesne emaily s retry |
+| `/sablony` | TemplateSetEditor | Vsichni | Sprava sad sablon (drag & drop razeni) |
+| `/sablony/:id` | TemplateSetDetailPage | Vsichni | Detail sady sablon — WYSIWYG editor |
+| `/retarget` | RetargetPoolPage | Vsichni | Pool leadu pro retargeting |
+| `/email-finder` | EmailFinderPage | Admin | Hledani emailu s bulk rezimem a historii v localStorage |
+| `/system` | SystemHealthPage | Admin | Stav systemu — zdravi workflow, proxy, DB |
+| `/nastaveni/*` | SettingsPage | Admin | Nastaveni (vnorene routy nize) |
+| `/nastaveni/tymy` | TeamsSettings | Admin | Sprava tymu (daily_send_limit, retarget_lockout_days) |
+| `/nastaveni/obchodnici` | SalesmenSettings | Admin | Sprava obchodniku |
+| `/nastaveni/uzivatele` | UsersSettings | Admin | Sprava uzivatelu |
+| `/nastaveni/ucty` | OutreachAccountsSettings | Admin | Outreach ucty (SMTP/IMAP) |
+| `/nastaveni/api-klice` | ApiKeysSettings | Admin | Sprava API klicu (QEV, atd.) |
+| `/login` | LoginPage | Verejne | Prihlaseni |
 
-**Technologicky stack:**
+#### Hooks
 
-| Technologie | Ucel |
-|------------|------|
-| React 19 + TypeScript + Vite | Zaklad aplikace |
-| React Router 7 | Klientsky routing |
-| TanStack React Query | Data fetching a cachovani |
-| Supabase JS | Auth a pristup k databazi |
-| Radix UI + TailwindCSS | Styling a komponenty |
-| Tiptap | Rich text editor pro sablony |
-| Recharts | Grafy na dashboardu |
-| DND Kit | Drag-and-drop razeni sablon |
+| Hook | Soubor | Ucel |
+|---|---|---|
+| `useAuth` | `useAuth.ts` | Autentizace — prihlaseni, odhlaseni, session |
+| `useCompanies` | `useCompanies.ts` | CRUD operace nad firmami |
+| `useContacts` | `useContacts.ts` | CRUD operace nad kontakty (nahrazuje jednatels) |
+| `useDashboard` | `useDashboard.ts` | Statistiky dashboardu (get_dashboard_stats RPC, casove rozsahy) |
+| `useForceSend` | `useForceSend.ts` | Vynucene odeslani emailu mimo frontu |
+| `useLeads` | `useLeads.ts` | CRUD operace nad leady |
+| `useMasterLeads` | `useMasterLeads.ts` | Master lead data (propojeni s companies) |
+| `useMobile` | `useMobile.ts` | Detekce mobilniho zarizeni |
+| `useMobileNav` | `useMobileNav.tsx` | Mobilni navigace |
+| `useRealtime` | `useRealtime.ts` | Supabase realtime subscriptions |
+| `useRetargetPool` | `useRetargetPool.ts` | Data pro retarget pool |
+| `useSettings` | `useSettings.ts` | Nastaveni aplikace |
+| `useTags` | `useTags.ts` | Sprava tagu (pro firmy i leady) |
+| `useUsers` | `useUsers.ts` | Sprava uzivatelu |
+| `useWaves` | `useWaves.ts` | CRUD operace nad vlnami |
 
-#### Stranky aplikace
+#### Dalsi UI vlastnosti
 
-| Cesta | Stranka | Pristup | Ucel |
-|-------|---------|---------|------|
-| `/login` | Prihlaseni | Verejne | Prihlaseni do systemu |
-| `/prehled` | Dashboard | Prihlaseny | Prehled statistik a grafu |
-| `/databaze` | Databaze | Prihlaseny | Hlavni databaze firem (companies) |
-| `/databaze/:id` | Detail firmy | Prihlaseny | Detail jedne firmy — kontakty, tagy, propojene leady |
-| `/leady` | Leady | Prihlaseny | Sprava a obohacovani leadu |
-| `/leady/:id` | Detail leadu | Prihlaseny | Detail jednoho leadu |
-| `/vlny` | Vlny | Prihlaseny | Sprava e-mailovych kampani |
-| `/vlny/:id` | Detail vlny | Prihlaseny | Detail jedne vlny |
-| `/email-finder` | Email Finder | Prihlaseny | Nastroj pro vyhledavani e-mailu (4 rezimy: Podle ICO, Podle jmena, Overit e-mail, Prima sonda) |
-| `/retarget` | Retarget Pool | Prihlaseny | Sprava leadu k opetovnemu osloveni |
-| `/nastaveni` | Nastaveni | Pouze admin | Rozcestnik nastaveni |
-| `/nastaveni/tymy` | Tymy | Pouze admin | Sprava tymu (vcetne daily_send_limit) |
-| `/nastaveni/obchodnici` | Obchodnici | Pouze admin | Sprava obchodniku |
-| `/nastaveni/uzivatele` | Uzivatele | Pouze admin | Sprava uzivatelu |
-| `/nastaveni/ucty` | Outreach ucty | Pouze admin | Konfigurace SMTP credentials |
-| `/nastaveni/api-klice` | API klice | Pouze admin | Sprava API klicu |
-| `/nastaveni/sablony` | Sablony | Pouze admin | Editor e-mailovych sablon |
+- **CSV import** podporuje urovne enrichmentu: `import_only` (pouze import), `find_emails` (najdi emaily), `full_pipeline` (kompletni obohaceni)
+- **AddLead dialog** podporuje volbu enrichmentu
+- **Email Finder** ma zakladku pro bulk rezim a historii ulozenou v localStorage
+- **StatusBadge** zobrazuje ikony vedle barev
+- **Error toasty** maji delsi trvani (8s default, Infinity pro kriticke chyby)
+- **Dashboard** podporuje casove filtrovani (7d / 30d / all)
+- **Wave detail** zobrazuje neuspesne emaily s moznosti retry
+- **format.ts** utility pro ceske formatovani dat
 
-**Navigace v sidebar:**
-- Polozky jsou rozdelene do dvou skupin odelenych vizualni carou:
-  - **Datova sekce:** Prehled, Databaze (firmy/companies), Leady
-  - **Akcni sekce:** Vlny, Email Finder, Retarget
-- Stranky Databaze, Leady, Vlny a Email Finder maji podzalozky v postrannim SubPanelu (desktop) nebo v rozbalovaciim menu (mobil)
+### IMAP Proxy
 
-> Pouze pro roli Admin: Vsechny stranky v sekci `/nastaveni` vyzaduji roli administratora.
+**Umisteni:** `imap-proxy/` | **Port:** 3001 (127.0.0.1 only) | **Docker**
 
-#### React hooky
+**Proc existuje:** n8n emailReadImap oznacuje emaily jako `\Seen` navzdory workaroundum a zaroven zpusobuje IMAP connection leaky.
 
-| Hook | Ucel |
-|------|------|
-| `useAuth` | Autentizace, profil, kontrola role |
-| `useDashboard` | Statistiky, grafy, obnova dat |
-| `useForceSend` | Rucni odeslani vlny |
-| `useLeads` | CRUD operace s leady, filtry, strankování |
-| `useCompanies` | CRUD operace s firmami, filtry, strankování |
-| `useContacts` | CRUD operace s kontakty, vazba na firmy |
-| `useMasterLeads` | Pohled na hlavni databazi leadu (legacy) |
-| `useWaves` | CRUD operace s vlnami, stav, sekvence |
-| `useRealtime` | Supabase realtime subscriptions |
-| `useRetargetPool` | Logika retarget poolu |
-| `useSettings` | Konfigurace, credentials, sablony |
-| `useTags` | System stitkovani leadu a firem |
-| `useUsers` | Sprava uzivatelu |
-| `useMobile` | Detekce responzivniho breakpointu |
-| `useMobileNav` | Stav mobilni navigace |
+**Technologie:** Node.js + imapflow + mailparser
 
-#### Klicove komponenty pro CRM vrstvu
+**API:**
+- `POST /check-inbox` — `{ "credential_name": "Salesman IMAP 1" }` → `{ success, emails: [...] }`
+- `GET /health` → `{ "status": "ok" }`
 
-| Komponenta | Ucel |
-|------------|------|
-| `CompanyDetailPage` | Stranka `/databaze/:id` — zobrazuje detail firmy s kartami kontaktu, tagu a propojenych leadu |
-| `ContactsCard` | Karta zobrazujici kontaktni osoby firmy (nahrazuje JednatelsCard) |
-| `CompanyTagsCard` | Karta zobrazujici a spravujici stitky prirazene firme |
+**Bezpecnost:**
+- Bearer token autentizace (`PROXY_AUTH_TOKEN`)
+- Rate limiting (60 req/min na IP, sliding window)
+- Max body size: 1 MB
+- Pristupne pouze z lokalni site (127.0.0.1)
 
-### 4. IMAP Proxy (imap-proxy/)
+**Konfigurace:** `config.json` (gitignored) — IMAP credentials dle slot name. Pridani obchodnika = nova polozka v `config.json` → `docker restart imap-proxy`.
 
-Docker mikrosluzba na portu 3001 (pouze localhost).
+### SMTP Proxy
 
-**Proc existuje:** n8n uzel `emailReadImap` oznacuje e-maily jako prectene (`\Seen`) a unika IMAP spojeni. Proxy pouziva `BODY.PEEK[]` — cte bez oznaceni.
+**Umisteni:** `smtp-proxy/` | **Port:** 3002 (127.0.0.1 only) | **Docker**
 
-| Metoda | Cesta | Pozadavek | Odpoved |
-|--------|-------|-----------|---------|
-| GET | `/health` | — | `{ status: "ok" }` |
-| POST | `/check-inbox` | `{ credential_name: "..." }` | `{ success, emails: [...] }` |
+**Proc existuje:** n8n emailSend/betterEmailSend neumoznuje nastavit threading hlavicky (nodemailer prepisuje chranene hlavicky).
 
-**Konfigurace:** `config.json` (gitignored), sablona v `config.example.json`. Kazdy credential je klicem podle nazvu slotu (napr. `"Salesman IMAP 1"`).
+**Technologie:** Node.js + nodemailer
 
-**Zabezpeceni a spolehlivost:**
-- `PROXY_AUTH_TOKEN` — povinny Bearer token pro autentizaci pozadavku (nastaveny v `docker-compose.yml`)
-- Rate limiting (60 req/min per IP)
-- Graceful shutdown — SIGTERM/SIGINT handler umozni dokoncit rozpracovane pozadavky (10s timeout)
-- Docker healthcheck na `/health` (interval 30s, 3 retries)
+**API:**
+- `POST /send-email` — `{ credential_name, from, to, subject, html, replyTo, messageId, inReplyTo, references }` → `{ success, messageId, response }`
+- `GET /health` → `{ "status": "ok" }`
 
-### 5. SMTP Proxy (smtp-proxy/)
+**Bezpecnost:**
+- Bearer token autentizace (`PROXY_AUTH_TOKEN`)
+- Rate limiting (120 req/min na IP, sliding window)
+- Max body size: 1 MB
+- Pristupne pouze z lokalni site (127.0.0.1)
 
-Docker mikrosluzba na portu 3002 (pouze localhost).
+**Konfigurace:** `config.json` (gitignored) — SMTP credentials dle credential name. Transporter instance kesirovany s 30min TTL.
 
-**Proc existuje:** n8n uzel `emailSend` v2.1 nepodporuje vlastni hlavicky pro e-mailovy threading (Message-ID, In-Reply-To, References). Proxy pouziva `nodemailer` s podporou threadingu.
-
-| Metoda | Cesta | Pozadavek | Odpoved |
-|--------|-------|-----------|---------|
-| GET | `/health` | — | `{ status: "ok" }` |
-| POST | `/send-email` | `{ credential_name, from, to, subject, html, replyTo?, messageId?, inReplyTo?, references? }` | `{ success, messageId, response }` |
-
-**Konfigurace:** `config.json` (gitignored), sablona v `config.example.json`. Transporter caching (30min TTL).
-
-**Zabezpeceni a spolehlivost:**
-- `PROXY_AUTH_TOKEN` — povinny Bearer token pro autentizaci pozadavku (nastaveny v `docker-compose.yml`)
-- Rate limiting (120 req/min per IP)
-- Validace e-mailoveho formatu a ochrana proti header injection (CRLF v subjectu)
-- Graceful shutdown — SIGTERM/SIGINT handler zavre vsechny SMTP transportery a docka na ukonceni spojeni (10s timeout)
-- Docker healthcheck na `/health` (interval 30s, 3 retries)
+**Threading:** Pouziva nodemailer's dedicated `messageId`, `inReplyTo`, `references` mail options (NE headers objekt).
 
 ---
 
 ## Datove toky
 
-### Pipeline obohaceni leadu
+### 1. Enrichment pipeline
 
 ```
-ICO / Rucni zadani
-       |
-       v
-[WF1: Ingest leadu] --> tabulka companies (najde/vytvori firmu)
-       |                 tabulka leads (status: new, company_id → companies)
-       v
-[WF2: ARES Lookup] --> enrichment_log, contacts (+ jednatels pro zpetnou kompatibilitu)
-       |               (firemni data, kontaktni osoby)
-       v
-[WF3: Kurzy Scrape] --> contacts (+ jednatels)
-       |                (doplneni dat o kontaktech)
-       v
-[WF4: Generovani e-mailu] --> email_candidates (contact_id + jednatel_id)
-       |                      (vzory e-mailovych adres)
-       v
-[WF5: Seznam verifikace] --> email_candidates (SMTP VRFY kontrola)
-       |
-       v
-[WF6: QEV verifikace] --> email_candidates (kontrola dorucitelnosti)
-       |
-       v
-Lead status: ready (ma overeny e-mail)
+CSV import / AddLead dialog (s volbou enrichment level)
+        |
+        v
+   WF1: Lead Ingest (webhook:lead-ingest)
+   - Vytvori/najde company → vytvori lead
+   - ingest_lead() RPC
+        |
+        v
+   WF2: ARES Lookup (webhook:wf2-ares)
+   - ICO → nazev firmy, adresa, pravni forma
+   - Vola BE i VR endpoint (merge jednatelu)
+        |
+        v
+   WF3: Kurzy Scrape (webhook:wf3-kurzy)
+   - Scraping jednatelu z kurzy.cz
+   - Uklada do contacts tabulky
+        |
+        v
+   WF4: Email Gen (webhook:wf4-email-gen)
+   - Generuje emailove adresy z jmena + domeny
+   - Uklada do email_candidates
+        |
+        v
+   WF5: Seznam Verify (webhook:wf5-seznam)
+   - Overeni pres Seznam (zda email existuje)
+   - Nacita seznam_from_email z config tabulky
+        |
+        v
+   WF6: QEV Verify (webhook:wf6-qev)
+   - Quick Email Verification API
+   - 3 rotujici API klice z config tabulky
+        |
+        v
+   Lead je pripraven k odesilani (status: ready)
 ```
 
-### Pipeline odesilani e-mailu
+**Doplnkove enrichment workflow:**
+- **WF11: Website Fallback** — kdyz ARES nenajde domain, pokusi se ji ziskat z webu
+- **WF12: ICO Scrape** — scraping ICO z webovych stranek
+- **wf-email-finder / v2** — samostatny nastroj pro hledani emailu (pouziva se z EmailFinderPage)
+
+### 2. Sending pipeline
 
 ```
-Operator vytvori vlnu v UI (vybere from_email na vlne)
-       |
-       v
-[WF7: Planovani vlny] --> email_queue
-       |                   (naplni frontu e-mailu podle sekvence,
-       |                    pouzije wave.from_email primo)
-       v
-[WF8: Odesilaci cron] --> smtp-proxy --> SMTP server
-  (kazdych 5 min)        sent_emails
-       |                 (atomicky claim + kontrola denniho limitu
-       |                  na tabulce teams)
-       v
-[WF9: Detekce odpovedi] --> imap-proxy --> IMAP server
-  (kazdou 1 min)             lead_replies
-       |
-       v
-[WF10: Denni reset] --> vynulovani teams.sends_today v pulnoci
-  (pulnocni cron)       cisteni starych bounce zaznamu
+   WF7: Wave Schedule (webhook:wf7-wave-schedule)
+   - Prirazeni leadu do vlny → email_queue
+   - Tracking preskacenych leadu v scheduling_report
+   - Ulozi scheduling_report do waves tabulky
+        |
+        v
+   WF8: Send Cron (cron:every-5min)
+   - claim_queued_emails() — atomicke prevzeti emailu z fronty
+   - increment_and_check_sends(team_id) — kontrola dennich limitu
+   - Odeslani pres SMTP proxy s threading hlavickami
+   - Vylepseny null guard pro threading
+   - Po dokonceni: auto_complete_waves()
+        |
+        v
+   WF9: Reply Detection (cron:every-1min)
+   - Cteni odpovedi pres IMAP proxy
+   - Prirazeni k leadum pres handle_lead_reply() trigger
+        |
+        v
+   WF10: Daily Reset (cron:midnight)
+   - reset_daily_sends() — vynulovani teams.sends_today
+   - Mazani starych email_probe_bounces
 ```
 
-### Doplnkove workflow
+**Doplnkove odesilaci workflow:**
+- **wf-force-send** — vynucene odeslani mimo standardni frontu
+- **wf-ndr-monitor** — monitoring NDR (bounce) zprav z INBOX
+- **wf-ndr-monitor-spam** — monitoring NDR ze spam slozky
+- **sub-smtp-check** — sub-workflow pro kontrolu SMTP
+- **sub-burner-probe** — sub-workflow pro probe testovani
+- **sub-reply-check** — sub-workflow pro kontrolu odpovedi
 
-| Workflow | Ucel |
-|----------|------|
-| WF11 (Website Fallback) | Scrapuje firemni web, kdyz jine obohaceni selze |
-| WF12 (ICO Scrape) | Davkovy lookup ICO z externich zdroju |
-| WF13 (GSheet Proxy) | Import leadu z Google Sheets |
-| wf-email-finder / v2 | Samostatny nastroj pro hledani e-mailu |
-| wf-ndr-monitor / spam | Detekce bouncu/NDR z INBOX a spam slozky |
-| wf-force-send | Rucni spusteni odeslani (pro testovani) |
-| wf-admin-users | Webhook pro spravu uzivatelu |
-| backfill-salutations | Hromadna regenerace osloveni |
+### 3. Doplnkove workflow
+
+- **WF13: GSheet Proxy** — proxy pro Google Sheets integraci
+- **email-verification sub-wf** — sdileny sub-workflow pro overeni emailu
+- **wf-verify-wave** — overeni vsech emailu ve vlne
+- **backfill-salutations** — hromadne doplneni oslovovani (vokativ)
+- **wf-admin-users** — sprava uzivatelu (admin API)
 
 ---
 
 ## Reference workflow
 
-| Soubor | n8n ID | Spoustec | Ucel |
-|--------|--------|----------|------|
-| wf1-lead-ingest.json | beB84wDnEG2soY1m | webhook:lead-ingest | Prijem novych leadu do systemu |
-| wf2-ares-lookup.json | 2i6zvyAy3j7BjaZE | webhook:wf2-ares | Dohledani firemnich dat v ARES |
-| wf3-kurzy-scrape.json | nPbr15LJxGaZUqo7 | webhook:wf3-kurzy | Scrapovani jednatelu z kurzy.cz |
-| wf4-email-gen.json | RNuSFAtwoEAkb9rA | webhook:wf4-email-gen | Generovani vzoru e-mailovych adres |
-| wf5-seznam-verify.json | 7JzGHAG24ra3977B | webhook:wf5-seznam | Overeni e-mailu pres SMTP VRFY |
-| wf6-qev-verify.json | EbKgRSRr2Poe34vH | webhook:wf6-qev | Overeni dorucitelnosti pres QEV |
-| wf7-wave-schedule.json | TVNOzjSnaWrmTlqw | webhook:wf7-wave-schedule | Naplanovani vlny do fronty |
-| wf8-send-cron.json | wJLD5sFxddNNxR7p | cron:kazdych-5min | Odeslani e-mailu z fronty |
-| wf9-reply-detection.json | AaHXknYh9egPDxcG | cron:kazdou-1min | Detekce odpovedi pres IMAP |
-| wf10-daily-reset.json | 50Odnt5vzIMfSBZE | cron:pulnoc | Denni reset limitu a cisteni bouncu |
-| wf11-website-fallback.json | E5QzxzZe4JbSv5lU | webhook:wf11-website-fallback | Fallback obohaceni z firemniho webu |
-| wf12-ico-scrape.json | LGEe4MTELj5lmOFX | webhook:wf12-ico-scrape | Davkove scrapovani ICO |
-| wf13-gsheet-proxy.json | ENcE8iMWLNwIPc5a | webhook:gsheet-proxy | Import leadu z Google Sheets |
-| email-verification-subwf.json | Aov5PfwmBDv51L0e | executeWorkflowTrigger | Sub-workflow overeni e-mailu |
-| wf-verify-wave.json | ttKdYcbucijqiaSp | — | Overeni vsech e-mailu ve vlne |
-| wf-email-finder.json | N3cuyKRHS4wEyOwq | webhook:wf-email-finder | Nastroj pro hledani e-mailu (v1) |
-| wf-email-finder-v2.json | 6sc6c0ZSuglJ548A | webhook:wf-email-finder-v2 | Nastroj pro hledani e-mailu (v2) |
-| wf-ndr-monitor.json | xMPbk9HwSRGjBbdq | IMAP-trigger:INBOX | Monitorovani INBOX pro bounce/NDR |
-| wf-ndr-monitor-spam.json | RxeW59ubWwOsDRqx | IMAP-trigger:spam | Monitorovani spam slozky pro bounce/NDR |
-| sub-smtp-check.json | L6D2HcFYoNorgiom | executeWorkflowTrigger | Sub-workflow SMTP kontroly |
-| sub-burner-probe.json | 9J5svDvgXBkZtOLX | webhook:sub-burner-probe | Burner e-mail probe |
-| sub-reply-check.json | WjbYMqMXDxkjIssL | executeWorkflowTrigger | Sub-workflow kontroly odpovedi |
-| wf-backfill-salutations.json | xbJfPwwNRIBtFtAX | webhook:backfill-salutations | Hromadna regenerace osloveni |
-| wf-force-send.json | DPmnV2dRsbBMLAmz | webhook:wf-force-send | Rucni odeslani e-mailu |
-| wf-admin-users.json | JeP8whw3jNtL6VJ1 | webhook:admin-users | Webhook pro spravu uzivatelu |
+Kompletni seznam vsech n8n workflow s identifikatory:
+
+| Workflow | n8n ID | Trigger | Popis |
+|---|---|---|---|
+| wf1-lead-ingest | beB84wDnEG2soY1m | webhook:lead-ingest | Prijem a vytvoreni leadu (ingest_lead RPC) |
+| wf2-ares-lookup | 2i6zvyAy3j7BjaZE | webhook:wf2-ares | ARES ICO lookup (BE + VR endpoint) |
+| wf3-kurzy-scrape | nPbr15LJxGaZUqo7 | webhook:wf3-kurzy | Scraping jednatelu z kurzy.cz |
+| wf4-email-gen | RNuSFAtwoEAkb9rA | webhook:wf4-email-gen | Generovani emailovych adres |
+| wf5-seznam-verify | 7JzGHAG24ra3977B | webhook:wf5-seznam | Overeni emailu pres Seznam |
+| wf6-qev-verify | EbKgRSRr2Poe34vH | webhook:wf6-qev | Overeni emailu pres QEV API |
+| wf7-wave-schedule | TVNOzjSnaWrmTlqw | webhook:wf7-wave-schedule | Planovani vlny + scheduling_report |
+| wf8-send-cron | wJLD5sFxddNNxR7p | cron:every-5min | Odesilani emailu z fronty |
+| wf9-reply-detection | AaHXknYh9egPDxcG | cron:every-1min | Detekce odpovedi pres IMAP proxy |
+| wf10-daily-reset | 50Odnt5vzIMfSBZE | cron:midnight | Reset dennich pocitadel + cisteni |
+| wf11-website-fallback | E5QzxzZe4JbSv5lU | webhook:wf11-website-fallback | Fallback ziskani domeny z webu |
+| wf12-ico-scrape | LGEe4MTELj5lmOFX | webhook:wf12-ico-scrape | Scraping ICO z webovych stranek |
+| wf13-gsheet-proxy | ENcE8iMWLNwIPc5a | webhook:gsheet-proxy | Google Sheets proxy |
+| email-verification sub-wf | Aov5PfwmBDv51L0e | executeWorkflowTrigger | Sdileny sub-workflow pro overeni emailu |
+| wf-verify-wave | ttKdYcbucijqiaSp | — | Overeni vsech emailu ve vlne |
+| wf-email-finder | N3cuyKRHS4wEyOwq | webhook:wf-email-finder | Email finder v1 |
+| wf-email-finder-v2 | 6sc6c0ZSuglJ548A | webhook:wf-email-finder-v2 | Email finder v2 (bulk rezim) |
+| wf-ndr-monitor | xMPbk9HwSRGjBbdq | IMAP-trigger:INBOX | NDR monitoring — INBOX |
+| wf-ndr-monitor-spam | RxeW59ubWwOsDRqx | IMAP-trigger:spam | NDR monitoring — spam |
+| sub-smtp-check | L6D2HcFYoNorgiom | executeWorkflowTrigger | Sub-workflow: SMTP kontrola |
+| sub-burner-probe | 9J5svDvgXBkZtOLX | webhook:sub-burner-probe | Sub-workflow: burner probe test |
+| sub-reply-check | WjbYMqMXDxkjIssL | executeWorkflowTrigger | Sub-workflow: kontrola odpovedi |
+| backfill-salutations | xbJfPwwNRIBtFtAX | webhook:backfill-salutations | Hromadne doplneni oslovovani |
+| wf-force-send | DPmnV2dRsbBMLAmz | webhook:wf-force-send | Vynucene odeslani emailu |
+| wf-admin-users | JeP8whw3jNtL6VJ1 | webhook:admin-users | Admin sprava uzivatelu |
 
 ---
 
 ## Databazove schema
 
-### Prehled tabulek
+### Tabulky
 
-#### CRM vrstva (companies + contacts)
+#### Hlavni entity
 
-| Tabulka | Ucel | Klicove sloupce |
-|---------|------|-----------------|
-| `companies` | Master CRM vrstva — zakladni evidence firem | id, company_name, ico, website, domain, master_status, team_id, created_at, updated_at |
-| `contacts` | Kontaktni osoby firem (nahradi jednatels) | id, company_id, full_name, first_name, last_name, salutation, role, phone, linkedin, other_contact, notes, created_at, updated_at |
-| `company_tags` | Stitky prirazene firmam | company_id, tag_id |
+| Tabulka | Popis | Klicove sloupce |
+|---|---|---|
+| `teams` | Tymy (organizace) | id, daily_send_limit, sends_today, salesman_email, retarget_lockout_days |
+| `outreach_accounts` | Outreach ucty (1 na tym, UNIQUE team_id) | id, team_id, smtp/imap konfigurace |
+| `companies` | **Master CRM** — vsechny firmy | id, company_name, ico, website, domain, master_status, team_id, created_at, updated_at |
+| `leads` | **Email outreach vrstva** — navazano na companies | id, company_id (FK → companies), status, team_id |
+| `contacts` | Kontaktni osoby firem (nahrazuje jednatels) | id, company_id (FK → companies), full_name, first_name, last_name, salutation, role, phone, linkedin, other_contact, notes, created_at, updated_at |
+| `jednatels` | **Deprecated** — zachovano pro zpetnou kompatibilitu | Stejna UUID jako contacts |
+| `salesmen` | Obchodnici | id, jmeno, email, team_id |
+| `profiles` | Uzivatelske profily (Supabase Auth) | id, role (admin/user) |
 
-#### Leady a obohacovani
+#### Emailove entity
 
-| Tabulka | Ucel | Klicove sloupce |
-|---------|------|-----------------|
-| `teams` | Metadata organizace/tymu | id, name, salesman_email, daily_send_limit, sends_today |
-| `outreach_accounts` | Odsilaci e-mailove ucty (SMTP credentials) | id, team_id, credential_name |
-| `leads` | Firemni leady | id, team_id, ico, company_name, status, master_status, **company_id** (FK → companies) |
-| `enrichment_log` | Historie kroku obohaceni | id, lead_id, step, status, data |
-| `jednatels` | Jednatele/kontakty firem (**legacy, docasne zachovano pro zpetnou kompatibilitu**) | id, lead_id, full_name, first_name, last_name, salutation |
-| `email_candidates` | Vygenerovane/overene e-mailove adresy | id, jednatel_id, **contact_id** (FK → contacts), email, verified, source |
+| Tabulka | Popis |
+|---|---|
+| `email_candidates` | Vygenerovane emailove adresy (ma jednatel_id i contact_id) |
+| `email_verifications` | Vysledky overeni emailu |
+| `email_probe_bounces` | Zaznamy bounce testu |
+| `email_queue` | Fronta emailu k odeslani |
+| `sent_emails` | Odeslane emaily |
 
-#### E-mailove kampane
+#### Vlny a sablony
 
-| Tabulka | Ucel | Klicove sloupce |
-|---------|------|-----------------|
-| `template_sets` | Skupiny e-mailovych sablon | id, team_id, name |
-| `email_templates` | Jednotlive sablony s A/B variantami | id, set_id, sequence, variant, subject, body |
-| `waves` | E-mailove kampane (vlny) | id, team_id, template_set_id, from_email, status, scheduled_at |
-| `wave_leads` | Leady prirazene do vln | id, wave_id, lead_id, status |
-| `email_queue` | Fronta e-mailu k odeslani | id, wave_lead_id, sequence, status, scheduled_at |
-| `sent_emails` | Zaznamy o odeslanych e-mailech | id, queue_id, message_id, to, subject, sent_at |
-| `lead_replies` | Zaznamy o prijatych odpovedich | id, sent_email_id, lead_id, body, received_at |
+| Tabulka | Popis |
+|---|---|
+| `waves` | Vlny odesilani (from_email, scheduling_report) |
+| `wave_leads` | Prirazeni leadu do vln |
+| `template_sets` | Sady sablon |
+| `email_templates` | Jednotlive sablony (sequence v ramci sady) |
 
-#### Systemove a podpurne
+#### Odpovedi
 
-| Tabulka | Ucel | Klicove sloupce |
-|---------|------|-----------------|
-| `config` | Runtime konfigurace (klic/hodnota) | key, value |
-| `salesmen` | Obchodnici tymu | id, team_id, name, email |
-| `email_verifications` | Cache overovacu e-mailu | id, email, provider, result |
-| `email_probe_bounces` | Zaznamy o detekci bouncu | id, email, bounce_type, detected_at |
-| `profiles` | Uzivatelske profily (navazane na Supabase auth) | id, email, role, display_name |
-| `processed_reply_emails` | Deduplikace odpovedi | id, message_id, processed_at |
-| `unmatched_replies` | Odpovedi, ktere nebyly sparovany s odeslanyim e-mailem | id, raw_from, raw_subject, received_at |
+| Tabulka | Popis |
+|---|---|
+| `lead_replies` | Odpovedi prirazene k leadum |
+| `processed_reply_emails` | Zpracovane emaily odpovedi (deduplikace) |
+| `unmatched_replies` | Odpovedi, ktere se nepodarilo prirazit |
 
-### Klicove vztahy mezi tabulkami
+#### Konfigurace a tagy
 
-- `companies` patri do `teams` (pres team_id) — master CRM vrstva
-- `contacts` patri k `companies` (pres company_id)
-- `company_tags` propojuje `companies` a tagy (pres company_id, tag_id)
-- `leads` patri do `teams` (pres team_id) a odkazuje na `companies` (pres company_id)
-- `outreach_accounts` patri do `teams` (SMTP credentials)
-- `jednatels` patri k `leads` (pres lead_id) — **legacy, docasne zachovano**
-- `email_candidates` patri k `jednatels` (pres jednatel_id) a/nebo ke `contacts` (pres contact_id)
-- `waves` patri do `teams` a odkazuje na `template_sets`
-- `wave_leads` propojuje `waves` a `leads`
-- `email_queue` odkazuje na `wave_leads`
-- `sent_emails` odkazuje na `email_queue`
-- `lead_replies` odkazuje na `sent_emails` a `leads`
-- `salesmen` patri do `teams`
+| Tabulka | Popis |
+|---|---|
+| `config` | Key/value konfigurace (seznam_from_email, qev_api_key_1/2/3) |
+| `tags` | Definice tagu |
+| `lead_tags` | Prirazeni tagu k leadum |
+| `company_tags` | Prirazeni tagu k firmam (company_id, tag_id) |
+| `enrichment_log` | Log enrichment kroku |
 
-### Databazove funkce
+### Dvouvrstva architektura
 
-#### Funkce pro CRM vrstvu (companies + contacts)
+```
++-------------------+           +-------------------+
+|    companies      |           |     contacts      |
+|  (Master CRM)     |<---------| (kontaktni osoby) |
+|                   |  1:N      |                   |
+|  ico, domain,     |           |  full_name,       |
+|  master_status    |           |  salutation,      |
+|  team_id          |           |  role, notes      |
++--------+----------+           +-------------------+
+         |
+         | 1:N
+         |
++--------v----------+
+|      leads         |
+| (email outreach)   |
+|                    |
+|  company_id (FK)   |
+|  status, team_id   |
++--------------------+
+```
 
-| Funkce | Ucel |
-|--------|------|
-| `get_contacts_for_company()` | Ziskani vsech kontaktu pro danou firmu |
-| `get_contacts_for_lead()` | Ziskani vsech kontaktu pro dany lead (pres company_id) |
-| `mark_contacts_email_status()` | Aktualizace stavu overeni e-mailu na kontaktech v tabulce contacts |
+- **`companies`** = Master CRM, zobrazeno na `/databaze`. Unikatni indexy na `ico` (WHERE NOT NULL) a `domain` (WHERE NOT NULL).
+- **`leads`** = Email outreach vrstva, zobrazeno na `/leady`. Kazdy lead patri jedne firme.
+- **`contacts`** = Kontaktni osoby (nahrazuji tabulku `jednatels`). Stejna UUID pro zpetnou kompatibilitu.
 
-#### Puvodni funkce (aktualizovane)
+### DB funkce
 
-| Funkce | Ucel |
-|--------|------|
-| `ingest_lead()` | Zpracovani a vlozeni noveho leadu — **nyni nejdriv vytvori/najde firmu (company) a propoji lead** |
-| `reset_daily_sends()` | Vynulovani `teams.sends_today` (volano v pulnoci) |
-| `claim_queued_emails()` | Atomicky claim davky e-mailu z fronty |
-| `increment_and_check_sends(p_team_id)` | Atomicka kontrola a inkrementace denniho limitu na tabulce `teams` |
-| `get_dashboard_stats()` | Agregovane metriky pro dashboard |
-| `get_jednatels_for_lead()` | Ziskani kontaktu pro dany lead — **nyni wrapper nad tabulkou contacts** |
-| `check_email_cache()` | Vyhledani v cache overeni e-mailu |
-| `mark_jednatels_email_status()` | Aktualizace stavu overeni e-mailu (legacy, deleguje na mark_contacts_email_status) |
-| `check_max_salesmen()` | Kontrola limitu poctu obchodniku |
-| `parse_full_name()` | Rozdeleni full_name na first_name a last_name |
-| `generate_salutation()` | Generovani ceskeho osloveni ve vokativu |
-| `backfill_salutations()` | Hromadna regenerace osloveni — **nyni pracuje s tabulkou contacts** |
-| `check_and_mark_reply_processed()` | Deduplikace zpracovani odpovedi |
-| `check_lead_duplicates(candidates)` | Kontrola duplicit leadu pred importem (ICO, domena, e-mail, nazev firmy) — globalne pres vsechny tymy |
-| `auto_complete_waves()` | Oznaceni vlny jako dokoncene, kdyz jsou vsechny e-maily odeslany |
-| `reorder_template_sequences()` | Prerazeni poradovych cisel sablon |
-| `handle_lead_reply()` | Trigger funkce pro zpracovani odpovedi |
+| Funkce | Popis |
+|---|---|
+| `ingest_lead()` | Vytvori/najde company, pak vytvori lead |
+| `reset_daily_sends()` | Resetuje `teams.sends_today` na 0 |
+| `handle_lead_reply()` | Trigger pri vlozeni odpovedi — aktualizuje lead status |
+| `get_dashboard_stats()` | Statistiky pro dashboard (podporuje casove rozsahy) |
+| `claim_queued_emails()` | Atomicke prevzeti emailu z fronty (WF8) |
+| `increment_and_check_sends(p_team_id)` | Inkrementuje `teams.sends_today`, kontroluje limit |
+| `get_contacts_for_lead()` | Kontakty pro lead (pres leads.company_id) |
+| `get_contacts_for_company()` | Kontakty pro firmu |
+| `get_jednatels_for_lead()` | Wrapper — cte z contacts pres leads.company_id |
+| `check_email_cache()` | Kontrola cache overeni emailu |
+| `mark_contacts_email_status()` | Oznaceni stavu emailu kontaktu |
+| `mark_jednatels_email_status()` | Oznaceni stavu emailu jednatelu (compat) |
+| `check_max_salesmen()` | Kontrola max poctu obchodniku |
+| `parse_full_name()` | Parsovani celeho jmena na casti |
+| `generate_salutation()` | Generovani oslovovani (cesky vokativ) |
+| `backfill_salutations()` | Hromadne doplneni — iteruje contacts + jednatels |
+| `check_and_mark_reply_processed()` | Oznaceni odpovedi jako zpracovane (deduplikace) |
+| `auto_complete_waves()` | Automaticke dokonceni vln po odeslani vsech emailu |
+| `reorder_template_sequences()` | Prerazeni sekvenci sablon |
 
-### Databazove pohledy (views)
+### DB triggery
 
-| Pohled | Ucel |
-|--------|------|
-| `wave_analytics` | Agregovane statistiky vln — pocty odeslanych, odpovedi, bouncu, stav. Obsahuje `from_email` z tabulky `waves` |
+| Trigger | Tabulka | Popis |
+|---|---|---|
+| `trg_auto_salutation` | `jednatels`, `contacts` | Pri INSERT/UPDATE vzdy re-derivuje `first_name`/`last_name` z `full_name` a regeneruje `salutation` (cesky vokativ). `full_name` je jediny zdroj pravdy. Vsechna muzska jmena se sklonovani bez vyjimek. |
+| `trg_refresh_salutations_on_wave_add` | `wave_leads` | Po INSERT touchne `contacts.updated_at` (pres leads.company_id) a `jednatels.updated_at`, cimz spusti `trg_auto_salutation` pro cerstve oslovovani. |
 
-### Databazove triggery
+### Vokativni pravidla (ceska jmena)
 
-| Trigger | Tabulka | Udalost | Chovani |
-|---------|---------|---------|---------|
-| `trg_auto_salutation` | `jednatels` | INSERT/UPDATE | Rozlozi `full_name` na krestni/prijmeni, vygeneruje ceske osloveni ve vokativu s predponou "Vazeny pane" / "Vazena pani" |
-| `trg_auto_salutation` | `contacts` | INSERT/UPDATE | Stejna logika jako na jednatels — rozlozi `full_name`, vygeneruje ceske osloveni ve vokativu |
-| `trg_refresh_salutations_on_wave_add` | `wave_leads` | AFTER INSERT | Aktualizuje `contacts.updated_at` (a `jednatels.updated_at` pro zpetnou kompatibilitu) pro obnovu osloveni u leadu pridanych do vlny |
+System automaticky generuje formalni oslovovani ve vokativu:
+- **Muzi:** `Vazeny pane Novaku`
+- **Zeny:** `Vazena pani Novakova`
 
-### Pravidla ceskeho vokativu
+Sablony pouzivaji `{{salutation}},` primo — zadny prefix v sablone.
 
-System generuje formalni ceska osloveni ve vokativu. Pravidla (v poradi priority):
+Pravidla inflexe (v poradi priority):
 
 | Pravidlo | Priklad |
-|----------|---------|
-| Adjektivni prijmeni (typu -y/-i) | beze zmeny |
-| Koncovka `-ek` | `-ku` (Novacek → Novacku) |
-| Koncovka `-ec` | `-ce` (Nemec → Nemce) |
-| Koncovka `-el` | `-le` (Havel → Havle) |
-| Koncovka `-a` | `-o` (Kafka → Kafko) |
-| Digrafy (th/ph/gh) | pridej `-e` |
-| Koncovka `-k/-h/-g` | pridej `-u` (Novak → Novaku) |
-| Mekke souhlasky | pridej `-i` |
-| Ostatni souhlasky (vcetne w/x/q) | pridej `-e` |
+|---|---|
+| Adjektivni typ (-sky, -cky, atd.) | beze zmeny |
+| -ek → -ku | Novacek → Novacku |
+| -ec → -ce | Nemec → Nemce |
+| -el → -le | Havel → Havle |
+| -a → -o | Skala → Skalo |
+| Digrafy th/ph/gh | + e |
+| -k / -h / -g | + u |
+| Mekke souhlasky | + i |
+| Ostatni souhlasky (vcetne w/x/q) | + e |
+
+Vsechna muzska jmena se sklonovani — zadna vyjimka pro cizi jmena.
 
 ---
 
 ## Model zabezpeceni
 
-| Oblast | Mechanismus |
-|--------|-------------|
-| Webhook autentizace | Bearer token (`N8N_MCP_BEARER`) na vsech n8n webhookach |
-| UI autentizace | Supabase Auth (e-mail + heslo), kontrola admin role na chranenych strankach |
-| Radkove zabezpeceni | Row-level security (RLS) politiky na Supabase tabulkach |
-| Proxy pristupy | IMAP a SMTP proxy nasloucha pouze na localhost (127.0.0.1) — nedostupne z venku |
-| Proxy autentizace | Bearer token (`PROXY_AUTH_TOKEN`) povinny pro vsechny proxy endpointy (krome /health) |
-| Sprava tajemstvi | Zadne hardcoded secrets — vse v `.env.local` nebo v Supabase tabulce `config` |
-| E-mailova atribuce | Zadny outgoing e-mail nesmi obsahovat n8n branding |
-| Validace prostredi | UI validuje `VITE_SUPABASE_URL`, `VITE_SUPABASE_ANON_KEY`, `VITE_N8N_WEBHOOK_URL` pri startu |
-| CI/CD | GitHub Actions: lint → typecheck → test → build na kazdem push/PR do main |
+### Autentizace
 
-> POZOR: Kazdy novy workflow, ktery odesila e-maily, musi mit `options.appendAttribution: false`. Systemove pravidlo — zadna n8n atribuce v odchozich zpravach.
+- **Supabase Auth** s JWT tokeny
+- Prihlaseni pres email/heslo na `/login`
+- Session management v `useAuth` hooku
+- Role: `admin` a `user` (v tabulce `profiles`)
+
+### Autorizace
+
+- **Row Level Security (RLS)** na vsech Supabase tabulkach
+- **AdminRoute** komponenta v UI — chrani admin stranky (`/email-finder`, `/system`, `/nastaveni/*`)
+- Team-based data isolation
+
+### Proxy bezpecnost
+
+- Oba proxy (IMAP + SMTP) naslouchaji pouze na `127.0.0.1` — nepristupne z internetu
+- Bearer token autentizace (`PROXY_AUTH_TOKEN` env variable)
+- Rate limiting (IMAP: 60 req/min, SMTP: 120 req/min)
+- Maximalni velikost pozadavku: 1 MB
+
+### Sprava secrets
+
+- Zadne hardcoded secrets v kodu
+- `.env.local` pro lokalni vyvoj (gitignored)
+- `config` tabulka v Supabase pro runtime secrets (QEV klice, Seznam email)
+- Proxy `config.json` na VPS (gitignored)
+- n8n credentials spravovany v n8n (ne v workflow JSON)
+
+### Email bezpecnost
+
+- **Zadna n8n atribuce** — vsechny odchozi emaily bez "Sent via n8n" / "Powered by n8n"
+- `appendAttribution: false` na kazdem emailSend nodu
+- Reply-To nastaven na `salesman_email` z `teams` tabulky
 
 ---
 
 ## Slovnicek
 
 | Pojem | Vysvetleni |
-|-------|-----------|
-| **Firma (Company)** | Master CRM zaznam firmy — zakladni identifikace (ICO, nazev, domena). Firmy jsou centralni entitou databaze |
-| **Kontakt (Contact)** | Kontaktni osoba firmy (jednatel, reditel, manazer) — ulozena v tabulce `contacts`, navazana na firmu |
-| **Lead** | Firemnickontakt urceny k osloveni (identifikovany ICO nebo nazvem firmy), nyni propojen s firmou pres `company_id` |
-| **Jednatel** | Statutarni organ firmy — legacy pojem, v novem modelu nahrazen pojmem "kontakt" (tabulka `contacts`) |
-| **Vlna (Wave)** | E-mailova kampan — skupina leadu, kteri dostanou sekvenci e-mailu |
-| **Sekvence** | Rada az 3 e-mailu odeslanychpostupne s casovym odstupem (seq1 → seq2 → seq3) |
-| **Template set** | Sada e-mailovych sablon pro vlnu (3 sekvence x 2 A/B varianty) |
-| **Obohaceni (Enrichment)** | Proces doplneni dat o firme — ARES lookup, scrapovani jednatelu, generovani e-mailu |
-| **ICO** | Identifikacni cislo osoby — unikatni identifikator ceske firmy |
-| **ARES** | Administrativni registr ekonomickych subjektu — statni registr ceskych firem |
-| **QEV** | QuickEmailVerification — externi API pro overeni dorucitelnosti e-mailu |
-| **NDR** | Non-Delivery Report — zprava o nedoruceni e-mailu (bounce) |
-| **Vokativ** | Paty pad cestiny — pouziva se pro osloveni (napr. "Novak" → "Novaku") |
-| **RLS** | Row-Level Security — zabezpeceni na urovni radku v PostgreSQL |
-| **Claim** | Atomicke prevzeti e-mailu z fronty k odeslani (zamezi duplicitam) |
-| **Threading** | Provazani e-mailu v konverzaci pomoci hlavicek Message-ID, In-Reply-To, References |
-| **Cron** | Casove planovany spoustec — workflow bezi automaticky v nastavenych intervalech |
-| **Webhook** | HTTP endpoint, ktery spusti workflow po prijeti pozadavku |
-| **SPA** | Single Page Application — webova aplikace nacitana jako jedina stranka |
-| **CI/CD** | Continuous Integration / Continuous Deployment — automaticke testovani a nasazeni kodu |
-| **Vitest** | Testovaci framework pro Vite projekty — pouziva se pro unit a komponentove testy |
-| **Healthcheck** | Kontrolni endpoint pro overeni, ze sluzba bezi a odpovida spravne |
-| **Graceful shutdown** | Kontrolovane ukonceni serveru — dockani na dokonceni rozpracovanych pozadavku pred vypnutim |
+|---|---|
+| **ARES** | Administrativni registr ekonomickych subjektu — cesky registr firem (API pro ICO lookup) |
+| **ICO** | Identifikacni cislo osoby — unikatni cislo ceske firmy |
+| **Jednatel** | Statutarni organ (konatel) firmy — tabulka `jednatels` je deprecated, nahrazena `contacts` |
+| **Kontakt** | Kontaktni osoba firmy v tabulce `contacts` (nahrazuje jednatels) |
+| **Lead** | Firma v email outreach pipeline — ma `company_id` FK na `companies` |
+| **Company** | Firma v master CRM — zakladni entita bez vazby na konkretni outreach kanal |
+| **Vlna (Wave)** | Davka emailu k odeslani — sdruzuje leady s nastavenou sablonou a from_email |
+| **Template Set** | Sada emailovych sablon s definovanou sekvenci (1., 2., 3. email...) |
+| **QEV** | Quick Email Verification — externi API pro overeni platnosti emailovych adres |
+| **Seznam verify** | Overeni emailu pres Seznam.cz (cesky email provider) |
+| **NDR** | Non-Delivery Report — automaticka zprava o nedoruceni emailu (bounce) |
+| **Enrichment** | Proces obohacovani dat o firme (ARES lookup, scraping jednatelu, generovani emailu, verifikace) |
+| **Enrichment level** | Uroven obohaceni pri importu: `import_only`, `find_emails`, `full_pipeline` |
+| **Vokativ** | 5. pad v cestine — pouziva se pro oslovovani (Novak → Novaku) |
+| **Salutation** | Formalni oslovovani ve vokativu vcetne genderoveho prefixu (Vazeny pane / Vazena pani) |
+| **RLS** | Row Level Security — bezpecnostni pravidla na urovni radku v PostgreSQL |
+| **Threading** | Emailove hlavicky (Message-ID, In-Reply-To, References) pro spravne razeni do konverzaci |
+| **IMAP proxy** | Mikrosluzba obchazejici n8n bug s oznacovanim emailu jako prectenych |
+| **SMTP proxy** | Mikrosluzba umoznujici spravne threading hlavicky, ktere n8n emailSend nepodporuje |
+| **Retarget** | Opetovne osloveni leadu, kteri neodpovedeli — s nastavitelnym `retarget_lockout_days` per tym |
+| **scheduling_report** | JSON report z WF7 o planovanem odeslani vlny vcetne preskacenych leadu |
+| **Bulk mode** | Hromadny rezim v Email Finderu pro zpracovani vice firem najednou |
+| **StatusBadge** | UI komponenta zobrazujici stav s barvou a ikonou |
 
 ---
 
-## Testovaci infrastruktura
-
-### UI testy (outreach-ui/)
-
-**Framework:** Vitest + React Testing Library + jsdom
-
-| Typ testu | Soubory | Co testuje |
-|-----------|---------|-----------|
-| Unit testy | `lib/n8n.test.ts`, `lib/export.test.ts` | Webhook URL builder, headers, CSV export |
-| Hook testy | `hooks/useMobile.test.ts` | Mobilni breakpoint detekce |
-| Komponentove testy | `components/glass/*.test.tsx`, `AuthProvider.test.tsx` | GlassButton, GlassInput, GlassModal, autentizace |
-| Strankove testy | `pages/DashboardPage.test.tsx` | Dashboard loading/error/data stavy |
-
-**Spusteni:**
-
-```bash
-cd outreach-ui
-npm test          # jednorazovy beh
-npm run test:watch # sledovani zmen
-```
-
-### Proxy testy
-
-| Soubor | Co testuje |
-|--------|-----------|
-| `imap-proxy/server.test.mjs` | Health endpoint, auth validace, rate limiting, neplatne pozadavky |
-| `smtp-proxy/server.test.mjs` | Health endpoint, auth validace, header injection ochrana, rate limiting |
-
-### CI/CD pipeline
-
-Soubor: `.github/workflows/ci.yml`
-
-Pipeline bezi automaticky na push a PR do `main`:
-
-1. **Lint** — ESLint kontrola
-2. **Typecheck** — TypeScript kompilace
-3. **Test** — Vitest unit/komponentove testy
-4. **Build** — Produkční build
-
----
-
-*Posledni aktualizace: brezen 2026*
+> Posledni aktualizace: 2026-03-12
