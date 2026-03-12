@@ -18,3 +18,4 @@
 
 | Branch | Agent | Files (exact paths) | Started | Last Updated | PR |
 |---|---|---|---|---|---|
+| claude/fix-wave-add-and-enrichment | claude-opus | outreach-ui/src/components/waves/AddLeadsToWaveDialog.tsx, n8n-workflows/push-contacts-refactor.mjs, n8n-workflows/push-fix-keys.mjs | 2026-03-12 | 2026-03-12 | — |
