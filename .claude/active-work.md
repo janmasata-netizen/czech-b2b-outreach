@@ -1,9 +1,20 @@
-<!-- IMPORTANT: Every Claude Code agent MUST add a row here BEFORE starting work.
-     Read the hub CLAUDE.md (parent directory) for the full coordination protocol.
-     Steps: git pull → check this table → create feature branch → add your row → commit+push to main → do work. -->
-
 # Active Work
 
-| Branch | Agent | Files/Areas | Started | Description |
-|---|---|---|---|---|
-| claude/wave-presets | Claude Opus | wave_presets migration, hooks, UI components, SubPanel, App.tsx | 2026-03-12 | Wave presets feature |
+<!-- PRE-WORK CHECKLIST (every agent, every time):
+  1. [ ] Ran `git pull origin main`
+  2. [ ] Read this file — no file conflicts with my planned work
+  3. [ ] Created feature branch from main
+  4. [ ] Added my row to this file with EXACT file paths
+  5. [ ] Committed and pushed this file to main
+  6. [ ] Switched back to feature branch
+-->
+
+<!-- RULES:
+  - List EXACT file paths in Files column (e.g. outreach-ui/src/lib/supabase.ts), NOT vague areas
+  - Entries older than 24h without updates are considered ABANDONED and can be removed by any agent
+  - Registration is NON-NEGOTIABLE — the first thing you do before any work is add your row here
+  - Cleanup is ATOMIC with merge — remove your row immediately after `gh pr merge`
+-->
+
+| Branch | Agent | Files (exact paths) | Started | Last Updated | PR |
+|---|---|---|---|---|---|
