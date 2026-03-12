@@ -2,8 +2,10 @@ import { useState, useEffect, useRef } from 'react';
 import GlassCard from '@/components/glass/GlassCard';
 import GlassButton from '@/components/glass/GlassButton';
 import GlassInput from '@/components/glass/GlassInput';
+import GlassModal from '@/components/glass/GlassModal';
 import { useUpdateWave, useTemplateSets, useFromEmailSuggestions } from '@/hooks/useWaves';
 import { useSalesmen } from '@/hooks/useSettings';
+import { useCreateWavePreset } from '@/hooks/useWavePresets';
 import type { WaveAnalytics, Wave } from '@/types/database';
 import { toast } from 'sonner';
 
@@ -18,6 +20,9 @@ export default function WaveConfigForm({ wave }: WaveConfigFormProps) {
   const { data: salesmen } = useSalesmen(wave.team_id ?? undefined);
   const { data: emailSuggestions } = useFromEmailSuggestions();
   const updateWave = useUpdateWave();
+  const createPreset = useCreateWavePreset();
+  const [showPresetModal, setShowPresetModal] = useState(false);
+  const [presetName, setPresetName] = useState('');
 
   const [form, setForm] = useState({
     name: wave.name ?? '',
@@ -83,6 +88,26 @@ export default function WaveConfigForm({ wave }: WaveConfigFormProps) {
       toast.success('Vlna uložena');
     } catch {
       toast.error('Chyba při ukládání vlny', { duration: 8000 });
+    }
+  }
+
+  const hasConfigValues = !!(form.template_set_id || form.from_email || form.salesman_id);
+
+  async function handleSavePreset() {
+    if (!presetName.trim() || !wave.team_id) return;
+    try {
+      await createPreset.mutateAsync({
+        name: presetName.trim(),
+        team_id: wave.team_id,
+        template_set_id: form.template_set_id || null,
+        from_email: form.from_email || null,
+        salesman_id: form.salesman_id || null,
+      });
+      toast.success('Preset uložen');
+      setPresetName('');
+      setShowPresetModal(false);
+    } catch {
+      toast.error('Chyba při ukládání presetu', { duration: 8000 });
     }
   }
 
