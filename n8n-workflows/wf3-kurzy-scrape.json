@@ -117,10 +117,10 @@
     {
       "parameters": {
         "mode": "runOnceForEachItem",
-        "jsCode": "const lead_id = $('Extract Params').first().json.lead_id;\nconst ico = $('Extract Params').first().json.ico;\n\nconst resp = $input.item.json;\nconst html = (resp.body || resp.data || '') + '';\n\nif (!html || html.length < 100) {\n  return { json: { lead_id, ico, jednatels: '[]', has_jednatels: false, parse_error: 'Empty or invalid HTML' } };\n}\n\nconst jednatels = [];\nconst seen = new Set();\n\n// Strategy 1: Kurzy.cz structure — <b>Jednatel</b> then <a href=\"/osoba/N/\">NAME</a>\nconst kurzyPattern = /<(?:b|strong)[^>]*>[\\s\\n]*Jednatel[\\s\\n]*<\\/(?:b|strong)>[\\s\\S]{0,600}?<a[^>]*href=\"\\/osoba\\/\\d+\\/[^\"]*\"[^>]*>([^<]+)/gi;\nlet m;\nwhile ((m = kurzyPattern.exec(html)) !== null) {\n  const raw = m[1].trim();\n  if (raw.length < 3 || raw.length > 100 || seen.has(raw.toLowerCase())) continue;\n  seen.add(raw.toLowerCase());\n  const cleaned = raw.replace(/^(Ing\\.|Mgr\\.|Bc\\.|JUDr\\.|MUDr\\.|PhDr\\.|Doc\\.|Prof\\.|RNDr\\.|DiS\\.)\\s*/gi, '').trim();\n  const parts = cleaned.split(/\\s+/);\n  if (parts.length < 2) continue;\n  jednatels.push({ full_name: raw, first_name: parts[0], last_name: parts[parts.length - 1] });\n}\n\n// Strategy 2: generic TD pattern\nif (jednatels.length === 0) {\n  const tdPattern = /<td[^>]*>[^<]*jednatel[^<]*<\\/td>\\s*<td[^>]*>([^<]+)<\\/td>/gi;\n  while ((m = tdPattern.exec(html)) !== null) {\n    const raw = m[1].trim();\n    if (raw.length < 3 || raw.length > 100 || seen.has(raw.toLowerCase())) continue;\n    seen.add(raw.toLowerCase());\n    const cleaned = raw.replace(/^(Ing\\.|Mgr\\.|Bc\\.|JUDr\\.|MUDr\\.|PhDr\\.)\\s*/gi, '').trim();\n    const parts = cleaned.split(/\\s+/);\n    if (parts.length < 2) continue;\n    jednatels.push({ full_name: raw, first_name: parts[0], last_name: parts[parts.length - 1] });\n  }\n}\n\n// Strategy 3: Statutární orgán section\nif (jednatels.length === 0) {\n  const sectionMatch = html.match(/Statutárn[íi] orgán[\\s\\S]*?(?=<h[1-4]|<\\/section)/i);\n  if (sectionMatch) {\n    const section = sectionMatch[0];\n    // Sub-strategy 3a: <strong>NAME</strong>\n    const namePattern = /<strong>([^<]{5,60})<\\/strong>/g;\n    while ((m = namePattern.exec(section)) !== null) {\n      const raw = m[1].trim();\n      if (seen.has(raw.toLowerCase())) continue;\n      seen.add(raw.toLowerCase());\n      const cleaned = raw.replace(/^(Ing\\.|Mgr\\.|Bc\\.|JUDr\\.|MUDr\\.)\\s*/gi, '').trim();\n      const parts = cleaned.split(/\\s+/);\n      if (parts.length < 2) continue;\n      jednatels.push({ full_name: raw, first_name: parts[0], last_name: parts[parts.length - 1] });\n    }\n    // Sub-strategy 3b: <a href=\"/osoba/N/\">NAME</a> within the section\n    if (jednatels.length === 0) {\n      const osobaPattern = /<a[^>]*href=\"\\/osoba\\/\\d+\\/[^\"]*\"[^>]*>([^<]+)<\\/a>/gi;\n      while ((m = osobaPattern.exec(section)) !== null) {\n        const raw = m[1].trim();\n        if (raw.length < 3 || raw.length > 100 || seen.has(raw.toLowerCase())) continue;\n        seen.add(raw.toLowerCase());\n        const cleaned = raw.replace(/^(Ing\\.|Mgr\\.|Bc\\.|JUDr\\.|MUDr\\.|PhDr\\.|Doc\\.|Prof\\.|RNDr\\.|DiS\\.)\\s*/gi, '').trim();\n        const parts = cleaned.split(/\\s+/);\n        if (parts.length < 2) continue;\n        jednatels.push({ full_name: raw, first_name: parts[0], last_name: parts[parts.length - 1] });\n      }\n    }\n  }\n}\n\nreturn { json: { lead_id, ico, jednatels: JSON.stringify(jednatels), has_jednatels: jednatels.length > 0 } };"
+        "jsCode": "const lead_id = $('Extract Params').first().json.lead_id;\nconst ico = $('Extract Params').first().json.ico;\n\nconst resp = $input.item.json;\nconst html = (resp.body || resp.data || '') + '';\n\nif (!html || html.length < 100) {\n  return { json: { lead_id, ico, jednatels: '[]', has_contacts: false, parse_error: 'Empty or invalid HTML' } };\n}\n\nconst contacts = [];\nconst seen = new Set();\n\n// Strategy 1: Kurzy.cz structure — <b>Jednatel</b> then <a href=\"/osoba/N/\">NAME</a>\nconst kurzyPattern = /<(?:b|strong)[^>]*>[\\s\\n]*Jednatel[\\s\\n]*<\\/(?:b|strong)>[\\s\\S]{0,600}?<a[^>]*href=\"\\/osoba\\/\\d+\\/[^\"]*\"[^>]*>([^<]+)/gi;\nlet m;\nwhile ((m = kurzyPattern.exec(html)) !== null) {\n  const raw = m[1].trim();\n  if (raw.length < 3 || raw.length > 100 || seen.has(raw.toLowerCase())) continue;\n  seen.add(raw.toLowerCase());\n  const cleaned = raw.replace(/^(Ing\\.|Mgr\\.|Bc\\.|JUDr\\.|MUDr\\.|PhDr\\.|Doc\\.|Prof\\.|RNDr\\.|DiS\\.)\\s*/gi, '').trim();\n  const parts = cleaned.split(/\\s+/);\n  if (parts.length < 2) continue;\n  jednatels.push({ full_name: raw, first_name: parts[0], last_name: parts[parts.length - 1] });\n}\n\n// Strategy 2: generic TD pattern\nif (jednatels.length === 0) {\n  const tdPattern = /<td[^>]*>[^<]*jednatel[^<]*<\\/td>\\s*<td[^>]*>([^<]+)<\\/td>/gi;\n  while ((m = tdPattern.exec(html)) !== null) {\n    const raw = m[1].trim();\n    if (raw.length < 3 || raw.length > 100 || seen.has(raw.toLowerCase())) continue;\n    seen.add(raw.toLowerCase());\n    const cleaned = raw.replace(/^(Ing\\.|Mgr\\.|Bc\\.|JUDr\\.|MUDr\\.|PhDr\\.)\\s*/gi, '').trim();\n    const parts = cleaned.split(/\\s+/);\n    if (parts.length < 2) continue;\n    jednatels.push({ full_name: raw, first_name: parts[0], last_name: parts[parts.length - 1] });\n  }\n}\n\n// Strategy 3: Statutární orgán section\nif (jednatels.length === 0) {\n  const sectionMatch = html.match(/Statutárn[íi] orgán[\\s\\S]*?(?=<h[1-4]|<\\/section)/i);\n  if (sectionMatch) {\n    const section = sectionMatch[0];\n    // Sub-strategy 3a: <strong>NAME</strong>\n    const namePattern = /<strong>([^<]{5,60})<\\/strong>/g;\n    while ((m = namePattern.exec(section)) !== null) {\n      const raw = m[1].trim();\n      if (seen.has(raw.toLowerCase())) continue;\n      seen.add(raw.toLowerCase());\n      const cleaned = raw.replace(/^(Ing\\.|Mgr\\.|Bc\\.|JUDr\\.|MUDr\\.)\\s*/gi, '').trim();\n      const parts = cleaned.split(/\\s+/);\n      if (parts.length < 2) continue;\n      jednatels.push({ full_name: raw, first_name: parts[0], last_name: parts[parts.length - 1] });\n    }\n    // Sub-strategy 3b: <a href=\"/osoba/N/\">NAME</a> within the section\n    if (jednatels.length === 0) {\n      const osobaPattern = /<a[^>]*href=\"\\/osoba\\/\\d+\\/[^\"]*\"[^>]*>([^<]+)<\\/a>/gi;\n      while ((m = osobaPattern.exec(section)) !== null) {\n        const raw = m[1].trim();\n        if (raw.length < 3 || raw.length > 100 || seen.has(raw.toLowerCase())) continue;\n        seen.add(raw.toLowerCase());\n        const cleaned = raw.replace(/^(Ing\\.|Mgr\\.|Bc\\.|JUDr\\.|MUDr\\.|PhDr\\.|Doc\\.|Prof\\.|RNDr\\.|DiS\\.)\\s*/gi, '').trim();\n        const parts = cleaned.split(/\\s+/);\n        if (parts.length < 2) continue;\n        jednatels.push({ full_name: raw, first_name: parts[0], last_name: parts[parts.length - 1] });\n      }\n    }\n  }\n}\n\nreturn { json: { lead_id, ico, jednatels: JSON.stringify(jednatels), has_contacts: jednatels.length > 0 } };"
       },
       "id": "wf03-0000-0000-0000-000000000005",
-      "name": "Parse Jednatels",
+      "name": "Parse Contacts",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
@@ -134,8 +134,8 @@
           "options": {},
           "conditions": [
             {
-              "id": "has-jednatels",
-              "leftValue": "={{ $json.has_jednatels }}",
+              "id": "has-contacts",
+              "leftValue": "={{ $json.has_contacts }}",
               "rightValue": true,
               "operator": {
                 "type": "boolean",
@@ -147,7 +147,7 @@
         }
       },
       "id": "wf03-0000-0000-0000-000000000006",
-      "name": "IF Has Jednatels",
+      "name": "IF Has Contacts",
       "type": "n8n-nodes-base.if",
       "typeVersion": 2,
       "position": [
@@ -158,7 +158,7 @@
     {
       "parameters": {
         "mode": "runOnceForAllItems",
-        "jsCode": "const data = $input.first().json;\nconst jednatels = JSON.parse(data.jednatels || '[]');\n\n// Pass through names — DB trigger generates salutation automatically\nconst items = jednatels.map(j => ({\n  lead_id: data.lead_id,\n  full_name: j.full_name,\n  first_name: j.first_name,\n  last_name: j.last_name\n}));\n\nreturn { json: { lead_id: data.lead_id, ico: data.ico, jednatels_body: JSON.stringify(items), jednatels_count: items.length } };"
+        "jsCode": "const data = $input.first().json;\nconst contacts = JSON.parse(data.contacts || '[]');\n\n// Pass through names — DB trigger generates salutation automatically\nconst items = contacts.map(j => ({\n  company_id: data.company_id || $('Get Lead Company ID').first().json[0]?.company_id,\n  full_name: j.full_name,\n  first_name: j.first_name,\n  last_name: j.last_name\n}));\n\nreturn { json: { lead_id: data.lead_id, ico: data.ico, contacts_body: JSON.stringify(items), contacts_count: items.length } };"
       },
       "id": "wf03-0000-0000-0000-000000000007",
       "name": "Generate Salutations",
@@ -286,14 +286,14 @@
         },
         "sendBody": true,
         "specifyBody": "json",
-        "jsonBody": "={{ JSON.stringify({ status: 'failed', enrichment_error: 'Kurzy: no jednatels found for ICO ' + $json.ico }) }}",
+        "jsonBody": "={{ JSON.stringify({ status: 'failed', enrichment_error: 'Kurzy: no contacts found for ICO ' + $json.ico }) }}",
         "options": {
           "timeout": 30000,
           "neverError": true
         }
       },
       "id": "wf03-0000-0000-0000-000000000013",
-      "name": "Set Failed No Jednatels",
+      "name": "Set Failed No Contacts",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
       "position": [
@@ -324,7 +324,7 @@
         },
         "sendBody": true,
         "specifyBody": "json",
-        "jsonBody": "={{ JSON.stringify({ lead_id: $json.lead_id, step: 'kurzy_scrape', status: 'failed', error_message: 'No jednatels found on kurzy.cz for ICO ' + $json.ico, completed_at: new Date().toISOString() }) }}",
+        "jsonBody": "={{ JSON.stringify({ lead_id: $json.lead_id, step: 'kurzy_scrape', status: 'failed', error_message: 'No contacts found on kurzy.cz for ICO ' + $json.ico, completed_at: new Date().toISOString() }) }}",
         "options": {
           "timeout": 30000,
           "neverError": true
@@ -375,7 +375,7 @@
     },
     {
       "id": "wf03-0000-0000-0000-000000000015",
-      "name": "Insert Jednatels",
+      "name": "Insert Contacts",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
       "position": [
@@ -384,7 +384,7 @@
       ],
       "parameters": {
         "method": "POST",
-        "url": "https://cycapkswtucbucyegdsn.supabase.co/rest/v1/jednatels",
+        "url": "https://cycapkswtucbucyegdsn.supabase.co/rest/v1/contacts",
         "sendHeaders": true,
         "headerParameters": {
           "parameters": [
@@ -408,12 +408,56 @@
         },
         "sendBody": true,
         "specifyBody": "json",
-        "jsonBody": "={{ $json.jednatels_body }}",
+        "jsonBody": "={{ $json.contacts_body }}",
         "options": {
           "timeout": 30000,
           "neverError": true
         }
       }
+    },
+    {
+      "parameters": {
+        "method": "GET",
+        "url": "https://cycapkswtucbucyegdsn.supabase.co/rest/v1/leads",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "apikey",
+              "value": "SUPABASE_SERVICE_ROLE_KEY_PLACEHOLDER"
+            },
+            {
+              "name": "Authorization",
+              "value": "Bearer SUPABASE_SERVICE_ROLE_KEY_PLACEHOLDER"
+            }
+          ]
+        },
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            {
+              "name": "id",
+              "value": "={{ 'eq.' + $json.lead_id }}"
+            },
+            {
+              "name": "select",
+              "value": "company_id"
+            }
+          ]
+        },
+        "options": {
+          "timeout": 30000,
+          "neverError": true
+        }
+      },
+      "id": "wf03-get-lead-company",
+      "name": "Get Lead Company ID",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        300,
+        300
+      ]
     }
   ],
   "connections": {
@@ -432,7 +476,7 @@
       "main": [
         [
           {
-            "node": "Log Started",
+            "node": "Get Lead Company ID",
             "type": "main",
             "index": 0
           }
@@ -454,25 +498,25 @@
       "main": [
         [
           {
-            "node": "Parse Jednatels",
+            "node": "Parse Contacts",
             "type": "main",
             "index": 0
           }
         ]
       ]
     },
-    "Parse Jednatels": {
+    "Parse Contacts": {
       "main": [
         [
           {
-            "node": "IF Has Jednatels",
+            "node": "IF Has Contacts",
             "type": "main",
             "index": 0
           }
         ]
       ]
     },
-    "IF Has Jednatels": {
+    "IF Has Contacts": {
       "main": [
         [
           {
@@ -483,7 +527,7 @@
         ],
         [
           {
-            "node": "Set Failed No Jednatels",
+            "node": "Set Failed No Contacts",
             "type": "main",
             "index": 0
           }
@@ -494,7 +538,7 @@
       "main": [
         [
           {
-            "node": "Insert Jednatels",
+            "node": "Insert Contacts",
             "type": "main",
             "index": 0
           }
@@ -512,7 +556,7 @@
         ]
       ]
     },
-    "Set Failed No Jednatels": {
+    "Set Failed No Contacts": {
       "main": [
         [
           {
@@ -523,7 +567,7 @@
         ]
       ]
     },
-    "Insert Jednatels": {
+    "Insert Contacts": {
       "main": [
         [
           {
@@ -539,6 +583,17 @@
         [
           {
             "node": "Trigger WF4",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get Lead Company ID": {
+      "main": [
+        [
+          {
+            "node": "Log Started",
             "type": "main",
             "index": 0
           }

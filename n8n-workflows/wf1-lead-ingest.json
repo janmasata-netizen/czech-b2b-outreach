@@ -213,7 +213,7 @@
     },
     {
       "id": "wf01-node-insertjednatel",
-      "name": "Insert Jednatel",
+      "name": "Insert Contact",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4,
       "position": [
@@ -222,7 +222,7 @@
       ],
       "parameters": {
         "method": "POST",
-        "url": "https://cycapkswtucbucyegdsn.supabase.co/rest/v1/jednatels",
+        "url": "https://cycapkswtucbucyegdsn.supabase.co/rest/v1/contacts",
         "sendHeaders": true,
         "headerParameters": {
           "parameters": [
@@ -409,14 +409,14 @@
       "main": [
         [
           {
-            "node": "Insert Jednatel",
+            "node": "Insert Contact",
             "type": "main",
             "index": 0
           }
         ]
       ]
     },
-    "Insert Jednatel": {
+    "Insert Contact": {
       "main": [
         [
           {

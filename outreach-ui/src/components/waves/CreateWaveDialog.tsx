@@ -4,6 +4,8 @@ import GlassButton from '@/components/glass/GlassButton';
 import GlassInput from '@/components/glass/GlassInput';
 import { useCreateWave, useAddLeadsToWave } from '@/hooks/useWaves';
 import { useTeams } from '@/hooks/useLeads';
+import { useWavePresets } from '@/hooks/useWavePresets';
+import type { WavePreset } from '@/types/database';
 import { toast } from 'sonner';
 
 interface CreateWaveDialogProps {
@@ -23,6 +25,10 @@ export default function CreateWaveDialog({ open, onClose, onCreated, preselected
   const addLeads = useAddLeadsToWave();
   const [name, setName] = useState('');
   const [teamId, setTeamId] = useState('');
+  const [presetId, setPresetId] = useState('');
+
+  const resolvedTeamId = teamId || teams?.[0]?.id;
+  const { data: presets } = useWavePresets(resolvedTeamId);
 
   async function handleSubmit(e: FormEvent) {
     e.preventDefault();
@@ -35,6 +41,11 @@ export default function CreateWaveDialog({ open, onClose, onCreated, preselected
         team_id: resolvedTeam,
         status: 'draft',
         ...(sourceWaveId ? { source_wave_id: sourceWaveId } : {}),
+        ...(presets?.find((p: WavePreset) => p.id === presetId) ? {
+          template_set_id: presets.find((p: WavePreset) => p.id === presetId)!.template_set_id,
+          from_email: presets.find((p: WavePreset) => p.id === presetId)!.from_email,
+          salesman_id: presets.find((p: WavePreset) => p.id === presetId)!.salesman_id,
+        } : {}),
       });
 
       // Auto-add preselected leads (retarget flow)
@@ -53,6 +64,7 @@ export default function CreateWaveDialog({ open, onClose, onCreated, preselected
       onCreated?.(wave.id);
       setName('');
       setTeamId('');
+      setPresetId('');
       onClose();
     } catch (err: unknown) {
       toast.error('Chyba: ' + (err instanceof Error ? err.message : String(err)), { duration: 8000 });
@@ -90,14 +102,25 @@ export default function CreateWaveDialog({ open, onClose, onCreated, preselected
             </select>
           </div>
         )}
+        {presets && presets.length > 0 && (
+          <div style={{ display: "flex", flexDirection: "column", gap: 5 }}>
+            <label style={LABEL}>Preset</label>
+            <select className="glass-input" value={presetId} onChange={e => setPresetId(e.target.value)}>
+              <option value="">— Bez presetu —</option>
+              {presets.map((p: WavePreset) => <option key={p.id} value={p.id}>{p.name}</option>)}
+            </select>
+          </div>
+        )}
         {retargetMode && preselectedLeadIds && preselectedLeadIds.length > 0 && (
           <p style={{ fontSize: 12, color: 'var(--cyan)', margin: 0, padding: '8px 10px', background: 'var(--bg-subtle)', borderRadius: 6, border: '1px solid var(--border)' }}>
             {preselectedLeadIds.length} lead{preselectedLeadIds.length > 1 ? 'ů' : ''} bude automaticky přidáno do vlny.
           </p>
         )}
-        <p style={{ fontSize: 12, color: 'var(--text-muted)', margin: 0 }}>
-          Šablony, datum a leady nastavíte po vytvoření vlny.
-        </p>
+        {!presetId && (
+          <p style={{ fontSize: 12, color: 'var(--text-muted)', margin: 0 }}>
+            Šablony, datum a leady nastavíte po vytvoření vlny.
+          </p>
+        )}
       </form>
     </GlassModal>
   );

@@ -23,9 +23,9 @@ export default function WavePresetsTab() {
     if (!confirmDeleteId) return;
     try {
       await deletePreset.mutateAsync(confirmDeleteId);
-      toast.success('Preset smazán');
+      toast.success('Preset smazan');
     } catch {
-      toast.error('Chyba při mazání presetu', { duration: 8000 });
+      toast.error('Chyba pri mazani presetu', { duration: 8000 });
     } finally {
       setConfirmDeleteId(null);
     }
@@ -33,14 +33,14 @@ export default function WavePresetsTab() {
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 24 }}>
-      <PageHeader title="Vlnové presety" />
+      <PageHeader title="Vlnove presety" />
 
       {isLoading ? (
-        <p style={{ color: 'var(--text-muted)', fontSize: 13 }}>Načítám...</p>
+        <p style={{ color: 'var(--text-muted)', fontSize: 13 }}>Nacitam...</p>
       ) : !presets?.length ? (
         <GlassCard padding={40}>
           <p style={{ fontSize: 13, color: 'var(--text-muted)', textAlign: 'center' }}>
-            Žádné presety. Preset vytvoříte na stránce vlny tlačítkem „Uložit jako preset".
+            Zadne presety. Preset vytvorite na strance vlny tlacitkem Ulozit jako preset.
           </p>
         </GlassCard>
       ) : (
@@ -69,7 +69,7 @@ export default function WavePresetsTab() {
                 </div>
                 {isAdmin && (
                   <div style={{ fontSize: 11, color: 'var(--text-muted)', marginBottom: 6 }}>
-                    {teamMap.get(p.team_id) ?? 'Neznámý tým'}
+                    {teamMap.get(p.team_id) ?? 'Neznamy tym'}
                   </div>
                 )}
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 4, fontSize: 12, color: 'var(--text-dim)' }}>
@@ -92,7 +92,7 @@ export default function WavePresetsTab() {
                     </div>
                   )}
                   {!ts && !p.from_email && !sm && (
-                    <span style={{ color: 'var(--text-muted)', fontStyle: 'italic' }}>Prázdný preset</span>
+                    <span style={{ color: 'var(--text-muted)', fontStyle: 'italic' }}>Prazdny preset</span>
                   )}
                 </div>
 
@@ -125,7 +125,7 @@ export default function WavePresetsTab() {
         loading={deletePreset.isPending}
       >
         <div style={{ fontSize: 13, color: 'var(--text-dim)', lineHeight: 1.5 }}>
-          Smazat tento vlnový preset? Tato akce je nevratná.
+          Smazat tento vlnovy preset? Tato akce je nevratna.
         </div>
       </ConfirmDialog>
     </div>
