@@ -6,3 +6,4 @@
 
 | Branch | Agent | Files/Areas | Started | Description |
 |---|---|---|---|---|
+| claude/wave-presets | Claude Opus | wave_presets migration, hooks, UI components, SubPanel, App.tsx | 2026-03-12 | Wave presets feature |
