@@ -20,7 +20,7 @@ export default function CompanyTagsCard({ companyId }: { companyId: string }) {
       await addTag.mutateAsync({ companyId, tagId, tagName });
       setShowPicker(false);
     } catch {
-      toast.error('Chyba při přidávání štítku');
+      toast.error('Chyba při přidávání štítku', { duration: 8000 });
     }
   }
 
@@ -28,7 +28,7 @@ export default function CompanyTagsCard({ companyId }: { companyId: string }) {
     try {
       await removeTag.mutateAsync({ companyId, tagId, tagName });
     } catch {
-      toast.error('Chyba při odebírání štítku');
+      toast.error('Chyba při odebírání štítku', { duration: 8000 });
     }
   }
 

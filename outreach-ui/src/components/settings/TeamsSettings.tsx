@@ -4,7 +4,7 @@ import GlassButton from '@/components/glass/GlassButton';
 import GlassInput from '@/components/glass/GlassInput';
 import GlassModal from '@/components/glass/GlassModal';
 import PageHeader from '@/components/layout/PageHeader';
-import { useTeamsSettings, useUpsertTeam, useUpsertOutreachAccount } from '@/hooks/useSettings';
+import { useTeamsSettings, useUpsertTeam } from '@/hooks/useSettings';
 import type { Team } from '@/types/database';
 import { toast } from 'sonner';
 
@@ -13,51 +13,34 @@ const HINT: React.CSSProperties = { fontSize: 11, color: 'var(--text-muted)', ma
 export default function TeamsSettings() {
   const { data: teams, isLoading } = useTeamsSettings();
   const upsertTeam = useUpsertTeam();
-  const upsertAccount = useUpsertOutreachAccount();
   const [editing, setEditing] = useState<Partial<Team> | null>(null);
-  const [burnerEmail, setBurnerEmail] = useState('');
 
   const isCreating = editing !== null && !editing.id;
 
   function openCreate() {
-    setEditing({ name: '' });
-    setBurnerEmail('');
+    setEditing({ name: '', daily_send_limit: 130 });
   }
 
   function openEdit(team: Team) {
     setEditing(team);
-    setBurnerEmail('');
   }
 
   function handleClose() {
     setEditing(null);
-    setBurnerEmail('');
   }
 
   async function handleSave() {
-    if (!editing?.name?.trim()) { toast.error('Zadejte název týmu'); return; }
-    if (isCreating && !burnerEmail.trim()) { toast.error('Zadejte burner e-mail pro odchozí poštu'); return; }
+    if (!editing?.name?.trim()) { toast.error('Zadejte název týmu', { duration: 8000 }); return; }
     try {
-      const teamId = await upsertTeam.mutateAsync(editing);
-      // When creating, also insert the first outreach account
-      if (isCreating && burnerEmail.trim()) {
-        await upsertAccount.mutateAsync({
-          team_id: teamId,
-          email_address: burnerEmail.trim(),
-          smtp_credential_name: 'burner outreach email',
-          daily_send_limit: 130,
-          sends_today: 0,
-          is_active: true,
-        });
-      }
+      await upsertTeam.mutateAsync(editing);
       toast.success(isCreating ? 'Tým vytvořen' : 'Tým uložen');
       handleClose();
     } catch (err: unknown) {
-      toast.error('Chyba při ukládání: ' + (err instanceof Error ? err.message : String(err)));
+      toast.error('Chyba při ukládání: ' + (err instanceof Error ? err.message : String(err)), { duration: 8000 });
     }
   }
 
-  const saving = upsertTeam.isPending || upsertAccount.isPending;
+  const saving = upsertTeam.isPending;
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 24 }}>
@@ -72,6 +55,11 @@ export default function TeamsSettings() {
             <div key={team.id} style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '12px 16px', background: 'var(--bg-subtle)', borderRadius: 8, border: '1px solid var(--border)' }}>
               <div style={{ flex: 1 }}>
                 <div style={{ fontSize: 13, fontWeight: 500, color: 'var(--text)' }}>{team.name}</div>
+                <div style={{ fontSize: 11, color: 'var(--text-muted)', marginTop: 2 }}>
+                  Denní limit: <span style={{ fontFamily: 'JetBrains Mono, monospace', color: (team.sends_today ?? 0) >= (team.daily_send_limit ?? 130) ? '#ef4444' : 'var(--text)' }}>
+                    {team.sends_today ?? 0}/{team.daily_send_limit ?? 130}
+                  </span>
+                </div>
               </div>
               <GlassButton size="sm" onClick={() => openEdit(team)}>Upravit</GlassButton>
             </div>
@@ -102,19 +90,24 @@ export default function TeamsSettings() {
               onChange={e => setEditing(prev => ({ ...prev!, name: e.target.value }))}
               required
             />
-            {isCreating && (
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 5 }}>
-                <GlassInput
-                  label="Burner e-mail (odchozí outreach) *"
-                  placeholder="jmeno.prijmeni@meisat.com"
-                  type="email"
-                  value={burnerEmail}
-                  onChange={e => setBurnerEmail(e.target.value)}
-                  required
-                />
-                <p style={HINT}>Tento e-mail bude přidán jako výchozí odesílatel pro vlny tohoto týmu. Další e-maily lze přidat v sekci Outreach účty.</p>
-              </div>
-            )}
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 5 }}>
+              <GlassInput
+                label="Denní limit odesílání"
+                type="number"
+                value={String(editing.daily_send_limit ?? 130)}
+                onChange={e => setEditing(prev => ({ ...prev!, daily_send_limit: Number(e.target.value) || 130 }))}
+              />
+              <p style={HINT}>Maximální počet emailů odeslaných za den pro tento tým. FROM email se nastavuje přímo na vlně.</p>
+            </div>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 5 }}>
+              <GlassInput
+                label="Retarget lockout (dny)"
+                type="number"
+                value={String((editing as Record<string, unknown>).retarget_lockout_days ?? 120)}
+                onChange={e => setEditing(prev => ({ ...prev!, retarget_lockout_days: Number(e.target.value) || 120 } as Partial<Team>))}
+              />
+              <p style={HINT}>Počet dnů od posledního kontaktu, po které nelze lead znovu oslovit. Výchozí: 120.</p>
+            </div>
           </div>
         )}
       </GlassModal>

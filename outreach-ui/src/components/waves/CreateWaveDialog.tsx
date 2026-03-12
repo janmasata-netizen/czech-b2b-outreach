@@ -26,9 +26,9 @@ export default function CreateWaveDialog({ open, onClose, onCreated, preselected
 
   async function handleSubmit(e: FormEvent) {
     e.preventDefault();
-    if (!name.trim()) { toast.error('Zadejte název vlny'); return; }
+    if (!name.trim()) { toast.error('Zadejte název vlny', { duration: 8000 }); return; }
     const resolvedTeam = teamId || teams?.[0]?.id;
-    if (!resolvedTeam) { toast.error('Vyberte tým'); return; }
+    if (!resolvedTeam) { toast.error('Vyberte tým', { duration: 8000 }); return; }
     try {
       const wave = await createWave.mutateAsync({
         name: name.trim(),
@@ -55,7 +55,7 @@ export default function CreateWaveDialog({ open, onClose, onCreated, preselected
       setTeamId('');
       onClose();
     } catch (err: unknown) {
-      toast.error('Chyba: ' + (err instanceof Error ? err.message : String(err)));
+      toast.error('Chyba: ' + (err instanceof Error ? err.message : String(err)), { duration: 8000 });
     }
   }
 

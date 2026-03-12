@@ -18,13 +18,13 @@ export default function OutreachAccountsSettings() {
   const [editing, setEditing] = useState<Partial<OutreachAccount> | null>(null);
 
   async function handleSave() {
-    if (!editing?.email_address) { toast.error('Zadejte e-mailovou adresu'); return; }
+    if (!editing?.email_address) { toast.error('Zadejte e-mailovou adresu', { duration: 8000 }); return; }
     try {
       await upsert.mutateAsync(editing);
       toast.success('Účet uložen');
       setEditing(null);
     } catch (e: unknown) {
-      toast.error(e instanceof Error && e.message.includes('unique') ? 'Tým již má outreach účet' : 'Chyba při ukládání');
+      toast.error(e instanceof Error && e.message.includes('unique') ? 'Tým již má outreach účet' : 'Chyba při ukládání', { duration: 8000 });
     }
   }
 

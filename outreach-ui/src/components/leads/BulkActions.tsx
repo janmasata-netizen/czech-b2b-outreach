@@ -29,7 +29,7 @@ export default function BulkActions({ selected, onClear }: BulkActionsProps) {
       setConfirmDelete(false);
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     } catch (e: any) {
-      toast.error('Chyba při mazání leadů' + (e?.message ? ': ' + e.message : ''));
+      toast.error('Chyba při mazání leadů' + (e?.message ? ': ' + e.message : ''), { duration: 8000 });
     }
   }
 
@@ -39,7 +39,7 @@ export default function BulkActions({ selected, onClear }: BulkActionsProps) {
       toast.success(`Stav změněn na "${status}" pro ${selected.length} leadů`);
       setShowStatusPicker(false);
     } catch {
-      toast.error('Chyba při změně stavu');
+      toast.error('Chyba při změně stavu', { duration: 8000 });
     }
   }
 
@@ -49,7 +49,7 @@ export default function BulkActions({ selected, onClear }: BulkActionsProps) {
       toast.success(`Štítek "${tagName}" přidán k ${selected.length} leadům`);
       setShowTagPicker(false);
     } catch {
-      toast.error('Chyba při přidávání štítku');
+      toast.error('Chyba při přidávání štítku', { duration: 8000 });
     }
   }
 

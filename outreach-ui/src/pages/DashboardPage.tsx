@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import { useDashboardStats } from '@/hooks/useDashboard';
 import PageHeader from '@/components/layout/PageHeader';
 import StatsGrid from '@/components/shared/StatsGrid';
@@ -9,8 +10,15 @@ import ActiveWavesTable from '@/components/dashboard/ActiveWavesTable';
 import OnboardingChecklist from '@/components/dashboard/OnboardingChecklist';
 import { formatPercent } from '@/lib/utils';
 
+const STAT_RANGES = [
+  { label: '7d', days: 7 },
+  { label: '30d', days: 30 },
+  { label: 'Vše', days: 0 },
+] as const;
+
 export default function DashboardPage() {
-  const { data: stats, isError } = useDashboardStats();
+  const [statsDays, setStatsDays] = useState(0);
+  const { data: stats, isError } = useDashboardStats(statsDays);
 
   if (isError) {
     return (
@@ -40,7 +48,26 @@ export default function DashboardPage() {
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 24 }}>
-      <PageHeader title="Přehled" subtitle="Realtime monitoring outreach kampaně" />
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+        <PageHeader title="Přehled" subtitle="Realtime monitoring outreach kampaně" />
+        <div style={{ display: 'flex', gap: 4, flexShrink: 0, marginTop: 4 }}>
+          {STAT_RANGES.map(r => (
+            <button
+              key={r.days}
+              onClick={() => setStatsDays(r.days)}
+              style={{
+                padding: '4px 10px', fontSize: 12, fontWeight: 600, borderRadius: 6,
+                border: `1px solid ${statsDays === r.days ? 'var(--green)' : 'var(--border)'}`,
+                background: 'transparent',
+                color: statsDays === r.days ? 'var(--green)' : 'var(--text-muted)',
+                cursor: 'pointer', transition: 'all 0.15s',
+              }}
+            >
+              {r.label}
+            </button>
+          ))}
+        </div>
+      </div>
 
       <OnboardingChecklist />
 

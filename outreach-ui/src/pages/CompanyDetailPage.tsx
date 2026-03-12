@@ -45,7 +45,7 @@ export default function CompanyDetailPage() {
   }
 
   async function handleSaveEdit() {
-    if (!editForm.company_name) { toast.error('Zadejte název firmy'); return; }
+    if (!editForm.company_name) { toast.error('Zadejte název firmy', { duration: 8000 }); return; }
     try {
       await updateCompany.mutateAsync({
         id: company!.id,
@@ -59,7 +59,7 @@ export default function CompanyDetailPage() {
       toast.success('Firma aktualizována');
       setEditing(false);
     } catch {
-      toast.error('Chyba při ukládání');
+      toast.error('Chyba při ukládání', { duration: 8000 });
     }
   }
 
@@ -82,7 +82,7 @@ export default function CompanyDetailPage() {
   }
 
   async function handleSaveContact() {
-    if (!contactForm.full_name) { toast.error('Zadejte jméno kontaktu'); return; }
+    if (!contactForm.full_name) { toast.error('Zadejte jméno kontaktu', { duration: 8000 }); return; }
     try {
       if (editingContactId) {
         await updateContact.mutateAsync({
@@ -110,7 +110,7 @@ export default function CompanyDetailPage() {
       }
       setShowAddContact(false);
     } catch {
-      toast.error('Chyba při ukládání kontaktu');
+      toast.error('Chyba při ukládání kontaktu', { duration: 8000 });
     }
   }
 
@@ -120,7 +120,7 @@ export default function CompanyDetailPage() {
       await deleteContact.mutateAsync({ id: contactId, companyId: company!.id });
       toast.success('Kontakt smazán');
     } catch {
-      toast.error('Chyba při mazání kontaktu');
+      toast.error('Chyba při mazání kontaktu', { duration: 8000 });
     }
   }
 

@@ -46,7 +46,7 @@ export default function LeadsTable({ leads, isLoading, selected, onSelect }: Lea
       await removeFromWave.mutateAsync({ waveLeadId, leadId });
       toast.success('Lead odebrán z vlny');
     } catch (err: unknown) {
-      toast.error('Chyba: ' + (err instanceof Error ? err.message : 'neznámá chyba'));
+      toast.error('Chyba: ' + (err instanceof Error ? err.message : 'neznámá chyba'), { duration: 8000 });
     }
   }
 

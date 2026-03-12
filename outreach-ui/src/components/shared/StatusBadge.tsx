@@ -1,6 +1,18 @@
 import { LEAD_STATUS_MAP, WAVE_STATUS_MAP, STATUS_COLOR_MAP } from '@/lib/constants';
 import type { LeadStatus, WaveStatus } from '@/types/database';
 
+const STATUS_ICON_MAP: Record<string, string> = {
+  green: '✓',
+  accent: '✓',
+  red: '✗',
+  yellow: '⚠',
+  orange: '⚠',
+  blue: 'ℹ',
+  cyan: 'ℹ',
+  purple: '◴',
+  muted: '●',
+};
+
 interface StatusBadgeProps {
   status: LeadStatus | WaveStatus | string;
   type?: 'lead' | 'wave';
@@ -24,7 +36,7 @@ export default function StatusBadge({ status, type = 'lead' }: StatusBadgeProps)
         fontFamily: 'JetBrains Mono, monospace',
       }}
     >
-      <span style={{ width: 5, height: 5, borderRadius: '50%', background: colors.text, flexShrink: 0 }} />
+      <span style={{ fontSize: 9, lineHeight: 1, flexShrink: 0 }}>{STATUS_ICON_MAP[colorKey] ?? '●'}</span>
       {label}
     </span>
   );

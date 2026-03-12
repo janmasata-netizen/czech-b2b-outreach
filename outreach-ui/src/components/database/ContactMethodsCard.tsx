@@ -26,7 +26,7 @@ function InlineEdit({ value, field, jednatelId, icon: Icon, placeholder, color }
       await update.mutateAsync({ id: jednatelId, updates: { [field]: val || null } });
       setEditing(false);
     } catch {
-      toast.error('Chyba při ukládání');
+      toast.error('Chyba při ukládání', { duration: 8000 });
     }
   }
 

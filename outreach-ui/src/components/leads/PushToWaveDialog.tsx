@@ -31,7 +31,7 @@ export default function PushToWaveDialog({ leadIds, open, onClose }: PushToWaveD
       navigate(`/vlny/${selectedWaveId}`);
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     } catch (e: any) {
-      toast.error('Chyba: ' + (e?.message ?? 'neznámá chyba'));
+      toast.error('Chyba: ' + (e?.message ?? 'neznámá chyba'), { duration: 8000 });
     }
   }
 

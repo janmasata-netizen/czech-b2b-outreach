@@ -65,10 +65,18 @@ export default function GoogleSheetImportDialog({ open, onClose }: GoogleSheetIm
     onClose();
   }
 
+  function normalizeSheetUrl(url: string): string {
+    let u = url.trim();
+    if (u && !u.startsWith('http://') && !u.startsWith('https://')) {
+      u = 'https://' + u;
+    }
+    return u;
+  }
+
   function isValidSheetUrl(url: string) {
     try {
-      const parsed = new URL(url);
-      return parsed.hostname === 'docs.google.com' && parsed.pathname.startsWith('/spreadsheets/');
+      const parsed = new URL(normalizeSheetUrl(url));
+      return parsed.hostname.endsWith('google.com') && parsed.pathname.includes('/spreadsheets/');
     } catch {
       return false;
     }
@@ -76,28 +84,42 @@ export default function GoogleSheetImportDialog({ open, onClose }: GoogleSheetIm
 
   async function handleFetchSheet() {
     if (!isValidSheetUrl(sheetUrl)) {
-      toast.error('Neplatná URL Google Sheetu');
+      toast.error('Neplatná URL Google Sheetu', { duration: 8000 });
       return;
     }
 
     setFetching(true);
     try {
+      const normalizedUrl = normalizeSheetUrl(sheetUrl);
       const res = await fetch(n8nWebhookUrl('gsheet-proxy'), {
         method: 'POST',
         headers: n8nHeaders(),
-        body: JSON.stringify({ url: sheetUrl }),
+        body: JSON.stringify({ url: normalizedUrl }),
       });
-      if (!res.ok) throw new Error(`HTTP ${res.status}`);
-      const data = await res.json();
+
+      const text = await res.text();
+      let data: { success?: boolean; csv?: string; error?: string };
+      try {
+        data = JSON.parse(text);
+      } catch {
+        console.error('n8n returned non-JSON:', text.slice(0, 500));
+        toast.error(`Chyba serveru (HTTP ${res.status}) — zkuste to znovu`, { duration: Infinity, closeButton: true });
+        return;
+      }
+
+      if (!res.ok) {
+        toast.error(data.error || `Chyba serveru (HTTP ${res.status})`, { duration: Infinity, closeButton: true });
+        return;
+      }
 
       if (!data.success || !data.csv) {
-        toast.error('Sheet musí být veřejný (Anyone with the link)');
+        toast.error(data.error || 'Sheet musí být veřejný (Anyone with the link)', { duration: 8000 });
         return;
       }
 
       const parsed = parseCsv(data.csv);
       if (parsed.length < 2) {
-        toast.error('Sheet je prázdný nebo obsahuje jen hlavičku');
+        toast.error('Sheet je prázdný nebo obsahuje jen hlavičku', { duration: 8000 });
         return;
       }
 
@@ -107,8 +129,9 @@ export default function GoogleSheetImportDialog({ open, onClose }: GoogleSheetIm
       setMapping(autoDetect(headerRow));
       setTeamId(teams?.[0]?.id ?? '');
       setStep('map');
-    } catch {
-      toast.error('Nepodařilo se načíst sheet — zkontrolujte URL a zkuste znovu');
+    } catch (err) {
+      console.error('Fetch sheet failed:', err);
+      toast.error('Nepodařilo se připojit k serveru — zkontrolujte připojení', { duration: 8000 });
     } finally {
       setFetching(false);
     }
@@ -146,7 +169,7 @@ export default function GoogleSheetImportDialog({ open, onClose }: GoogleSheetIm
       }
     } catch (err) {
       console.error('Dedup check failed:', err);
-      toast.error('Kontrola duplicit selhala — zkuste to znovu');
+      toast.error('Kontrola duplicit selhala — zkuste to znovu', { duration: 8000 });
     } finally {
       setDedupChecking(false);
     }

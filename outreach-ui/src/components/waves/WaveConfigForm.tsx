@@ -2,8 +2,8 @@ import { useState, useEffect, useRef } from 'react';
 import GlassCard from '@/components/glass/GlassCard';
 import GlassButton from '@/components/glass/GlassButton';
 import GlassInput from '@/components/glass/GlassInput';
-import { useUpdateWave, useTemplateSets } from '@/hooks/useWaves';
-import { useSalesmen, useOutreachAccounts } from '@/hooks/useSettings';
+import { useUpdateWave, useTemplateSets, useFromEmailSuggestions } from '@/hooks/useWaves';
+import { useSalesmen } from '@/hooks/useSettings';
 import type { WaveAnalytics, Wave } from '@/types/database';
 import { toast } from 'sonner';
 
@@ -16,14 +16,14 @@ const LABEL: React.CSSProperties = { fontSize: 12, fontWeight: 500, color: 'var(
 export default function WaveConfigForm({ wave }: WaveConfigFormProps) {
   const { data: templateSets } = useTemplateSets(wave.team_id ?? undefined);
   const { data: salesmen } = useSalesmen(wave.team_id ?? undefined);
-  const { data: outreachAccounts } = useOutreachAccounts(wave.team_id ?? undefined);
+  const { data: emailSuggestions } = useFromEmailSuggestions();
   const updateWave = useUpdateWave();
 
   const [form, setForm] = useState({
     name: wave.name ?? '',
     template_set_id: wave.template_set_id ?? '',
     salesman_id: wave.salesman_id ?? '',
-    outreach_account_id: wave.outreach_account_id ?? '',
+    from_email: wave.from_email ?? '',
     is_dummy: Boolean(wave.is_dummy),
     dummy_email: wave.dummy_email ?? '',
   });
@@ -33,12 +33,12 @@ export default function WaveConfigForm({ wave }: WaveConfigFormProps) {
       name: wave.name ?? '',
       template_set_id: wave.template_set_id ?? '',
       salesman_id: wave.salesman_id ?? '',
-      outreach_account_id: wave.outreach_account_id ?? '',
+      from_email: wave.from_email ?? '',
       is_dummy: Boolean(wave.is_dummy),
       dummy_email: wave.dummy_email ?? '',
     });
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [wave.id, wave.template_set_id, wave.salesman_id, wave.outreach_account_id, wave.is_dummy, wave.dummy_email]);
+  }, [wave.id, wave.template_set_id, wave.salesman_id, wave.from_email, wave.is_dummy, wave.dummy_email]);
 
   const savedForm = useRef(form);
   useEffect(() => {
@@ -46,7 +46,7 @@ export default function WaveConfigForm({ wave }: WaveConfigFormProps) {
       name: wave.name ?? '',
       template_set_id: wave.template_set_id ?? '',
       salesman_id: wave.salesman_id ?? '',
-      outreach_account_id: wave.outreach_account_id ?? '',
+      from_email: wave.from_email ?? '',
       is_dummy: Boolean(wave.is_dummy),
       dummy_email: wave.dummy_email ?? '',
     };
@@ -74,7 +74,7 @@ export default function WaveConfigForm({ wave }: WaveConfigFormProps) {
           name: form.name,
           template_set_id: form.template_set_id || undefined,
           salesman_id: form.salesman_id || undefined,
-          outreach_account_id: form.outreach_account_id || undefined,
+          from_email: form.from_email || undefined,
           is_dummy: form.is_dummy,
           dummy_email: form.is_dummy ? (form.dummy_email || undefined) : undefined,
         } as Partial<Wave>,
@@ -82,7 +82,7 @@ export default function WaveConfigForm({ wave }: WaveConfigFormProps) {
       savedForm.current = { ...form };
       toast.success('Vlna uložena');
     } catch {
-      toast.error('Chyba při ukládání vlny');
+      toast.error('Chyba při ukládání vlny', { duration: 8000 });
     }
   }
 
@@ -123,13 +123,22 @@ export default function WaveConfigForm({ wave }: WaveConfigFormProps) {
         </div>
 
         <div style={{ display: 'flex', flexDirection: 'column', gap: 5 }}>
-          <label style={LABEL}>Odesílací účet (FROM)</label>
-          <select className="glass-input" value={form.outreach_account_id} onChange={e => set('outreach_account_id', e.target.value)} disabled={locked}>
-            <option value="">— Vyberte odesílací email —</option>
-            {(outreachAccounts ?? []).map(a => (
-              <option key={a.id} value={a.id}>{a.email_address}</option>
+          <label style={LABEL}>Odesílací email (FROM)</label>
+          <input
+            className="glass-input"
+            list="from-email-suggestions"
+            type="email"
+            placeholder="outreach@firma.cz"
+            value={form.from_email}
+            onChange={e => set('from_email', e.target.value)}
+            disabled={locked}
+            style={{ fontFamily: 'JetBrains Mono, monospace' }}
+          />
+          <datalist id="from-email-suggestions">
+            {(emailSuggestions ?? []).map(email => (
+              <option key={email} value={email} />
             ))}
-          </select>
+          </datalist>
         </div>
 
         <div style={{ padding: '10px 12px', background: 'var(--bg-subtle)', borderRadius: 8, border: '1px solid var(--border)' }}>

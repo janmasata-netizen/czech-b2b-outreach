@@ -48,7 +48,7 @@ export default function AddLeadsToWaveDialog({ open, onClose, waveId, teamId }: 
       setSelected([]);
       onClose();
     } catch {
-      toast.error('Chyba při přidávání leadů');
+      toast.error('Chyba při přidávání leadů', { duration: 8000 });
     }
   }
 
