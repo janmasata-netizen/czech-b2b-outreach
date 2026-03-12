@@ -201,7 +201,27 @@ export default function WaveConfigForm({ wave }: WaveConfigFormProps) {
             )}
           </div>
         )}
+
+        {hasConfigValues && (
+          <GlassButton variant="ghost" onClick={() => setShowPresetModal(true)} style={{ alignSelf: 'flex-start', fontSize: 12 }}>
+            💾 Uložit jako preset
+          </GlassButton>
+        )}
       </div>
+
+      <GlassModal open={showPresetModal} onClose={() => setShowPresetModal(false)} title="Uložit preset" width={400}
+        footer={<>
+          <GlassButton variant="ghost" onClick={() => setShowPresetModal(false)}>Zrušit</GlassButton>
+          <GlassButton variant="primary" onClick={handleSavePreset} disabled={!presetName.trim() || createPreset.isPending}>
+            {createPreset.isPending ? 'Ukládám…' : 'Uložit'}
+          </GlassButton>
+        </>}
+      >
+        <GlassInput label="Název presetu" placeholder="např. Hlavní outreach" value={presetName} onChange={e => setPresetName(e.target.value)} autoFocus />
+        <p style={{ fontSize: 11, color: 'var(--text-muted)', marginTop: 8 }}>
+          Uloží aktuální šablonu, odesílací email a obchodníka jako znovupoužitelný preset.
+        </p>
+      </GlassModal>
     </GlassCard>
   );
 }
