@@ -2,7 +2,7 @@ import http from 'http';
 import fs from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
-import { N8N_API_KEY, N8N_BASE_URL } from './env.mjs';
+import { N8N_API_KEY, N8N_BASE_URL, SUPABASE_SERVICE_ROLE_KEY } from './env.mjs';
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
 const WORKFLOWS = [
@@ -35,7 +35,10 @@ function apiCall(method, urlPath, body) {
 }
 
 async function pushWorkflow(wf) {
-  const raw = JSON.parse(fs.readFileSync(path.join(__dirname, wf.file), 'utf8'));
+  let rawStr = fs.readFileSync(path.join(__dirname, wf.file), 'utf8');
+  // Replace placeholders with real keys before pushing
+  rawStr = rawStr.replace(/SUPABASE_SERVICE_ROLE_KEY_PLACEHOLDER/g, SUPABASE_SERVICE_ROLE_KEY);
+  const raw = JSON.parse(rawStr);
   delete raw.pinData; delete raw.active; delete raw.id; delete raw.staticData; delete raw.meta;
   if (raw.settings) delete raw.settings.availableInMCP;
 
