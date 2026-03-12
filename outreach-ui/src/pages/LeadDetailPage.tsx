@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
+import { useParams, useNavigate, Link } from 'react-router-dom';
 import { useLead, useUpdateLead } from '@/hooks/useLeads';
 import PageHeader from '@/components/layout/PageHeader';
 import GlassButton from '@/components/glass/GlassButton';
@@ -8,13 +8,14 @@ import GlassInput from '@/components/glass/GlassInput';
 import LoadingSkeleton from '@/components/shared/LoadingSkeleton';
 import EmptyState from '@/components/shared/EmptyState';
 import LeadInfoCard from '@/components/leads/LeadInfoCard';
-import JednatelsCard from '@/components/leads/JednatelsCard';
+import ContactsCard from '@/components/leads/ContactsCard';
 import EmailCandidatesTable from '@/components/leads/EmailCandidatesTable';
 import EnrichmentTimeline from '@/components/leads/EnrichmentTimeline';
 import CampaignHistory from '@/components/leads/CampaignHistory';
 import LeadTagsCard from '@/components/database/LeadTagsCard';
 import ContactMethodsCard from '@/components/database/ContactMethodsCard';
 import Breadcrumb from '@/components/shared/Breadcrumb';
+import { Building2 } from 'lucide-react';
 import { toast } from 'sonner';
 
 export default function LeadDetailPage() {
@@ -58,6 +59,7 @@ export default function LeadDetailPage() {
   }
 
   const enrichmentError = lead.enrichment_error;
+  const companyId = (lead as { company_id?: string }).company_id;
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
@@ -70,6 +72,13 @@ export default function LeadDetailPage() {
         subtitle={lead.ico ? `IČO: ${lead.ico}` : undefined}
         actions={
           <div style={{ display: 'flex', gap: 8 }}>
+            {companyId && (
+              <Link to={`/databaze/${companyId}`} style={{ textDecoration: 'none' }}>
+                <GlassButton size="sm" variant="secondary">
+                  <Building2 size={13} /> Firma
+                </GlassButton>
+              </Link>
+            )}
             <GlassButton size="sm" variant="secondary" onClick={openEdit}>Upravit</GlassButton>
             <GlassButton variant="secondary" onClick={() => navigate('/leady')}>← Zpět</GlassButton>
           </div>
@@ -87,7 +96,7 @@ export default function LeadDetailPage() {
           <LeadInfoCard lead={lead} />
           <LeadTagsCard leadId={lead.id} />
           <ContactMethodsCard jednatels={lead.jednatels ?? []} />
-          <JednatelsCard jednatels={lead.jednatels ?? []} />
+          <ContactsCard contacts={lead.jednatels ?? []} />
           <EmailCandidatesTable
             candidates={lead.email_candidates ?? []}
             leadId={lead.id}

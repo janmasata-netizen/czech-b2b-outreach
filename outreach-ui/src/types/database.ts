@@ -30,6 +30,8 @@ export interface Team {
   name: string;
   salesman_email: string | null;
   salesman_email_app_password?: string | null;
+  daily_send_limit?: number;
+  sends_today?: number;
   is_active?: boolean;
   created_at: string;
   updated_at?: string;
@@ -48,6 +50,54 @@ export interface OutreachAccount {
   teams?: { name: string };
 }
 
+export interface Company {
+  id: string;
+  company_name: string | null;
+  ico: string | null;
+  website: string | null;
+  domain: string | null;
+  master_status: MasterStatus;
+  team_id: string | null;
+  created_at: string;
+  updated_at: string;
+  contacts?: Contact[];
+  company_tags?: CompanyTag[];
+  tags?: Array<{ id: string; name: string; color: string }>;
+  leads?: Lead[];
+}
+
+export interface Contact {
+  id: string;
+  company_id: string;
+  full_name: string | null;
+  first_name?: string | null;
+  last_name?: string | null;
+  salutation?: string | null;
+  role?: string | null;
+  phone?: string | null;
+  linkedin?: string | null;
+  other_contact?: string | null;
+  notes?: string | null;
+  created_at?: string;
+  updated_at?: string;
+  email_candidates?: EmailCandidate[];
+}
+
+export interface CompanyTag {
+  id: string;
+  company_id: string;
+  tag_id: string;
+  created_at: string;
+  tag?: Tag;
+}
+
+export interface CompanyFilters {
+  search?: string;
+  master_status?: MasterStatus;
+  tag_ids?: string[];
+  team_id?: string;
+}
+
 export interface Lead {
   id: string;
   company_name: string | null;
@@ -55,6 +105,7 @@ export interface Lead {
   domain?: string | null;
   ico: string | null;
   team_id: string | null;
+  company_id?: string | null;
   status: LeadStatus;
   lead_type?: 'company' | 'contact';
   contact_name?: string | null;
@@ -65,6 +116,7 @@ export interface Lead {
   created_at: string;
   updated_at?: string;
   team?: Team;
+  company?: Company;
   jednatels?: Jednatel[];
   email_candidates?: EmailCandidate[];
   wave_leads?: WaveLead[];
@@ -83,6 +135,7 @@ export interface EnrichmentLog {
   created_at: string;
 }
 
+/** @deprecated Use Contact instead */
 export interface Jednatel {
   id: string;
   lead_id: string;
@@ -101,6 +154,7 @@ export interface Jednatel {
 export interface EmailCandidate {
   id: string;
   jednatel_id?: string;
+  contact_id?: string;
   lead_id?: string;
   email_address: string;
   is_primary?: boolean;
@@ -160,6 +214,7 @@ export interface Wave {
   team_id?: string | null;
   salesman_id?: string | null;
   outreach_account_id?: string | null;
+  from_email?: string | null;
   template_set_id?: string | null;
   name: string | null;
   status: WaveStatus;
@@ -253,6 +308,7 @@ export interface WaveAnalytics {
   template_set_name: string | null;
   salesman_id?: string | null;
   outreach_account_id?: string | null;
+  from_email?: string | null;
   is_dummy?: boolean;
   dummy_email?: string | null;
   source_wave_id?: string | null;

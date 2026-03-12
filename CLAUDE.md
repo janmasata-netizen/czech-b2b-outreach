@@ -56,15 +56,20 @@ An automated Czech B2B cold email outreach system built on n8n + Supabase. It en
 | wf-admin-users | JeP8whw3jNtL6VJ1 | webhook:admin-users |
 
 ## Database schema (Supabase)
-20 tables: `teams`, `outreach_accounts` (1 per team, UNIQUE(team_id)), `leads`, `enrichment_log`, `jednatels`, `email_candidates`, `template_sets`, `email_templates`, `waves`, `wave_leads`, `email_queue`, `sent_emails`, `lead_replies`, `config`, `salesmen`, `email_verifications`, `email_probe_bounces`, `profiles`, `processed_reply_emails`, `unmatched_replies`
+23 tables: `teams`, `outreach_accounts` (1 per team, UNIQUE(team_id)), **`companies`** (master CRM), `leads` (email outreach, has `company_id` FK → companies), `enrichment_log`, `jednatels` (deprecated — kept for backward compat), **`contacts`** (replaces jednatels, has `company_id` FK → companies), `email_candidates` (has both `jednatel_id` and `contact_id`), `template_sets`, `email_templates`, `waves`, `wave_leads`, `email_queue`, `sent_emails`, `lead_replies`, `config`, `salesmen`, `email_verifications`, `email_probe_bounces`, `profiles`, `processed_reply_emails`, `unmatched_replies`, `lead_tags`, **`company_tags`** (company_id, tag_id), `tags`
+
+**Two-layer architecture:**
+- **`companies`** = Master CRM (all firms, any channel). Shown at `/databaze`. Columns: id, company_name, ico, website, domain, master_status, team_id, created_at, updated_at. Unique indexes on ico (WHERE NOT NULL) and domain (WHERE NOT NULL).
+- **`leads`** = Email outreach layer, linked to companies via `company_id`. Shown at `/leady`.
+- **`contacts`** = Contact people linked to companies (replaces jednatels). Columns: id, company_id, full_name, first_name, last_name, salutation, role, phone, linkedin, other_contact, **notes** (free text for "jednatel", "employee", etc.), created_at, updated_at. Same UUIDs as jednatels for backward compat.
 
 `config` table (key/value) for runtime secrets — `seznam_from_email`, `qev_api_key_1/2/3` (3 rotating QEV keys).
 
-DB functions: `reset_daily_sends()`, `handle_lead_reply()` trigger, `get_dashboard_stats()`, `claim_queued_emails()`, `ingest_lead()`, `get_jednatels_for_lead()`, `check_email_cache()`, `mark_jednatels_email_status()`, `check_max_salesmen()`, `increment_and_check_sends()`, `parse_full_name()`, `generate_salutation()`, `backfill_salutations()`, `check_and_mark_reply_processed()`, `auto_complete_waves()`, `reorder_template_sequences()`.
+DB functions: `reset_daily_sends()` (resets `teams.sends_today`), `handle_lead_reply()` trigger, `get_dashboard_stats()`, `claim_queued_emails()`, `ingest_lead()` (now creates/finds company first, then lead), `get_jednatels_for_lead()` (wrapper — reads from contacts via leads.company_id), **`get_contacts_for_lead()`**, **`get_contacts_for_company()`**, `check_email_cache()`, `mark_jednatels_email_status()`, **`mark_contacts_email_status()`**, `check_max_salesmen()`, `increment_and_check_sends(p_team_id)` (increments `teams.sends_today`), `parse_full_name()`, `generate_salutation()`, `backfill_salutations()` (now iterates contacts + jednatels), `check_and_mark_reply_processed()`, `auto_complete_waves()`, `reorder_template_sequences()`.
 
-DB trigger: `trg_auto_salutation` on `jednatels` — ALWAYS re-derives `first_name`/`last_name` from `full_name` and regenerates `salutation` (Czech vocative) on INSERT/UPDATE. `full_name` is the source of truth. All male names inflected (no foreign-name exemption).
+DB trigger: `trg_auto_salutation` on `jednatels` AND `contacts` — ALWAYS re-derives `first_name`/`last_name` from `full_name` and regenerates `salutation` (Czech vocative) on INSERT/UPDATE. `full_name` is the source of truth. All male names inflected (no foreign-name exemption).
 
-DB trigger: `trg_refresh_salutations_on_wave_add` on `wave_leads` — AFTER INSERT, touches `jednatels.updated_at` for all jednatels of the added lead, which fires `trg_auto_salutation` to ensure salutations are fresh when leads are assigned to a wave.
+DB trigger: `trg_refresh_salutations_on_wave_add` on `wave_leads` — AFTER INSERT, touches `contacts.updated_at` (via leads.company_id) AND `jednatels.updated_at` for all contacts/jednatels of the added lead, which fires `trg_auto_salutation` to ensure salutations are fresh when leads are assigned to a wave.
 
 ## Vocative salutation system
 - `jednatels.salutation` stores full formal greeting with gendered prefix: `Vážený pane Nováku` (male) / `Vážená paní Nováková` (female)
@@ -75,12 +80,13 @@ DB trigger: `trg_refresh_salutations_on_wave_add` on `wave_leads` — AFTER INSE
 ## Current workflow state
 - **No `$env.*` variables in n8n** — Supabase URL/key are hardcoded in workflow JSON, n8n webhook URLs are hardcoded. This is intentional (workflows run on VPS)
 - **Email sending**: SMTP via smtp-proxy (nodemailer), supports proper threading headers (Message-ID, In-Reply-To, References)
-- **1 outreach account per team** (UNIQUE constraint)
+- **FROM email is set per wave** (free text `waves.from_email`, not outreach_accounts)
+- **Daily send limits tracked on teams** (`teams.daily_send_limit`, `teams.sends_today`)
 - **Threading**: smtp-proxy uses nodemailer's dedicated `messageId`, `inReplyTo`, `references` mail options (NOT headers object)
 - **Reply-To**: set to `salesman_email` from `teams` table
 - **WF5** fetches `seznam_from_email` from `config` table at runtime
 - **WF6** fetches `qev_api_key` from `config` table at runtime (3 rotating keys)
-- **WF8** uses atomic `claim_queued_emails()` RPC + `increment_and_check_sends()` for daily limits
+- **WF8** uses atomic `claim_queued_emails()` RPC + `increment_and_check_sends(p_team_id)` for daily limits (on teams table)
 - **WF8** calls `auto_complete_waves()` on loop done
 - **WF10** calls `reset_daily_sends()` RPC at midnight + deletes old `email_probe_bounces`
 

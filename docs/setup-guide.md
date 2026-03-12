@@ -288,7 +288,7 @@ node deploy.mjs
 
 > POZOR: Na VPS musite nastavit promennou `PROXY_AUTH_TOKEN` v `.env` souboru vedle `docker-compose.yml` (nebo primo v prostredi). Bez ni kontejner nenastartuje. Pouzijte stejny token jako u IMAP proxy.
 
-> POZOR: Nazev credential v `config.json` musi presne odpovidat `outreach_accounts.smtp_credential_name` v databazi.
+> POZOR: Nazev credential v `config.json` musi presne odpovidat nazvu SMTP credential v tabulce `outreach_accounts`.
 
 ---
 
@@ -316,6 +316,10 @@ node migrate-002-*.mjs
 ```
 
 > POZOR: Migraci spoustejte vzdy v poradi podle cisla v nazvu souboru. Preskoceni migrace muze zpusobit chyby.
+
+**Dulezite migrace:**
+- `migrate-from-email.mjs` — presunula FROM e-mail z `outreach_accounts` do `waves.from_email` a denni limity (`daily_send_limit`, `sends_today`) z `outreach_accounts` do `teams`. Jiz provedena na produkci.
+- **Companies + Contacts migrace** — vytvorila tabulky `companies`, `contacts`, `company_tags`. Pridala `company_id` FK do `leads`, `contact_id` FK do `email_candidates`. Vytvorila nove RPC funkce (`get_contacts_for_company`, `get_contacts_for_lead`, `mark_contacts_email_status`), aktualizovala `ingest_lead()` a `backfill_salutations()`, pridala trigger `trg_auto_salutation` na tabulku `contacts`.
 
 ### Krok 5.3 — Seedovani dat
 
@@ -392,6 +396,8 @@ Projekt obsahuje GitHub Actions workflow v `.github/workflows/ci.yml`. Pipeline 
 | **Bearer token** | Autentizacni token v HTTP hlavicce — pouziva se pro zabezpeceni webhook volani |
 | **Push skript** | Helper skript, ktery nahraje workflow JSON do n8n pres API |
 | **Migrace** | Skript, ktery zmeni databazove schema (pridani sloupcu, tabulek atd.) |
+| **Companies** | Master CRM tabulka firem — centralni evidence, na kterou se vazou leady i kontakty |
+| **Contacts** | Tabulka kontaktnich osob firem (nahradi jednatels) — vazba pres company_id |
 
 ---
 

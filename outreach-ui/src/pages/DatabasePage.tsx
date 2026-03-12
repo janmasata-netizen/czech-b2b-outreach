@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useSearchParams } from 'react-router-dom';
-import { useMasterLeads } from '@/hooks/useMasterLeads';
-import type { MasterLeadFilters, MasterStatus } from '@/types/database';
+import { useCompanies } from '@/hooks/useCompanies';
+import type { CompanyFilters, MasterStatus } from '@/types/database';
 import PageHeader from '@/components/layout/PageHeader';
 import TagManager from '@/components/database/TagManager';
 import DatabaseFilters from '@/components/database/DatabaseFilters';
@@ -21,7 +21,7 @@ export default function DatabasePage() {
   const [showAdd, setShowAdd] = useState(false);
 
   // Derive filters from URL params
-  const filters: MasterLeadFilters = {
+  const filters: CompanyFilters = {
     search: sp.get('q') || undefined,
     master_status: (sp.get('status') as MasterStatus) || undefined,
     team_id: sp.get('team') || undefined,
@@ -45,19 +45,18 @@ export default function DatabasePage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [sp]);
 
-  const { data, isLoading } = useMasterLeads(filters, page);
-  const leads = data?.data ?? [];
+  const { data, isLoading } = useCompanies(filters, page);
+  const companies = data?.data ?? [];
   const totalCount = data?.count ?? 0;
   const totalPages = Math.max(1, Math.ceil(totalCount / PAGE_SIZE));
 
-  function handleFilterChange(next: MasterLeadFilters) {
+  function handleFilterChange(next: CompanyFilters) {
     setPage(1);
     setSelected([]);
     const p = new URLSearchParams();
     if (next.search) p.set('q', next.search);
     if (next.master_status) p.set('status', next.master_status);
     if (next.team_id) p.set('team', next.team_id);
-    // tag_ids are local state only (not in URL for simplicity)
     setSp(p, { replace: true });
   }
 
@@ -65,29 +64,29 @@ export default function DatabasePage() {
     setSelected(s => s.includes(id) ? s.filter(x => x !== id) : [...s, id]);
   }
   function toggleAll() {
-    setSelected(s => s.length === leads.length ? [] : leads.map(l => l.id));
+    setSelected(s => s.length === companies.length ? [] : companies.map(c => c.id));
   }
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
       <PageHeader
         title="Databáze"
-        subtitle={`${totalCount} záznamů`}
+        subtitle={`${totalCount} firem`}
         actions={
           <div style={{ display: 'flex', gap: 8 }}>
             <GlassButton size="sm" variant="secondary" onClick={async () => {
               const { data } = await supabase
-                .from('leads')
-                .select('company_name, ico, website, domain, status, master_status, created_at')
+                .from('companies')
+                .select('company_name, ico, website, domain, master_status, created_at')
                 .order('created_at', { ascending: false })
                 .limit(5000);
               if (!data?.length) return;
-              exportCsv('databaze.csv', ['company_name', 'ico', 'website', 'domain', 'status', 'master_status', 'created_at'], data);
+              exportCsv('databaze.csv', ['company_name', 'ico', 'website', 'domain', 'master_status', 'created_at'], data);
             }}>
               Export CSV
             </GlassButton>
             <GlassButton variant="primary" size="sm" onClick={() => setShowAdd(true)}>
-              + Přidat záznam
+              + Přidat firmu
             </GlassButton>
           </div>
         }
@@ -100,7 +99,7 @@ export default function DatabasePage() {
       <DatabaseBulkActions selected={selected} onClear={() => setSelected([])} teamId={filters.team_id} />
 
       <DatabaseTable
-        leads={leads}
+        companies={companies}
         selected={selected}
         onToggle={toggleSelect}
         onToggleAll={toggleAll}

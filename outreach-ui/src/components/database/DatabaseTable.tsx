@@ -1,22 +1,22 @@
 import { useNavigate } from 'react-router-dom';
-import type { Lead, Jednatel, EmailCandidate } from '@/types/database';
+import type { Company, Contact, EmailCandidate } from '@/types/database';
 import TagBadge from './TagBadge';
 import MasterStatusBadge from './MasterStatusBadge';
 import EmptyState from '@/components/shared/EmptyState';
 import { formatDate, extractDomain } from '@/lib/utils';
-import { Mail, Phone, Linkedin } from 'lucide-react';
+import { Mail, Phone, Linkedin, Users } from 'lucide-react';
 
-type LeadWithTags = Lead & { tags: Array<{ id: string; name: string; color: string }> };
+type CompanyWithTags = Company & { tags: Array<{ id: string; name: string; color: string }> };
 
 interface DatabaseTableProps {
-  leads: LeadWithTags[];
+  companies: CompanyWithTags[];
   selected: string[];
   onToggle: (id: string) => void;
   onToggleAll: () => void;
   isLoading?: boolean;
 }
 
-export default function DatabaseTable({ leads, selected, onToggle, onToggleAll, isLoading }: DatabaseTableProps) {
+export default function DatabaseTable({ companies, selected, onToggle, onToggleAll, isLoading }: DatabaseTableProps) {
   const navigate = useNavigate();
 
   if (isLoading) {
@@ -29,11 +29,11 @@ export default function DatabaseTable({ leads, selected, onToggle, onToggleAll, 
     );
   }
 
-  if (!leads.length) {
-    return <EmptyState icon="◈" title="Žádné záznamy" description="Přidejte leady nebo změňte filtry" />;
+  if (!companies.length) {
+    return <EmptyState icon="◈" title="Žádné firmy" description="Přidejte firmy nebo změňte filtry" />;
   }
 
-  const allSelected = leads.length > 0 && leads.every(l => selected.includes(l.id));
+  const allSelected = companies.length > 0 && companies.every(c => selected.includes(c.id));
 
   const th: React.CSSProperties = {
     padding: '8px 10px', fontSize: 11, fontWeight: 600, color: 'var(--text-muted)',
@@ -56,39 +56,44 @@ export default function DatabaseTable({ leads, selected, onToggle, onToggleAll, 
             <th style={th}>Firma</th>
             <th style={th}>IČO</th>
             <th style={th}>Doména</th>
-            <th style={th}>Kontaktní osoba</th>
             <th style={th}>Kontakty</th>
+            <th style={th}>Kontaktní info</th>
             <th style={th}>Štítky</th>
             <th style={th}>CRM stav</th>
             <th style={th}>Přidáno</th>
           </tr>
         </thead>
         <tbody>
-          {leads.map(lead => {
-            const checked = selected.includes(lead.id);
-            const jednatels = lead.jednatels ?? [];
-            const firstJed = jednatels[0];
-            const emails = jednatels.flatMap((j: Jednatel & { email_candidates?: EmailCandidate[] }) => j.email_candidates ?? []);
+          {companies.map(company => {
+            const checked = selected.includes(company.id);
+            const contacts = company.contacts ?? [];
+            const contactCount = contacts.length;
+            const emails = contacts.flatMap((c: Contact & { email_candidates?: EmailCandidate[] }) => c.email_candidates ?? []);
             const hasEmail = emails.length > 0;
-            const hasPhone = jednatels.some((j: Jednatel) => j.phone);
-            const hasLinkedin = jednatels.some((j: Jednatel) => j.linkedin);
-            const tags = lead.tags ?? [];
+            const hasPhone = contacts.some((c: Contact) => c.phone);
+            const hasLinkedin = contacts.some((c: Contact) => c.linkedin);
+            const tags = company.tags ?? [];
 
             return (
               <tr
-                key={lead.id}
-                onClick={() => navigate(`/leady/${lead.id}`)}
+                key={company.id}
+                onClick={() => navigate(`/databaze/${company.id}`)}
                 style={{ cursor: 'pointer', transition: 'background 0.1s' }}
                 onMouseEnter={e => (e.currentTarget.style.background = 'var(--bg-surface)')}
                 onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}
               >
                 <td style={{ ...td, width: 36 }} onClick={e => e.stopPropagation()}>
-                  <input type="checkbox" checked={checked} onChange={() => onToggle(lead.id)} />
+                  <input type="checkbox" checked={checked} onChange={() => onToggle(company.id)} />
                 </td>
-                <td style={{ ...td, fontWeight: 500 }}>{lead.company_name ?? '—'}</td>
-                <td style={{ ...td, fontFamily: 'JetBrains Mono, monospace', fontSize: 12 }}>{lead.ico ?? '—'}</td>
-                <td style={td}>{lead.domain ? extractDomain(lead.domain) : lead.website ? extractDomain(lead.website) : '—'}</td>
-                <td style={td}>{firstJed?.full_name ?? '—'}</td>
+                <td style={{ ...td, fontWeight: 500 }}>{company.company_name ?? '—'}</td>
+                <td style={{ ...td, fontFamily: 'JetBrains Mono, monospace', fontSize: 12 }}>{company.ico ?? '—'}</td>
+                <td style={td}>{company.domain ? extractDomain(company.domain) : company.website ? extractDomain(company.website) : '—'}</td>
+                <td style={td}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+                    <Users size={13} style={{ color: 'var(--text-muted)' }} />
+                    <span>{contactCount}</span>
+                  </div>
+                </td>
                 <td style={{ ...td, maxWidth: 100 }}>
                   <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
                     {hasEmail && <Mail size={13} style={{ color: 'var(--green)', flexShrink: 0 }} />}
@@ -108,9 +113,9 @@ export default function DatabaseTable({ leads, selected, onToggle, onToggleAll, 
                   </div>
                 </td>
                 <td style={td}>
-                  <MasterStatusBadge status={lead.master_status ?? 'active'} />
+                  <MasterStatusBadge status={company.master_status ?? 'active'} />
                 </td>
-                <td style={{ ...td, fontSize: 12, color: 'var(--text-dim)' }}>{formatDate(lead.created_at)}</td>
+                <td style={{ ...td, fontSize: 12, color: 'var(--text-dim)' }}>{formatDate(company.created_at)}</td>
               </tr>
             );
           })}

@@ -1,10 +1,11 @@
 import { useState } from 'react';
 import GlassButton from '@/components/glass/GlassButton';
 import ConfirmDialog from '@/components/shared/ConfirmDialog';
-import { useTags, useAddTagToLead } from '@/hooks/useTags';
-import { useUpdateMasterStatus } from '@/hooks/useMasterLeads';
-import { useDeleteLeads } from '@/hooks/useLeads';
+import { useTags, useAddTagToCompany } from '@/hooks/useTags';
+import { useUpdateCompanyMasterStatus } from '@/hooks/useCompanies';
 import { toast } from 'sonner';
+import { supabase } from '@/lib/supabase';
+import { useMutation, useQueryClient } from '@tanstack/react-query';
 
 interface DatabaseBulkActionsProps {
   selected: string[];
@@ -12,11 +13,22 @@ interface DatabaseBulkActionsProps {
   teamId?: string;
 }
 
+function useDeleteCompanies() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (ids: string[]) => {
+      const { error } = await supabase.from('companies').delete().in('id', ids);
+      if (error) throw error;
+    },
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['companies'] }),
+  });
+}
+
 export default function DatabaseBulkActions({ selected, onClear, teamId }: DatabaseBulkActionsProps) {
   const { data: tags = [] } = useTags(teamId);
-  const addTag = useAddTagToLead();
-  const updateStatus = useUpdateMasterStatus();
-  const deleteLeads = useDeleteLeads();
+  const addTag = useAddTagToCompany();
+  const updateStatus = useUpdateCompanyMasterStatus();
+  const deleteCompanies = useDeleteCompanies();
   const [showTagPicker, setShowTagPicker] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState(false);
 
@@ -24,8 +36,8 @@ export default function DatabaseBulkActions({ selected, onClear, teamId }: Datab
 
   async function handleBulkTag(tagId: string, tagName: string) {
     try {
-      await Promise.all(selected.map(leadId => addTag.mutateAsync({ leadId, tagId, tagName })));
-      toast.success(`Štítek přidán k ${selected.length} leadům`);
+      await Promise.all(selected.map(companyId => addTag.mutateAsync({ companyId, tagId, tagName })));
+      toast.success(`Štítek přidán k ${selected.length} firmám`);
       setShowTagPicker(false);
     } catch {
       toast.error('Chyba při přidávání štítku');
@@ -37,11 +49,11 @@ export default function DatabaseBulkActions({ selected, onClear, teamId }: Datab
       const blacklistTag = tags.find(t => t.name.toLowerCase() === 'blacklist');
       await updateStatus.mutateAsync({ ids: selected, master_status: 'blacklisted' });
       if (blacklistTag) {
-        await Promise.all(selected.map(leadId =>
-          addTag.mutateAsync({ leadId, tagId: blacklistTag.id, tagName: blacklistTag.name }).catch(() => {})
+        await Promise.all(selected.map(companyId =>
+          addTag.mutateAsync({ companyId, tagId: blacklistTag.id, tagName: blacklistTag.name }).catch(() => {})
         ));
       }
-      toast.success(`${selected.length} leadů přidáno na blacklist`);
+      toast.success(`${selected.length} firem přidáno na blacklist`);
       onClear();
     } catch {
       toast.error('Chyba při blacklistování');
@@ -51,7 +63,7 @@ export default function DatabaseBulkActions({ selected, onClear, teamId }: Datab
   async function handleArchive() {
     try {
       await updateStatus.mutateAsync({ ids: selected, master_status: 'archived' });
-      toast.success(`${selected.length} leadů archivováno`);
+      toast.success(`${selected.length} firem archivováno`);
       onClear();
     } catch {
       toast.error('Chyba při archivaci');
@@ -60,8 +72,8 @@ export default function DatabaseBulkActions({ selected, onClear, teamId }: Datab
 
   async function handleDelete() {
     try {
-      await deleteLeads.mutateAsync(selected);
-      toast.success(`Smazáno ${selected.length} leadů`);
+      await deleteCompanies.mutateAsync(selected);
+      toast.success(`Smazáno ${selected.length} firem`);
       onClear();
       setConfirmDelete(false);
     } catch {
@@ -122,10 +134,10 @@ export default function DatabaseBulkActions({ selected, onClear, teamId }: Datab
         open={confirmDelete}
         onClose={() => setConfirmDelete(false)}
         onConfirm={handleDelete}
-        title="Smazat leady"
-        message={`Opravdu chcete smazat ${selected.length} vybraných leadů? Tato akce je nevratná.`}
+        title="Smazat firmy"
+        message={`Opravdu chcete smazat ${selected.length} vybraných firem? Tato akce je nevratná.`}
         confirmLabel="Smazat"
-        loading={deleteLeads.isPending}
+        loading={deleteCompanies.isPending}
       />
     </>
   );

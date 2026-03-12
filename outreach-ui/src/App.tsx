@@ -11,12 +11,14 @@ import WaveDetailPage from '@/pages/WaveDetailPage';
 import SettingsPage from '@/pages/SettingsPage';
 import EmailFinderPage from '@/pages/EmailFinderPage';
 import DatabasePage from '@/pages/DatabasePage';
+import CompanyDetailPage from '@/pages/CompanyDetailPage';
 import RetargetPoolPage from '@/pages/RetargetPoolPage';
 import AdminRoute from '@/components/AdminRoute';
 import TeamsSettings from '@/components/settings/TeamsSettings';
 import OutreachAccountsSettings from '@/components/settings/OutreachAccountsSettings';
 import ApiKeysSettings from '@/components/settings/ApiKeysSettings';
 import TemplateSetEditor from '@/components/settings/TemplateSetEditor';
+import TemplateSetDetailPage from '@/pages/TemplateSetDetailPage';
 import SalesmenSettings from '@/components/settings/SalesmenSettings';
 import UsersSettings from '@/components/settings/UsersSettings';
 
@@ -35,12 +37,14 @@ export default function App() {
         >
           <Route path="/prehled" element={<DashboardPage />} />
           <Route path="/databaze" element={<DatabasePage />} />
+          <Route path="/databaze/:id" element={<CompanyDetailPage />} />
           <Route path="/leady" element={<LeadsPage />} />
           <Route path="/leady/:id" element={<LeadDetailPage />} />
           <Route path="/vlny" element={<WavesPage />} />
           <Route path="/vlny/:id" element={<WaveDetailPage />} />
           <Route path="/email-finder" element={<AdminRoute><EmailFinderPage /></AdminRoute>} />
           <Route path="/sablony" element={<TemplateSetEditor />} />
+          <Route path="/sablony/:id" element={<TemplateSetDetailPage />} />
           <Route path="/retarget" element={<RetargetPoolPage />} />
           <Route path="/nastaveni" element={<AdminRoute><SettingsPage /></AdminRoute>}>
             <Route index element={null} />

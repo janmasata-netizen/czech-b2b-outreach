@@ -1,7 +1,7 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/lib/supabase';
 import { isSystemTag } from '@/lib/constants';
-import type { Tag, LeadTag } from '@/types/database';
+import type { Tag, LeadTag, CompanyTag } from '@/types/database';
 
 export function useTags(teamId?: string) {
   return useQuery<Tag[]>({
@@ -114,6 +114,63 @@ export function useRemoveTagFromLead() {
       qc.invalidateQueries({ queryKey: ['leads', leadId] });
       qc.invalidateQueries({ queryKey: ['leads'] });
       qc.invalidateQueries({ queryKey: ['master-leads'] });
+    },
+  });
+}
+
+// ============================================================
+// Company Tags
+// ============================================================
+
+export function useCompanyTags(companyId: string | undefined) {
+  return useQuery<CompanyTag[]>({
+    queryKey: ['company-tags', companyId],
+    enabled: !!companyId,
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('company_tags')
+        .select('*, tag:tags(*)')
+        .eq('company_id', companyId!);
+      if (error) throw error;
+      return (data ?? []) as CompanyTag[];
+    },
+  });
+}
+
+export function useAddTagToCompany() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async ({ companyId, tagId, tagName }: { companyId: string; tagId: string; tagName: string }) => {
+      const { error } = await supabase.from('company_tags').insert({ company_id: companyId, tag_id: tagId });
+      if (error) throw error;
+      if (tagName.toLowerCase() === 'blacklist') {
+        const { error: e2 } = await supabase.from('companies').update({ master_status: 'blacklisted' }).eq('id', companyId);
+        if (e2) throw e2;
+      }
+    },
+    onSuccess: (_d, { companyId }) => {
+      qc.invalidateQueries({ queryKey: ['company-tags', companyId] });
+      qc.invalidateQueries({ queryKey: ['companies', companyId] });
+      qc.invalidateQueries({ queryKey: ['companies'] });
+    },
+  });
+}
+
+export function useRemoveTagFromCompany() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async ({ companyId, tagId, tagName }: { companyId: string; tagId: string; tagName: string }) => {
+      const { error } = await supabase.from('company_tags').delete().eq('company_id', companyId).eq('tag_id', tagId);
+      if (error) throw error;
+      if (tagName.toLowerCase() === 'blacklist') {
+        const { error: e2 } = await supabase.from('companies').update({ master_status: 'active' }).eq('id', companyId);
+        if (e2) throw e2;
+      }
+    },
+    onSuccess: (_d, { companyId }) => {
+      qc.invalidateQueries({ queryKey: ['company-tags', companyId] });
+      qc.invalidateQueries({ queryKey: ['companies', companyId] });
+      qc.invalidateQueries({ queryKey: ['companies'] });
     },
   });
 }
