@@ -1,7 +1,7 @@
 import { Link, useLocation, useNavigate, useSearchParams } from 'react-router-dom';
 import {
   Users, LayoutList, Zap, Archive, AlertTriangle, Plus, Search, CircleCheck, Database, Ban, Upload,
-  Hash, UserSearch, MailCheck, Radar, FileText, Layers,
+  Hash, UserSearch, MailCheck, Radar, FileText, Layers, FileText, Layers,
 } from 'lucide-react';
 import { TOP_H } from './TopBar';
 
@@ -81,6 +81,18 @@ const SECTIONS: Record<string, Section> = {
         items: [
           { label: 'Emailové šablony', to: '/sablony', defaultTab: true,       Icon: FileText },
           { label: 'Vlnové presety',   to: '/sablony', tabParam: 'presets',    Icon: Layers   },
+        ],
+      },
+    ],
+  },
+
+  '/sablony': {
+    title: 'Sablony',
+    groups: [
+      {
+        items: [
+          { label: 'Emailove sablony', to: '/sablony', defaultTab: true, Icon: FileText },
+          { label: 'Vlnove presety', to: '/sablony', tabParam: 'presets', Icon: Layers },
         ],
       },
     ],
