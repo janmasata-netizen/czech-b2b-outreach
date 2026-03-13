@@ -18,4 +18,5 @@
 
 | Branch | Agent | Files (exact paths) | Started | Last Updated | PR |
 |---|---|---|---|---|---|
+| claude/fix-add-leads-error-handling | claude-opus | outreach-ui/src/pages/AddLeadsToWavePage.tsx, outreach-ui/src/hooks/useLeads.ts | 2026-03-13 | 2026-03-13 | — |
 
