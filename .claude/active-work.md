@@ -18,3 +18,4 @@
 
 | Branch | Agent | Files (exact paths) | Started | Last Updated | PR |
 |---|---|---|---|---|---|
+| claude/i18n-and-dashboard-team-filter | claude-opus | outreach-ui/src/components/database/LeadTagsCard.tsx, outreach-ui/src/components/database/TagManager.tsx, outreach-ui/src/components/waves/AddLeadsToWaveDialog.tsx, outreach-ui/src/hooks/useDashboard.ts, outreach-ui/src/i18n/index.ts | 2026-03-13 | 2026-03-13 | — |
