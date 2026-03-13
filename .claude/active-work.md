@@ -18,4 +18,4 @@
 
 | Branch | Agent | Files (exact paths) | Started | Last Updated | PR |
 |---|---|---|---|---|---|
-| claude/lead-language | hub-agent | `outreach-ui/src/components/waves/AddLeadsToWaveDialog.tsx`, `outreach-ui/src/i18n/cs.ts`, `outreach-ui/src/i18n/en.ts` | 2026-03-13 | 2026-03-13 | — |
+
