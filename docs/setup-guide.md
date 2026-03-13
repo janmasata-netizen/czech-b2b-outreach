@@ -590,4 +590,4 @@ Projekt obsahuje GitHub Actions workflow v `.github/workflows/ci.yml`. Pipeline 
 
 ---
 
-*Posledni aktualizace: brezen 2026*
+*Posledni aktualizace: 2026-03-13*

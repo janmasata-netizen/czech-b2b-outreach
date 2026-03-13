@@ -1,0 +1,51 @@
+{
+  "name": "SUB — Clean Domain",
+  "nodes": [
+    {
+      "parameters": {
+        "content": "## SUB — Clean Domain\n**Trigger:** Execute Workflow\n**Input:** `{ domain: \"raw string\" }`\n**Output:** `{ domain: \"cleaned.cz\", valid: true }` or `{ domain: \"\", valid: false, error: \"...\" }`\n\nCleans messy domain input: strips URLs, handles emails, multiple domains (takes first), validates format.",
+        "height": 160,
+        "width": 500,
+        "color": 4
+      },
+      "id": "scd-sticky",
+      "name": "Sticky Note",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [-200, 100]
+    },
+    {
+      "parameters": {},
+      "id": "scd-0001",
+      "name": "Execute Workflow Trigger",
+      "type": "n8n-nodes-base.executeWorkflowTrigger",
+      "typeVersion": 1,
+      "position": [0, 300]
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForEachItem",
+        "jsCode": "const raw = ($input.item.json.domain || $input.item.json.raw || '').toString();\n\nif (!raw.trim()) {\n  return { json: { domain: '', valid: false, error: 'Zadejte doménu' } };\n}\n\n// Split on commas, semicolons, spaces, newlines — take first non-empty token\nconst tokens = raw.split(/[,;\\s\\n]+/).map(s => s.trim()).filter(Boolean);\nconst token = tokens[0] || '';\n\n// If it's an email, extract domain part\nlet candidate = token.includes('@') ? token.split('@')[1] : token;\n\n// Strip protocol, www, paths, query params\ncandidate = candidate\n  .replace(/^https?:\\/\\//i, '')\n  .replace(/^www\\./i, '')\n  .split(/[\\/?#]/)[0]\n  .trim()\n  .toLowerCase();\n\n// Validate: must have at least one dot, valid domain chars\nif (!candidate || !/^[a-z0-9.-]+\\.[a-z]{2,}$/.test(candidate)) {\n  return { json: { domain: '', valid: false, error: 'Neplatná doména: ' + token } };\n}\n\nreturn { json: { domain: candidate, valid: true } };"
+      },
+      "id": "scd-0002",
+      "name": "Clean Domain",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [240, 300]
+    }
+  ],
+  "connections": {
+    "Execute Workflow Trigger": {
+      "main": [
+        [{ "node": "Clean Domain", "type": "main", "index": 0 }]
+      ]
+    }
+  },
+  "pinData": {},
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "staticData": null,
+  "tags": [],
+  "triggerCount": 0
+}
