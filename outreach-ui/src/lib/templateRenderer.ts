@@ -1,8 +1,8 @@
-import type { Lead, Jednatel } from '@/types/database';
+import type { Lead, Contact } from '@/types/database';
 
 /**
  * Client-side template renderer for draft wave preview.
- * Replaces {{placeholder}} tokens with lead/jednatel/custom_fields values.
+ * Replaces {{placeholder}} tokens with lead/contact/custom_fields values.
  */
 export function renderTemplate(text: string | null, ctx: Record<string, string>): string {
   if (!text) return '';
@@ -11,9 +11,9 @@ export function renderTemplate(text: string | null, ctx: Record<string, string>)
   });
 }
 
-/** Build a template context from lead + jednatel data + custom_fields */
-export function buildTemplateContext(lead: Lead | null, jednatel: Jednatel | null): Record<string, string> {
-  // Standard fields from lead/jednatel columns
+/** Build a template context from lead + contact data + custom_fields */
+export function buildTemplateContext(lead: Lead | null, contact: Contact | null): Record<string, string> {
+  // Standard fields from lead/contact columns
   const standard: Record<string, string> = {};
   if (lead?.company_name) standard.company_name = lead.company_name;
   if (lead?.ico) standard.ico = lead.ico;
@@ -25,10 +25,10 @@ export function buildTemplateContext(lead: Lead | null, jednatel: Jednatel | nul
       } catch { /* ignore */ }
     }
   }
-  if (jednatel?.first_name) standard.first_name = jednatel.first_name;
-  if (jednatel?.last_name) standard.last_name = jednatel.last_name;
-  if (jednatel?.salutation) standard.salutation = jednatel.salutation;
-  if (jednatel?.full_name) standard.full_name = jednatel.full_name;
+  if (contact?.first_name) standard.first_name = contact.first_name;
+  if (contact?.last_name) standard.last_name = contact.last_name;
+  if (contact?.salutation) standard.salutation = contact.salutation;
+  if (contact?.full_name) standard.full_name = contact.full_name;
 
   // Custom fields from lead.custom_fields — override standard fields
   const custom: Record<string, string> = lead?.custom_fields ?? {};

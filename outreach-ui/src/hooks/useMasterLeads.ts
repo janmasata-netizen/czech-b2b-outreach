@@ -27,7 +27,7 @@ export function useMasterLeads(filters: MasterLeadFilters = {}, page = 1) {
         .from('leads')
         .select(`
           *,
-          jednatels(id, full_name, phone, linkedin, other_contact, email_candidates(email_address, is_verified, seznam_status, qev_status)),
+          company_id, companies:companies!company_id(contacts(id, full_name, phone, linkedin, other_contact, email_candidates:email_candidates!contact_id(email_address, is_verified, seznam_status, qev_status))),
           lead_tags(id, tag_id, tags(id, name, color))
         `, { count: 'exact' });
 
@@ -46,11 +46,11 @@ export function useMasterLeads(filters: MasterLeadFilters = {}, page = 1) {
       const { data, count, error } = await q;
       if (error) throw error;
 
-      const mapped = (data ?? []).map((lead: { jednatels?: { email_candidates?: EmailCandidate[] }[]; lead_tags?: { tags: { id: string; name: string; color: string } | null }[]; [key: string]: unknown }) => {
-        const jednatels = lead.jednatels ?? [];
-        const email_candidates = jednatels.flatMap((j: { email_candidates?: EmailCandidate[] }) => j.email_candidates ?? []);
+      const mapped = (data ?? []).map((lead: { companies?: { contacts?: { email_candidates?: EmailCandidate[] }[] } | null; lead_tags?: { tags: { id: string; name: string; color: string } | null }[]; [key: string]: unknown }) => {
+        const contacts = lead.companies?.contacts ?? [];
+        const email_candidates = contacts.flatMap((c: { email_candidates?: EmailCandidate[] }) => c.email_candidates ?? []);
         const tags = (lead.lead_tags ?? []).map((lt: { tags: { id: string; name: string; color: string } | null }) => lt.tags).filter(Boolean);
-        return { ...lead, jednatels, email_candidates, tags };
+        return { ...lead, contacts, email_candidates, tags };
       });
 
       return { data: mapped as (Lead & { tags: Array<{ id: string; name: string; color: string }> })[], count: count ?? 0 };
@@ -74,16 +74,4 @@ export function useUpdateMasterStatus() {
 }
 
 /** @deprecated Use useUpdateContact instead */
-export function useUpdateJednatelContact() {
-  const qc = useQueryClient();
-  return useMutation({
-    mutationFn: async ({ id, updates }: { id: string; updates: { phone?: string | null; linkedin?: string | null; other_contact?: string | null } }) => {
-      const { error } = await supabase.from('jednatels').update(updates).eq('id', id);
-      if (error) throw error;
-    },
-    onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ['master-leads'] });
-      qc.invalidateQueries({ queryKey: ['leads'] });
-    },
-  });
-}
+export { useUpdateContact as useUpdateJednatelContact } from './useContacts';

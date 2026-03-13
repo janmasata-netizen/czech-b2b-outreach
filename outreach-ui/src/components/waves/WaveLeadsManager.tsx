@@ -8,7 +8,7 @@ import EmailSequenceCards from './EmailSequenceCards';
 import EmailEditModal from './EmailEditModal';
 import { useRemoveLeadFromWave } from '@/hooks/useLeads';
 import { toast } from 'sonner';
-import type { EmailTemplate, EmailQueue, TemplateVariable, WaveLeadRow, Jednatel, EmailCandidate } from '@/types/database';
+import type { EmailTemplate, EmailQueue, TemplateVariable, WaveLeadRow, Contact, EmailCandidate } from '@/types/database';
 import { WAVE_LEAD_STATUS_MAP, STATUS_COLOR_MAP } from '@/lib/constants';
 
 const EMAIL_STATUS_COLORS: Record<string, { bg: string; border: string; text: string }> = {
@@ -33,8 +33,8 @@ function EmailStatusBadge({ status }: { status: string | null }) {
 }
 
 function hasUsableEmail(wl: WaveLeadRow): boolean {
-  const jednatels = wl.leads?.jednatels ?? [];
-  const allCandidates = jednatels.flatMap((j: Jednatel & { email_candidates?: EmailCandidate[] }) => j.email_candidates ?? []);
+  const contacts = wl.leads?.companies?.contacts ?? [];
+  const allCandidates = contacts.flatMap((c: Contact & { email_candidates?: EmailCandidate[] }) => c.email_candidates ?? []);
   return allCandidates.some(
     (ec: EmailCandidate) => ec.is_verified || ec.qev_status === 'valid' || ec.seznam_status === 'likely_valid'
   );
@@ -116,7 +116,7 @@ export default function WaveLeadsManager({ waveId, waveLeads, waveStatus, teamId
             </thead>
             <tbody>
               {waveLeads.map(wl => {
-                const allCandidates = (wl.leads?.jednatels ?? []).flatMap((j: Jednatel & { email_candidates?: EmailCandidate[] }) => j.email_candidates ?? []);
+                const allCandidates = (wl.leads?.companies?.contacts ?? []).flatMap((c: Contact & { email_candidates?: EmailCandidate[] }) => c.email_candidates ?? []);
                 const bestCand = allCandidates.find((e: EmailCandidate) => e.is_verified) ?? allCandidates[0] ?? null;
                 const emailAddr = bestCand?.email_address ?? null;
                 const emailStatus: string | null = wl.leads?.status === 'info_email'

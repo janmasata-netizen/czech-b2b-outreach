@@ -71,14 +71,17 @@ export function truncate(str: string | null | undefined, maxLen = 40): string {
 }
 
 // ================================================================
-// LEAD NAME (full from jednatels)
+// LEAD NAME (full from contacts)
 // ================================================================
-export function getJednatelsDisplay(
-  jednatels: Array<{ full_name: string | null }> | undefined
+export function getContactsDisplay(
+  contacts: Array<{ full_name: string | null }> | undefined
 ): string {
-  if (!jednatels?.length) return '—';
-  return jednatels.map(j => j.full_name).filter(Boolean).join(', ') || '—';
+  if (!contacts?.length) return '—';
+  return contacts.map(c => c.full_name).filter(Boolean).join(', ') || '—';
 }
+
+/** @deprecated Use getContactsDisplay instead */
+export const getJednatelsDisplay = getContactsDisplay;
 
 // ================================================================
 // DEBOUNCE

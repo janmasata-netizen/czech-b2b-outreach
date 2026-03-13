@@ -1,7 +1,7 @@
 import { useTranslation } from 'react-i18next';
 import { QUEUE_STATUS_MAP, STATUS_COLOR_MAP } from '@/lib/constants';
 import { renderTemplate, buildTemplateContext } from '@/lib/templateRenderer';
-import type { EmailTemplate, EmailQueue, WaveLeadRow, Jednatel, EmailCandidate } from '@/types/database';
+import type { EmailTemplate, EmailQueue, WaveLeadRow, Contact, EmailCandidate } from '@/types/database';
 
 const SEQ_COLORS: Record<number, { accent: string; bg: string; border: string }> = {
   1: { accent: '#3ECF8E', bg: 'rgba(62,207,142,0.06)', border: 'rgba(62,207,142,0.2)' },
@@ -56,12 +56,12 @@ export default function EmailSequenceCards({ waveStatus, waveLead, templates, on
 
   // Build context for draft rendering
   const lead = waveLead.leads;
-  const jednatels = lead?.jednatels ?? [];
-  const jednatel = jednatels[0] ?? null;
-  const allCandidates = jednatels.flatMap((j: Jednatel & { email_candidates?: EmailCandidate[] }) => j.email_candidates ?? []);
+  const contacts = lead?.companies?.contacts ?? [];
+  const contact = contacts[0] ?? null;
+  const allCandidates = contacts.flatMap((j: Contact & { email_candidates?: EmailCandidate[] }) => j.email_candidates ?? []);
   const bestCand = allCandidates.find((e: EmailCandidate) => e.is_verified) ?? allCandidates[0] ?? null;
   const emailAddr = bestCand?.email_address ?? null;
-  const ctx = buildTemplateContext(lead ?? null, jednatel);
+  const ctx = buildTemplateContext(lead ?? null, contact);
   const variant = waveLead.ab_variant ?? 'A';
 
   // Compute actual sequence numbers from data

@@ -1,6 +1,6 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/lib/supabase';
-import type { Lead, LeadFilters, Team, EmailCandidate, Jednatel } from '@/types/database';
+import type { Lead, LeadFilters, Team, EmailCandidate, Contact } from '@/types/database';
 import { PAGE_SIZE } from '@/lib/constants';
 import { extractDomain } from '@/lib/dedup';
 
@@ -12,7 +12,8 @@ export function useLeads(filters: LeadFilters = {}, page = 1) {
         .from('leads')
         .select(`
           *,
-          jednatels(full_name, email_candidates(email_address, is_verified, seznam_status, qev_status)),
+          company_id,
+          companies:companies!company_id(contacts(full_name, email_candidates:email_candidates!contact_id(email_address, is_verified, seznam_status, qev_status))),
           wave_leads(id, wave_id, waves(id, name, status))
         `, { count: 'exact' });
 
@@ -29,11 +30,10 @@ export function useLeads(filters: LeadFilters = {}, page = 1) {
 
       const { data, count, error } = await q;
       if (error) throw error;
-      // Flatten email_candidates from jednatels (no direct FK from email_candidates to leads)
-      const mapped = (data ?? []).map((lead: Lead & { jednatels?: (Jednatel & { email_candidates?: EmailCandidate[] })[] }) => {
-        const jednatels = lead.jednatels ?? [];
-        const email_candidates = jednatels.flatMap((j: Jednatel & { email_candidates?: EmailCandidate[] }) => j.email_candidates ?? []);
-        return { ...lead, jednatels, email_candidates };
+      const mapped = (data ?? []).map((lead: Lead & { companies?: { contacts: (Contact & { email_candidates?: EmailCandidate[] })[] } | null }) => {
+        const contacts = lead.companies?.contacts ?? [];
+        const email_candidates = contacts.flatMap((c: Contact & { email_candidates?: EmailCandidate[] }) => c.email_candidates ?? []);
+        return { ...lead, contacts, email_candidates };
       });
       return { data: mapped, count: count ?? 0 };
     },
@@ -50,26 +50,28 @@ export function useLead(id: string | undefined) {
         .select(`
           *,
           team:teams(id, name),
-          jednatels(*, email_candidates(id,email_address,jednatel_id,seznam_status,qev_status,qev_checked_at,is_verified,is_catch_all,catch_all_confidence,created_at)),
+          company_id,
+          companies:companies!company_id(contacts(*, email_candidates:email_candidates!contact_id(id,email_address,contact_id,seznam_status,qev_status,qev_checked_at,is_verified,is_catch_all,catch_all_confidence,created_at))),
           enrichment_log(*),
-          wave_leads(*, waves(name, status, is_dummy, dummy_email), sent_emails(id, sequence_number, email_address, sent_at, jednatel_id), email_queue(id, sequence_number, scheduled_at, status)),
+          wave_leads(*, waves(name, status, is_dummy, dummy_email), sent_emails(id, sequence_number, email_address, sent_at), email_queue(id, sequence_number, scheduled_at, status)),
           lead_replies(id, from_email, subject, body_preview, received_at, created_at)
         `)
         .eq('id', id!)
         .single();
       if (error) throw error;
-      // Flatten email_candidates from jednatels (no direct FK from email_candidates to leads)
-      const jednatels = (data as unknown as { jednatels?: (Jednatel & { email_candidates?: EmailCandidate[] })[] }).jednatels ?? [];
-      const email_candidates = jednatels.flatMap((j: Jednatel & { email_candidates?: EmailCandidate[] }) => j.email_candidates ?? []);
+      const companies = (data as unknown as { companies?: { contacts: (Contact & { email_candidates?: EmailCandidate[] })[] } | null }).companies;
+      const contacts = companies?.contacts ?? [];
+      const email_candidates = contacts.flatMap((c: Contact & { email_candidates?: EmailCandidate[] }) => c.email_candidates ?? []);
       return {
         ...data,
+        contacts,
         email_candidates,
       } as Lead & {
         team: { id: string; name: string } | null;
-        jednatels: Array<{ id: string; full_name: string | null; role: string | null; email_status: string | null }>;
+        contacts: Contact[];
         email_candidates: Array<{ id: string; email_address: string; is_verified: boolean; seznam_status: string | null; qev_status: string | null }>;
         enrichment_log: Array<{ id: string; step: string; status: string; error_message: string | null; created_at: string }>;
-        wave_leads: Array<{ id: string; wave_id: string; ab_variant: string; status: string; created_at: string; waves: { name: string; status: string; is_dummy: boolean; dummy_email: string | null }; sent_emails: Array<{ id: string; sequence_number: number; email_address: string; sent_at: string; jednatel_id: string | null }>; email_queue: Array<{ id: string; sequence_number: number; scheduled_at: string; status: string }> }>;
+        wave_leads: Array<{ id: string; wave_id: string; ab_variant: string; status: string; created_at: string; waves: { name: string; status: string; is_dummy: boolean; dummy_email: string | null }; sent_emails: Array<{ id: string; sequence_number: number; email_address: string; sent_at: string }>; email_queue: Array<{ id: string; sequence_number: number; scheduled_at: string; status: string }> }>;
         lead_replies: Array<{ id: string; from_email: string | null; subject: string | null; body_preview: string | null; received_at: string | null; created_at: string }>;
       };
     },
@@ -111,7 +113,6 @@ export function useCreateLeadWithEmail() {
       team_id: string;
       custom_fields?: Record<string, string>;
     }) => {
-      // 1. Call ingest_lead RPC — creates/finds company + creates/finds lead with company_id
       const domain = extractDomain(payload.website) || null;
       const { data: rpcResult, error: rpcErr } = await supabase.rpc('ingest_lead', {
         p_company_name: payload.company_name,
@@ -127,7 +128,6 @@ export function useCreateLeadWithEmail() {
       const leadId = rpcResult?.lead_id;
       if (!leadId) throw new Error('ingest_lead did not return a lead_id');
 
-      // Update custom_fields on the lead (ingest_lead doesn't handle these)
       const cf = payload.custom_fields && Object.keys(payload.custom_fields).length > 0
         ? payload.custom_fields : {};
       const { error: ue } = await supabase
@@ -136,19 +136,21 @@ export function useCreateLeadWithEmail() {
         .eq('id', leadId);
       if (ue) throw ue;
 
-      // 2. Insert jednatel with the actual contact name
-      const { data: jed, error: je } = await supabase
-        .from('jednatels')
-        .insert({ lead_id: leadId, full_name: payload.contact_name })
+      // Insert contact with company_id from RPC result
+      const companyId = rpcResult?.company_id;
+      if (!companyId) throw new Error('ingest_lead did not return a company_id');
+
+      const { data: contact, error: ce } = await supabase
+        .from('contacts')
+        .insert({ company_id: companyId, full_name: payload.contact_name })
         .select()
         .single();
-      if (je) throw je;
+      if (ce) throw ce;
 
-      // 3. Insert verified email candidate
       const { error: ee } = await supabase
         .from('email_candidates')
         .insert({
-          jednatel_id: jed.id,
+          contact_id: contact.id,
           email_address: payload.email,
           is_verified: true,
           qev_status: 'manually_verified',
@@ -209,7 +211,6 @@ export function useLeadsNotInWave(teamId: string | undefined, search?: string, l
     queryKey: ['leads-for-wave', teamId, search, language],
     enabled: !!teamId,
     queryFn: async () => {
-      // Get lead IDs already in any wave
       const { data: wlRows } = await supabase.from('wave_leads').select('lead_id').limit(10000);
       const usedIds = (wlRows ?? []).map((r: { lead_id: string }) => r.lead_id);
 
@@ -232,19 +233,17 @@ export function useLeadsNotInWave(teamId: string | undefined, search?: string, l
   });
 }
 
-// ============================================================
-// Email Candidates — manual review hooks
-// ============================================================
-
 export function useEmailCandidates(leadId: string | undefined) {
   return useQuery<EmailCandidate[]>({
     queryKey: ['email-candidates', leadId],
     enabled: !!leadId,
     queryFn: async () => {
+      const { data: lead } = await supabase.from('leads').select('company_id').eq('id', leadId!).single();
+      if (!lead?.company_id) return [];
       const { data, error } = await supabase
         .from('email_candidates')
-        .select('id,email_address,jednatel_id,seznam_status,qev_status,qev_checked_at,is_verified,is_catch_all,catch_all_confidence,created_at,jednatels!inner(lead_id)')
-        .eq('jednatels.lead_id', leadId!);
+        .select('id,email_address,contact_id,seznam_status,qev_status,qev_checked_at,is_verified,is_catch_all,catch_all_confidence,created_at,contacts!contact_id!inner(company_id)')
+        .eq('contacts.company_id', lead.company_id);
       if (error) throw error;
       return (data ?? []) as EmailCandidate[];
     },
@@ -260,7 +259,6 @@ export function useVerifyCandidate() {
         .update({ is_verified: true, qev_status: 'manually_verified' })
         .eq('id', id);
       if (error) throw error;
-      // Promote lead to ready
       const { error: le } = await supabase
         .from('leads')
         .update({ status: 'ready', enrichment_error: null })
@@ -284,11 +282,13 @@ export function useUnverifyCandidate() {
         .update({ is_verified: false })
         .eq('id', id);
       if (error) throw error;
-      // Re-check remaining candidates for this lead
-      const { data: remaining } = await supabase
-        .from('email_candidates')
-        .select('is_verified,is_catch_all,jednatels!inner(lead_id)')
-        .eq('jednatels.lead_id', leadId);
+      const { data: leadRow } = await supabase.from('leads').select('company_id').eq('id', leadId).single();
+      const { data: remaining } = leadRow?.company_id
+        ? await supabase
+          .from('email_candidates')
+          .select('is_verified,is_catch_all,contacts!contact_id!inner(company_id)')
+          .eq('contacts.company_id', leadRow.company_id)
+        : { data: [] };
       const mine = (remaining ?? []) as { is_verified?: boolean; is_catch_all?: boolean }[];
       const hasVerified = mine.some((c: { is_verified?: boolean }) => c.is_verified === true);
       const hasCatchAll = mine.some((c: { is_catch_all?: boolean }) => c.is_catch_all === true);

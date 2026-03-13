@@ -97,8 +97,8 @@ export default function LeadDetailPage() {
         <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
           <LeadInfoCard lead={lead} />
           <LeadTagsCard leadId={lead.id} />
-          <ContactMethodsCard jednatels={lead.jednatels ?? []} />
-          <ContactsCard contacts={lead.jednatels ?? []} />
+          <ContactMethodsCard contacts={lead.contacts ?? []} />
+          <ContactsCard contacts={lead.contacts ?? []} />
           <EmailCandidatesTable
             candidates={lead.email_candidates ?? []}
             leadId={lead.id}
@@ -112,7 +112,7 @@ export default function LeadDetailPage() {
             companyName={lead.company_name ?? null}
             teamName={lead.team?.name ?? null}
             emailCandidates={lead.email_candidates ?? []}
-            jednatels={lead.jednatels ?? []}
+            contacts={(lead.contacts ?? []) as Array<{ email_status?: string | null }>}
             waveLeads={lead.wave_leads ?? []}
             leadReplies={lead.lead_replies ?? []}
             enrichmentLog={lead.enrichment_log ?? []}

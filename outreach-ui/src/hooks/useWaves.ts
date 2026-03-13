@@ -32,8 +32,8 @@ export function useWave(id: string | undefined) {
           .from('wave_leads')
           .select(`
             *,
-            leads(id, company_name, ico, website, domain, status, custom_fields, jednatels(id, full_name, first_name, last_name, salutation, email_candidates(id, email_address, is_verified, qev_status, seznam_status))),
-            email_queue(id, sequence_number, email_address, subject_rendered, body_rendered, scheduled_at, status, jednatel_id),
+            leads(id, company_name, ico, website, domain, status, custom_fields, company_id, companies:companies!company_id(contacts(id, full_name, first_name, last_name, salutation, email_candidates:email_candidates!contact_id(id, email_address, is_verified, qev_status, seznam_status)))),
+            email_queue(id, sequence_number, email_address, subject_rendered, body_rendered, scheduled_at, status),
             sent_emails(id, sequence_number, sent_at),
             lead_replies(id, received_at)
           `)
