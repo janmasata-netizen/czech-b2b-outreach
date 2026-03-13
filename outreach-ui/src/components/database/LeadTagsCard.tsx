@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import GlassCard from '@/components/glass/GlassCard';
 import TagBadge from './TagBadge';
 import { useTags, useLeadTags, useAddTagToLead, useRemoveTagFromLead } from '@/hooks/useTags';
@@ -6,6 +7,7 @@ import { isSystemTag } from '@/lib/constants';
 import { toast } from 'sonner';
 
 export default function LeadTagsCard({ leadId }: { leadId: string }) {
+  const { t } = useTranslation();
   const { data: allTags = [] } = useTags();
   const { data: leadTags = [] } = useLeadTags(leadId);
   const addTag = useAddTagToLead();
@@ -20,7 +22,7 @@ export default function LeadTagsCard({ leadId }: { leadId: string }) {
       await addTag.mutateAsync({ leadId, tagId, tagName });
       setShowPicker(false);
     } catch {
-      toast.error('Chyba při přidávání štítku', { duration: 8000 });
+      toast.error(t('tags.errorAdding'), { duration: 8000 });
     }
   }
 
@@ -28,13 +30,13 @@ export default function LeadTagsCard({ leadId }: { leadId: string }) {
     try {
       await removeTag.mutateAsync({ leadId, tagId, tagName });
     } catch {
-      toast.error('Chyba při odebírání štítku', { duration: 8000 });
+      toast.error(t('tags.errorRemoving'), { duration: 8000 });
     }
   }
 
   return (
     <GlassCard padding={20}>
-      <h3 style={{ fontSize: 14, fontWeight: 600, color: 'var(--text)', marginBottom: 12 }}>Štítky</h3>
+      <h3 style={{ fontSize: 14, fontWeight: 600, color: 'var(--text)', marginBottom: 12 }}>{t('tags.title')}</h3>
       <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, alignItems: 'center' }}>
         {leadTags.map(lt => (
           <TagBadge

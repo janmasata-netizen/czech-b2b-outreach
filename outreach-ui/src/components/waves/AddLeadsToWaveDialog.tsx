@@ -1,9 +1,11 @@
 import { useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import GlassModal from '@/components/glass/GlassModal';
 import GlassButton from '@/components/glass/GlassButton';
 import SearchInput from '@/components/shared/SearchInput';
 import { useLeadsNotInWave } from '@/hooks/useLeads';
 import { useAddLeadsToWave } from '@/hooks/useWaves';
+import { LEAD_LANGUAGE_MAP } from '@/lib/constants';
 import { toast } from 'sonner';
 
 interface AddLeadsToWaveDialogProps {
@@ -16,7 +18,9 @@ interface AddLeadsToWaveDialogProps {
 const QUICK_AMOUNTS = [10, 25, 50];
 
 export default function AddLeadsToWaveDialog({ open, onClose, waveId, teamId }: AddLeadsToWaveDialogProps) {
+  const { t } = useTranslation();
   const [search, setSearch] = useState('');
+  const [languageFilter, setLanguageFilter] = useState('');
   const [selected, setSelected] = useState<string[]>([]);
   const { data: leads = [], isLoading } = useLeadsNotInWave(teamId ?? undefined, search || undefined);
   const addLeads = useAddLeadsToWave();
@@ -34,7 +38,7 @@ export default function AddLeadsToWaveDialog({ open, onClose, waveId, teamId }: 
     const already = new Set(selected);
     const toAdd = leads.filter(l => !already.has(l.id)).slice(0, n).map(l => l.id);
     if (toAdd.length === 0) {
-      toast.info('Všechny zobrazené leady jsou již vybrány');
+      toast.info(t('addLeadsToWave.allAlreadySelected'));
       return;
     }
     setSelected(s => [...s, ...toAdd]);
@@ -44,12 +48,12 @@ export default function AddLeadsToWaveDialog({ open, onClose, waveId, teamId }: 
     if (!selected.length) return;
     try {
       await addLeads.mutateAsync({ waveId, leadIds: selected });
-      toast.success(`Přidáno ${selected.length} leadů do vlny`);
+      toast.success(t('addLeadsToWave.addedCount', { count: selected.length }));
       setSelected([]);
       onClose();
     } catch (e: unknown) {
-      const msg = e instanceof Error ? e.message : 'neznámá chyba';
-      toast.error(`Chyba při přidávání leadů: ${msg}`, { duration: 8000 });
+      const msg = e instanceof Error ? e.message : t('addLeadsToWave.unknownError');
+      toast.error(t('addLeadsToWave.errorAdding', { message: msg }), { duration: 8000 });
       console.error('AddLeadsToWave error:', e);
     }
   }
@@ -60,18 +64,18 @@ export default function AddLeadsToWaveDialog({ open, onClose, waveId, teamId }: 
     <GlassModal
       open={open}
       onClose={onClose}
-      title="Přidat leady do vlny"
+      title={t('addLeadsToWave.title')}
       fullscreen
       footer={
         <>
           <span style={{ fontSize: 13, color: 'var(--text-muted)' }}>
-            Vybráno: <strong style={{ color: 'var(--text)' }}>{selected.length}</strong>
+            {t('addLeadsToWave.selectedCount')} <strong style={{ color: 'var(--text)' }}>{selected.length}</strong>
             {leads.length > 0 && <span style={{ color: 'var(--text-muted)' }}> / {leads.length}</span>}
           </span>
           <div style={{ flex: 1 }} />
-          <GlassButton variant="secondary" onClick={onClose}>Zrušit</GlassButton>
+          <GlassButton variant="secondary" onClick={onClose}>{t('common.cancel')}</GlassButton>
           <GlassButton variant="primary" onClick={handleAdd} disabled={!selected.length || addLeads.isPending}>
-            {addLeads.isPending ? 'Přidávám…' : `Přidat ${selected.length || ''} leadů`}
+            {addLeads.isPending ? t('addLeadsToWave.adding') : t('addLeadsToWave.addCount', { count: selected.length })}
           </GlassButton>
         </>
       }
@@ -80,14 +84,25 @@ export default function AddLeadsToWaveDialog({ open, onClose, waveId, teamId }: 
       <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 10, flexShrink: 0 }}>
         <div style={{ flex: 1 }}>
           <SearchInput
-            placeholder="Hledat podle názvu nebo IČO…"
+            placeholder={t('addLeadsToWave.searchPlaceholder')}
             value={search}
             onChange={e => setSearch(e.target.value)}
             onClear={() => setSearch('')}
           />
         </div>
+        <select
+          className="glass-input"
+          style={{ width: 120, height: 34, fontSize: 12, flexShrink: 0 }}
+          value={languageFilter}
+          onChange={e => setLanguageFilter(e.target.value)}
+        >
+          <option value="">{t('addLeadsToWave.allLanguages')}</option>
+          {Object.entries(LEAD_LANGUAGE_MAP).map(([val, label]) => (
+            <option key={val} value={val}>{label}</option>
+          ))}
+        </select>
         <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexShrink: 0 }}>
-          <span style={{ fontSize: 11, color: 'var(--text-muted)', fontWeight: 500 }}>Přidat:</span>
+          <span style={{ fontSize: 11, color: 'var(--text-muted)', fontWeight: 500 }}>{t('addLeadsToWave.addQuick')}</span>
           {QUICK_AMOUNTS.map(n => (
             <button
               key={n}
@@ -125,20 +140,21 @@ export default function AddLeadsToWaveDialog({ open, onClose, waveId, teamId }: 
             onChange={toggleAll}
             style={{ accentColor: 'var(--green)', width: 14, height: 14 }}
           />
-          <span style={{ fontSize: 11, fontWeight: 600, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em', flex: 1 }}>Firma</span>
-          <span style={{ fontSize: 11, fontWeight: 600, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em', width: 110, textAlign: 'center' }}>IČO</span>
-          <span style={{ fontSize: 11, fontWeight: 600, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em', width: 200, textAlign: 'right' }}>Web</span>
+          <span style={{ fontSize: 11, fontWeight: 600, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em', flex: 1 }}>{t('addLeadsToWave.columnCompany')}</span>
+          <span style={{ fontSize: 11, fontWeight: 600, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em', width: 60, textAlign: 'center' }}>{t('addLeadsToWave.columnLanguage')}</span>
+          <span style={{ fontSize: 11, fontWeight: 600, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em', width: 110, textAlign: 'center' }}>{t('addLeadsToWave.columnIco')}</span>
+          <span style={{ fontSize: 11, fontWeight: 600, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em', width: 200, textAlign: 'right' }}>{t('addLeadsToWave.columnWeb')}</span>
         </div>
       )}
 
       {/* Scrollable list — fills remaining height */}
       <div style={{ flex: 1, overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: 3 }}>
         {isLoading && (
-          <p style={{ textAlign: 'center', color: 'var(--text-muted)', fontSize: 13, padding: 20 }}>Načítám…</p>
+          <p style={{ textAlign: 'center', color: 'var(--text-muted)', fontSize: 13, padding: 20 }}>{t('addLeadsToWave.loadingLeads')}</p>
         )}
         {!isLoading && leads.length === 0 && (
           <p style={{ textAlign: 'center', color: 'var(--text-muted)', fontSize: 13, padding: 20 }}>
-            {search ? 'Žádné výsledky' : 'Všechny leady jsou již ve vlně nebo žádné nejsou k dispozici.'}
+            {search ? t('addLeadsToWave.noResults') : t('addLeadsToWave.allLeadsInWave')}
           </p>
         )}
         {leads.map(lead => {
