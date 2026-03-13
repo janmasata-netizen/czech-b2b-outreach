@@ -18,5 +18,4 @@
 
 | Branch | Agent | Files (exact paths) | Started | Last Updated | PR |
 |---|---|---|---|---|---|
-| claude/jednatels-to-contacts | claude-opus | outreach-ui/src/hooks/useLeads.ts, outreach-ui/src/hooks/useWaves.ts, outreach-ui/src/hooks/useMasterLeads.ts, outreach-ui/src/types/database.ts, outreach-ui/src/components/leads/CsvImportDialog.tsx, outreach-ui/src/components/leads/GoogleSheetImportDialog.tsx, outreach-ui/src/components/leads/LeadsTable.tsx, outreach-ui/src/components/database/ContactMethodsCard.tsx, outreach-ui/src/components/leads/EnrichmentTimeline.tsx, outreach-ui/src/components/waves/WaveLeadsManager.tsx, outreach-ui/src/components/waves/EmailSequenceCards.tsx, outreach-ui/src/pages/LeadDetailPage.tsx, outreach-ui/src/pages/RetargetPoolPage.tsx, outreach-ui/src/pages/WaveDetailPage.tsx, outreach-ui/src/lib/utils.ts, outreach-ui/src/lib/templateRenderer.ts, outreach-ui/src/pages/EmailFinderPage.tsx, outreach-ui/src/components/leads/ContactsCard.tsx | 2026-03-13 | 2026-03-13 | — |
 
