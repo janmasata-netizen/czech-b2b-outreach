@@ -7,8 +7,9 @@ import EmptyState from '@/components/shared/EmptyState';
 
 const COLORS = ['#3ECF8E', '#a78bfa', '#22d3ee', '#fb923c', '#f87171', '#fbbf24', '#34d399', '#818cf8'];
 
-export default function TemplateRepliesChart() {
-  const { data: waves = [], isLoading } = useWaves();
+export default function TemplateRepliesChart({ teamId }: { teamId?: string }) {
+  const { data: allWaves = [], isLoading } = useWaves();
+  const waves = teamId ? allWaves.filter(w => w.team_id === teamId) : allWaves;
 
   const chartData = useMemo(() => {
     const map = new Map<string, { sent: number; replies: number }>();
