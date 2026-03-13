@@ -448,6 +448,24 @@ export type BugReportSeverity = 'low' | 'medium' | 'high' | 'critical';
 export type BugReportCategory = 'ui' | 'emails' | 'enrichment' | 'waves' | 'system' | 'other';
 export type BugReportStatus = 'open' | 'in_progress' | 'resolved' | 'closed';
 
+export interface BugReportNote {
+  id: string;
+  bug_report_id: string;
+  author_id: string;
+  content: string;
+  created_at: string;
+  updated_at: string;
+  profiles?: { full_name: string | null };
+}
+
+export interface BugReportTag {
+  id: string;
+  bug_report_id: string;
+  tag_id: string;
+  created_at: string;
+  tags?: { id: string; name: string; color: string };
+}
+
 export interface BugReport {
   id: string;
   title: string;
@@ -460,6 +478,8 @@ export interface BugReport {
   created_at: string;
   updated_at: string;
   profiles?: { full_name: string | null };
+  bug_report_notes?: BugReportNote[];
+  bug_report_tags?: BugReportTag[];
 }
 
 // ── System Events ──

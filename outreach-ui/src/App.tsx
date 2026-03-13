@@ -21,6 +21,7 @@ import TemplatesPage from '@/pages/TemplatesPage';
 import SalesmenSettings from '@/components/settings/SalesmenSettings';
 import UsersSettings from '@/components/settings/UsersSettings';
 import SystemHealthPage from '@/pages/SystemHealthPage';
+import BugReportDetailPage from '@/pages/BugReportDetailPage';
 
 export default function App() {
   return (
@@ -44,6 +45,7 @@ export default function App() {
           <Route path="/vlny/:id" element={<WaveDetailPage />} />
           <Route path="/email-finder" element={<AdminRoute><EmailFinderPage /></AdminRoute>} />
           <Route path="/system" element={<AdminRoute><SystemHealthPage /></AdminRoute>} />
+          <Route path="/system/reports/:id" element={<AdminRoute><BugReportDetailPage /></AdminRoute>} />
           <Route path="/sablony" element={<TemplatesPage />} />
           <Route path="/sablony/:id" element={<TemplateSetDetailPage />} />
           <Route path="/retarget" element={<RetargetPoolPage />} />

@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
+import { useNavigate } from 'react-router-dom';
 import { useBugReports, useUpdateBugReportStatus } from '@/hooks/useBugReport';
-import { supabase } from '@/lib/supabase';
 import GlassCard from '@/components/glass/GlassCard';
 import type { BugReportSeverity, BugReportCategory, BugReportStatus } from '@/types/database';
 
@@ -25,11 +25,10 @@ const STATUS_COLORS: Record<BugReportStatus, string> = {
 
 export default function BugReportsTab() {
   const { t } = useTranslation();
+  const navigate = useNavigate();
   const [severity, setSeverity] = useState<BugReportSeverity | ''>('');
   const [category, setCategory] = useState<BugReportCategory | ''>('');
   const [status, setStatus] = useState<BugReportStatus | ''>('');
-  const [expanded, setExpanded] = useState<string | null>(null);
-  const [screenshotUrls, setScreenshotUrls] = useState<Record<string, string>>({});
 
   const { data: reports, isLoading } = useBugReports({
     severity: severity || undefined,
@@ -37,23 +36,6 @@ export default function BugReportsTab() {
     status: status || undefined,
   });
   const updateStatus = useUpdateBugReportStatus();
-
-  async function loadScreenshot(path: string) {
-    if (screenshotUrls[path]) return;
-    const { data } = await supabase.storage.from('bug-screenshots').createSignedUrl(path, 300);
-    if (data?.signedUrl) {
-      setScreenshotUrls(prev => ({ ...prev, [path]: data.signedUrl }));
-    }
-  }
-
-  function toggleExpand(id: string, screenshotPath: string | null) {
-    if (expanded === id) {
-      setExpanded(null);
-    } else {
-      setExpanded(id);
-      if (screenshotPath) loadScreenshot(screenshotPath);
-    }
-  }
 
   const selectStyle: React.CSSProperties = {
     padding: '6px 10px', borderRadius: 6, border: '1px solid var(--border)',
@@ -110,69 +92,51 @@ export default function BugReportsTab() {
             </thead>
             <tbody>
               {reports.map(report => (
-                <>
-                  <tr
-                    key={report.id}
-                    onClick={() => toggleExpand(report.id, report.screenshot_url)}
-                    style={{ borderBottom: '1px solid var(--border)', cursor: 'pointer', transition: 'background 0.1s' }}
-                    onMouseEnter={e => (e.currentTarget.style.background = 'var(--bg-surface)')}
-                    onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}
-                  >
-                    <td style={{ padding: '8px 10px', color: 'var(--text)', fontWeight: 500, maxWidth: 250, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                      {report.title}
-                    </td>
-                    <td style={{ padding: '8px 10px' }}>
-                      <span style={{
-                        padding: '2px 8px', borderRadius: 4, fontSize: 11, fontWeight: 600,
-                        color: SEVERITY_COLORS[report.severity],
-                        background: `${SEVERITY_COLORS[report.severity]}15`,
-                      }}>
-                        {t(`bugReport.severities.${report.severity}` as 'bugReport.severities.low')}
-                      </span>
-                    </td>
-                    <td style={{ padding: '8px 10px', color: 'var(--text-dim)' }}>
-                      {t(`bugReport.categories.${report.category}` as 'bugReport.categories.ui')}
-                    </td>
-                    <td style={{ padding: '8px 10px', color: 'var(--text-dim)' }}>
-                      {report.profiles?.full_name ?? '—'}
-                    </td>
-                    <td style={{ padding: '8px 10px', color: 'var(--text-muted)', fontSize: 11 }}>
-                      {new Date(report.created_at).toLocaleString('cs-CZ')}
-                    </td>
-                    <td style={{ padding: '8px 10px' }}>
-                      <select
-                        value={report.status}
-                        onClick={e => e.stopPropagation()}
-                        onChange={e => updateStatus.mutate({ id: report.id, status: e.target.value as BugReportStatus })}
-                        style={{
-                          padding: '3px 6px', borderRadius: 4, fontSize: 11, fontWeight: 600,
-                          border: '1px solid var(--border)', background: 'var(--bg-surface)',
-                          color: STATUS_COLORS[report.status],
-                        }}
-                      >
-                        {STATUSES.map(s => (
-                          <option key={s} value={s}>{t(`bugReports.statuses.${s}` as 'bugReports.statuses.open')}</option>
-                        ))}
-                      </select>
-                    </td>
-                  </tr>
-                  {expanded === report.id && (
-                    <tr key={`${report.id}-detail`}>
-                      <td colSpan={6} style={{ padding: '12px 16px', background: 'var(--bg-surface)', borderBottom: '1px solid var(--border)' }}>
-                        <div style={{ fontSize: 12, color: 'var(--text)', whiteSpace: 'pre-wrap', marginBottom: report.screenshot_url ? 12 : 0 }}>
-                          {report.description}
-                        </div>
-                        {report.screenshot_url && screenshotUrls[report.screenshot_url] && (
-                          <img
-                            src={screenshotUrls[report.screenshot_url]}
-                            alt="Screenshot"
-                            style={{ maxWidth: '100%', maxHeight: 300, borderRadius: 6, border: '1px solid var(--border)' }}
-                          />
-                        )}
-                      </td>
-                    </tr>
-                  )}
-                </>
+                <tr
+                  key={report.id}
+                  onClick={() => navigate(`/system/reports/${report.id}`)}
+                  style={{ borderBottom: '1px solid var(--border)', cursor: 'pointer', transition: 'background 0.1s' }}
+                  onMouseEnter={e => (e.currentTarget.style.background = 'var(--bg-surface)')}
+                  onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}
+                >
+                  <td style={{ padding: '8px 10px', color: 'var(--text)', fontWeight: 500, maxWidth: 250, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                    {report.title}
+                  </td>
+                  <td style={{ padding: '8px 10px' }}>
+                    <span style={{
+                      padding: '2px 8px', borderRadius: 4, fontSize: 11, fontWeight: 600,
+                      color: SEVERITY_COLORS[report.severity],
+                      background: `${SEVERITY_COLORS[report.severity]}15`,
+                    }}>
+                      {t(`bugReport.severities.${report.severity}` as 'bugReport.severities.low')}
+                    </span>
+                  </td>
+                  <td style={{ padding: '8px 10px', color: 'var(--text-dim)' }}>
+                    {t(`bugReport.categories.${report.category}` as 'bugReport.categories.ui')}
+                  </td>
+                  <td style={{ padding: '8px 10px', color: 'var(--text-dim)' }}>
+                    {report.profiles?.full_name ?? '—'}
+                  </td>
+                  <td style={{ padding: '8px 10px', color: 'var(--text-muted)', fontSize: 11 }}>
+                    {new Date(report.created_at).toLocaleString('cs-CZ')}
+                  </td>
+                  <td style={{ padding: '8px 10px' }}>
+                    <select
+                      value={report.status}
+                      onClick={e => e.stopPropagation()}
+                      onChange={e => updateStatus.mutate({ id: report.id, status: e.target.value as BugReportStatus })}
+                      style={{
+                        padding: '3px 6px', borderRadius: 4, fontSize: 11, fontWeight: 600,
+                        border: '1px solid var(--border)', background: 'var(--bg-surface)',
+                        color: STATUS_COLORS[report.status],
+                      }}
+                    >
+                      {STATUSES.map(s => (
+                        <option key={s} value={s}>{t(`bugReports.statuses.${s}` as 'bugReports.statuses.open')}</option>
+                      ))}
+                    </select>
+                  </td>
+                </tr>
               ))}
             </tbody>
           </table>
