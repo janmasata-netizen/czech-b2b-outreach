@@ -444,65 +444,39 @@ System nabizi tri zpusoby importu leadu.
 
 ### Co to je
 
-Samostatny nastroj pro ad-hoc vyhledavani a overovani e-mailovych adres. Pristupny na `/email-finder`.
+Samostatny nastroj pro vyhledavani a overovani e-mailovych adres. Pristupny na `/email-finder`. Stranka ma dve zakladky.
 
-### Rezimy
+### Zakladka "Najit emaily" (`?tab=find`)
 
-#### ICO rezim (`?tab=ico`)
+- **Backend:** wf-email-finder-v3 (n8n ID: KRWLgqTf5ILqSNpk)
+- **Webhook:** `POST /webhook/wf-email-finder-v3`
+- **Vstup:** Libovolna kombinace: `input` (volny text), `company_id`, `company_name`, `ico`, `domain`, `website`
+- **Postup:**
+  1. Resolves firmu — domain lookup, ARES, firmy.cz fallback
+  2. Nacte vsechny kontakty firmy
+  3. Vygeneruje emailove patterny pro kazdy kontakt
+  4. Provede SMTP check kazdeho kandidata
+  5. Probe test na catch-all domeny
+  6. Scrapne web firmy pro backup emaily (info@, kontakt@, apod.)
+  7. Vsechny nalezene emaily upsertne do `email_candidates`
+- **Pouziti:** Hlavni firemne-centricke hledani emailu. Zadejte nazev firmy, ICO, domenu nebo web a system najde vsechny dostupne emaily.
+- Vstupni domena se cisti pres sub-workflow **sub-clean-domain** (n8n ID: 9H3NH7YbR1X2Efgm) a na frontendu pres `cleanDomainInput()` v `outreach-ui/src/lib/dedup.ts`
 
-- **Vstup:** ICO firmy + webova adresa
-- **Postup:** Vyhled kontaktni osoby v ARES podle ICO, odhadne e-mail z domeny a overi pres SMTP
-- **Pouziti:** Kdyz znate ICO ceske firmy
+### Zakladka "Overit email" (`?tab=verify`)
 
-#### Name rezim (`?tab=name`)
-
-- **Vstup:** Cele jmeno osoby + domena firmy
-- **Postup:** Vygeneruje mozne e-mailove adresy (jan.novak@, jnovak@, novak@...), overi pres SMTP
-- **Pouziti:** Kdyz znate jmeno a firmu, ale ne email
-
-#### Verify rezim (`?tab=verify`)
-
+- **Backend:** wf-email-finder-v2 (n8n ID: 6sc6c0ZSuglJ548A)
 - **Vstup:** Konkretni e-mailova adresa
 - **Postup:** Overi, zda e-mail existuje (MX check + SMTP probe)
 - **Pouziti:** Pro rychle overeni konkretni adresy
 
-#### Probe rezim (`?tab=probe`)
-
-- **Vstup:** Cele jmeno osoby + domena firmy
-- **Postup:** Odesle sondovaci e-mail a ceka na odraz (~3 minuty). Spolehlivejsi pro catch-all domeny
-- **Pouziti:** Kdyz SMTP overeni neni prukaz (domena prijima vsechny adresy)
-- Po dokonceni je k dispozici tlacitko **Recheck odrazu** — zkontroluje nove odrazene emaily
-
-> **TIP:** Po probe sonde pocejte alespon 5 minut pred Recheckem — nektere mail servery odrazi se zpozdenım.
-
-#### Bulk rezim (`?tab=bulk`)
-
-- **Vstup:** CSV soubor se sloupci `first_name`, `last_name`, `domain` (nebo `name`, `domain`)
-- **Postup:**
-  1. Nahrajte CSV soubor
-  2. System parsuje a zobrazi pocet radku
-  3. Kliknete **Spustit hromadne hledani**
-  4. Radky se zpracovavaji sekvencne (s 500ms pauzou mezi radky)
-  5. Prubeh se zobrazuje v realnem case
-  6. Po dokonceni muzete:
-     - **Ulozit jen s emailem** — ulozi jen radky, kde byl nalezen valid/likely_valid email
-     - **Ulozit vse** — ulozi vsechny radky vcetne nenalezenych
-- **Pouziti:** Hromadne vyhledavani emailu pro vetsi seznamy
-
-### Historie hledani
-
-- Poslednich 10 hledani se uklada do **localStorage** prohlizece
-- Historie prezije obnoveni stranky i zavreni prohlizece
-- Kliknutim na polozku historie znovu zobrazite vysledek
-- Kazda polozka ukazuje: nazev hledani, pocet vysledku, metodu (SMTP/Probe), cas
+> **POZN:** Stare zakladky ICO, Name, Probe a Bulk byly odstraneny. Jejich funkcionalita je nyni soucasti zakladky "Najit emaily" (v3 orchestrator).
 
 ### Akce s vysledky
 
 | Akce | Popis |
 |------|-------|
-| **Kopiıovat vse** | Zkopiruje vsechny nalezene emaily do schranky |
+| **Kopirovat vse** | Zkopiruje vsechny nalezene emaily do schranky |
 | **Export CSV** | Stahne vysledky jako CSV soubor |
-| **Recheck odrazu** | Jen u probe vysledku — zkontroluje nove bouncy |
 | **Kopirovat** (u emailu) | Zkopiruje jednotlivy email |
 
 ---
@@ -669,7 +643,8 @@ Zobrazované metriky:
 | **QEV** | QuickEmailVerification — externi sluzba pro overovani emailu. |
 | **Seznam verify** | Overeni emailu pres Seznam.cz SMTP servery. |
 | **SMTP probe** | Pokus o doruceni testovacıho emailu pro overeni existence adresy. |
-| **Catch-all domena** | Domena, ktera prijima emaily na libovolnou adresu — SMTP overeni neni prukazne. |
+| **Catch-all domena** | Domena, ktera prijima emaily na libovolnou adresu — SMTP overeni neni prukazne. Email Finder v3 automaticky detekuje catch-all a pouzije probe test. |
+| **Email Finder v3** | Novy firemni orchestrator (wf-email-finder-v3) — nahrazuje stare zakladky ICO/Name/Probe/Bulk jednim company-centric hledanim. |
 | **NDR** | Non-Delivery Report — automaticka zprava o nedoruceni emailu (bounce). |
 | **Bounce** | Odrazeny email — adresa neexistuje nebo je nedostupna. |
 | **Lockout perioda** | Casove obdobi po poslednim kontaktu, behem ktereho nelze lead znovu oslovit. |
@@ -687,4 +662,4 @@ Zobrazované metriky:
 
 ---
 
-> **Posledni aktualizace:** 2026-03-12
+> **Posledni aktualizace:** 2026-03-13

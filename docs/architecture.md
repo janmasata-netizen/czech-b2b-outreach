@@ -29,7 +29,7 @@ System automatizuje B2B cold email outreach na ceskem trhu. Cely proces:
 4. **Odesle emaily** — pres SMTP proxy s korektnim threadingem (Message-ID, In-Reply-To, References)
 5. **Detekuje odpovedi** — IMAP proxy + NDR monitoring, automaticke prirazeni k leadum
 
-Cely pipeline je rizen 26+ n8n workflow, data jsou v Supabase (PostgreSQL) a uzivatelske rozhrani je React SPA.
+Cely pipeline je rizen 28+ n8n workflow, data jsou v Supabase (PostgreSQL) a uzivatelske rozhrani je React SPA.
 
 ## Ctyri hlavni komponenty
 
@@ -131,7 +131,7 @@ Self-hosted na Hostinger VPS. Vsechny workflow jsou ulozeny jako JSON v `n8n-wor
 | `/sablony` | TemplateSetEditor | Vsichni | Sprava sad sablon (drag & drop razeni) |
 | `/sablony/:id` | TemplateSetDetailPage | Vsichni | Detail sady sablon — WYSIWYG editor |
 | `/retarget` | RetargetPoolPage | Vsichni | Pool leadu pro retargeting |
-| `/email-finder` | EmailFinderPage | Admin | Hledani emailu s bulk rezimem a historii v localStorage |
+| `/email-finder` | EmailFinderPage | Admin | Hledani emailu — dve zakladky: "Najit emaily" (firemni hledani pres v3) a "Overit email" (overeni jednotliveho emailu pres v2) |
 | `/system` | SystemHealthPage | Admin | Stav systemu — zdravi workflow, proxy, DB |
 | `/nastaveni/*` | SettingsPage | Admin | Nastaveni (vnorene routy nize) |
 | `/nastaveni/tymy` | TeamsSettings | Admin | Sprava tymu (daily_send_limit, retarget_lockout_days) |
@@ -165,7 +165,7 @@ Self-hosted na Hostinger VPS. Vsechny workflow jsou ulozeny jako JSON v `n8n-wor
 
 - **CSV import** podporuje urovne enrichmentu: `import_only` (pouze import), `find_emails` (najdi emaily), `full_pipeline` (kompletni obohaceni)
 - **AddLead dialog** podporuje volbu enrichmentu
-- **Email Finder** ma zakladku pro bulk rezim a historii ulozenou v localStorage
+- **Email Finder** ma dve zakladky: "Najit emaily" (company-centric hledani pres wf-email-finder-v3) a "Overit email" (overeni jednotliveho emailu pres wf-email-finder-v2). Stare zakladky ICO/Name/Probe/Bulk byly odstraneny. Nova utility funkce `cleanDomainInput()` v `outreach-ui/src/lib/dedup.ts` cisti domenove vstupy
 - **StatusBadge** zobrazuje ikony vedle barev
 - **Error toasty** maji delsi trvani (8s default, Infinity pro kriticke chyby)
 - **Dashboard** podporuje casove filtrovani (7d / 30d / all)
@@ -265,7 +265,9 @@ CSV import / AddLead dialog (s volbou enrichment level)
 **Doplnkove enrichment workflow:**
 - **WF11: Website Fallback** — kdyz ARES nenajde domain, pokusi se ji ziskat z webu
 - **WF12: ICO Scrape** — scraping ICO z webovych stranek
-- **wf-email-finder / v2** — samostatny nastroj pro hledani emailu (pouziva se z EmailFinderPage)
+- **wf-email-finder / v2** — starsi verze Email Finderu (v2 pouziva se pro overeni jednotliveho emailu z UI)
+- **wf-email-finder-v3** — novy firemni orchestrator pro hledani emailu (pouziva se z UI zakladky "Najit emaily"). Resolves company (domain lookup, ARES, firmy.cz fallback), fetches contacts, generates email patterns, SMTP checks, catch-all probe, website scraping pro backup emaily, upsert do email_candidates.
+- **sub-clean-domain** — sub-workflow pro cisteni a validaci domenoveho vstupu (Execute Workflow trigger)
 
 ### 2. Sending pipeline
 
@@ -334,7 +336,9 @@ Kompletni seznam vsech n8n workflow s identifikatory:
 | email-verification sub-wf | Aov5PfwmBDv51L0e | executeWorkflowTrigger | Sdileny sub-workflow pro overeni emailu |
 | wf-verify-wave | ttKdYcbucijqiaSp | — | Overeni vsech emailu ve vlne |
 | wf-email-finder | N3cuyKRHS4wEyOwq | webhook:wf-email-finder | Email finder v1 |
-| wf-email-finder-v2 | 6sc6c0ZSuglJ548A | webhook:wf-email-finder-v2 | Email finder v2 (bulk rezim) |
+| wf-email-finder-v2 | 6sc6c0ZSuglJ548A | webhook:wf-email-finder-v2 | Email finder v2 (overeni jednotliveho emailu) |
+| wf-email-finder-v3 | KRWLgqTf5ILqSNpk | webhook:wf-email-finder-v3 | Email finder v3 — firemni orchestrator (domain lookup, ARES, firmy.cz fallback, kontakty, email patterns, SMTP check, catch-all probe, website scraping, upsert do email_candidates) |
+| sub-clean-domain | 9H3NH7YbR1X2Efgm | executeWorkflowTrigger | Sub-workflow: cisteni a validace domenoveho vstupu |
 | wf-ndr-monitor | xMPbk9HwSRGjBbdq | IMAP-trigger:INBOX | NDR monitoring — INBOX |
 | wf-ndr-monitor-spam | RxeW59ubWwOsDRqx | IMAP-trigger:spam | NDR monitoring — spam |
 | sub-smtp-check | L6D2HcFYoNorgiom | executeWorkflowTrigger | Sub-workflow: SMTP kontrola |
@@ -546,9 +550,11 @@ Vsechna muzska jmena se sklonovani — zadna vyjimka pro cizi jmena.
 | **SMTP proxy** | Mikrosluzba umoznujici spravne threading hlavicky, ktere n8n emailSend nepodporuje |
 | **Retarget** | Opetovne osloveni leadu, kteri neodpovedeli — s nastavitelnym `retarget_lockout_days` per tym |
 | **scheduling_report** | JSON report z WF7 o planovanem odeslani vlny vcetne preskacenych leadu |
-| **Bulk mode** | Hromadny rezim v Email Finderu pro zpracovani vice firem najednou |
+| **Email Finder v3** | Novy firemni orchestrator (wf-email-finder-v3) — resolves firmu, nacte kontakty, generuje emaily, SMTP check, catch-all probe, website scraping, upsert do email_candidates |
+| **sub-clean-domain** | Sub-workflow pro cisteni a validaci domenoveho vstupu (odebira protokol, cestu, bile znaky) |
+| **cleanDomainInput()** | Frontendova utility funkce v `outreach-ui/src/lib/dedup.ts` pro cisteni domenoveho vstupu pred odeslanim na backend |
 | **StatusBadge** | UI komponenta zobrazujici stav s barvou a ikonou |
 
 ---
 
-> Posledni aktualizace: 2026-03-12
+> Posledni aktualizace: 2026-03-13
