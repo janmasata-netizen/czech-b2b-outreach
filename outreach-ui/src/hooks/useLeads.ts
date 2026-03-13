@@ -210,7 +210,7 @@ export function useLeadsNotInWave(teamId: string | undefined, search?: string, l
     enabled: !!teamId,
     queryFn: async () => {
       // Get lead IDs already in any wave
-      const { data: wlRows } = await supabase.from('wave_leads').select('lead_id');
+      const { data: wlRows } = await supabase.from('wave_leads').select('lead_id').limit(10000);
       const usedIds = (wlRows ?? []).map((r: { lead_id: string }) => r.lead_id);
 
       let q = supabase
