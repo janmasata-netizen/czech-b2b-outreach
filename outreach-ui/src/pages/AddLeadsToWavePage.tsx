@@ -59,7 +59,9 @@ export default function AddLeadsToWavePage() {
       toast.success(t('addLeadsToWave.addedCount', { count: selected.length }));
       navigate(`/vlny/${id}`);
     } catch (e: unknown) {
-      const msg = e instanceof Error ? e.message : 'Neznámá chyba';
+      const msg = e instanceof Error ? e.message
+        : (e && typeof e === 'object' && 'message' in e) ? String((e as { message: unknown }).message)
+        : 'Neznámá chyba';
       toast.error(`Chyba při přidávání leadů: ${msg}`, { duration: 8000 });
       console.error('AddLeadsToWave error:', e);
     }
