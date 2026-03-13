@@ -1,9 +1,9 @@
 import { Fragment, useState } from 'react';
 import { useTranslation } from 'react-i18next';
+import { useNavigate } from 'react-router-dom';
 import GlassCard from '@/components/glass/GlassCard';
 import GlassButton from '@/components/glass/GlassButton';
 import EmptyState from '@/components/shared/EmptyState';
-import AddLeadsToWaveDialog from './AddLeadsToWaveDialog';
 import EmailSequenceCards from './EmailSequenceCards';
 import EmailEditModal from './EmailEditModal';
 import { useRemoveLeadFromWave } from '@/hooks/useLeads';
@@ -59,7 +59,7 @@ const TH: React.CSSProperties = {
 };
 
 export default function WaveLeadsManager({ waveId, waveLeads, waveStatus, teamId, templates, variables, onForceSend, forceSending }: WaveLeadsManagerProps) {
-  const [showAdd, setShowAdd] = useState(false);
+  const navigate = useNavigate();
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const [editingQueue, setEditingQueue] = useState<EmailQueue | null>(null);
   const removeFromWave = useRemoveLeadFromWave();
@@ -86,7 +86,7 @@ export default function WaveLeadsManager({ waveId, waveLeads, waveStatus, teamId
           Leady ve vlně <span style={{ color: 'var(--text-muted)', fontWeight: 400 }}>({waveLeads.length})</span>
         </h3>
         {canAddLeads && (
-          <GlassButton size="sm" variant="primary" onClick={() => setShowAdd(true)}>+ Přidat leady</GlassButton>
+          <GlassButton size="sm" variant="primary" onClick={() => navigate(`/vlny/${waveId}/pridat-leady`)}>+ Přidat leady</GlassButton>
         )}
       </div>
 
@@ -95,7 +95,7 @@ export default function WaveLeadsManager({ waveId, waveLeads, waveStatus, teamId
           icon="◈"
           title="Žádné leady"
           description="Přidejte leady do vlny."
-          action={canAddLeads ? <GlassButton onClick={() => setShowAdd(true)}>+ Přidat leady</GlassButton> : undefined}
+          action={canAddLeads ? <GlassButton onClick={() => navigate(`/vlny/${waveId}/pridat-leady`)}>+ Přidat leady</GlassButton> : undefined}
         />
       ) : (
         <div style={{ overflowX: 'auto' }}>
@@ -210,8 +210,6 @@ export default function WaveLeadsManager({ waveId, waveLeads, waveStatus, teamId
           </table>
         </div>
       )}
-
-      <AddLeadsToWaveDialog open={showAdd} onClose={() => setShowAdd(false)} waveId={waveId} teamId={teamId} />
 
       <EmailEditModal
         item={editingQueue}

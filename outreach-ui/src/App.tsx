@@ -22,6 +22,7 @@ import SalesmenSettings from '@/components/settings/SalesmenSettings';
 import UsersSettings from '@/components/settings/UsersSettings';
 import SystemHealthPage from '@/pages/SystemHealthPage';
 import BugReportDetailPage from '@/pages/BugReportDetailPage';
+import AddLeadsToWavePage from '@/pages/AddLeadsToWavePage';
 
 export default function App() {
   return (
@@ -43,6 +44,7 @@ export default function App() {
           <Route path="/leady/:id" element={<LeadDetailPage />} />
           <Route path="/vlny" element={<WavesPage />} />
           <Route path="/vlny/:id" element={<WaveDetailPage />} />
+          <Route path="/vlny/:id/pridat-leady" element={<AddLeadsToWavePage />} />
           <Route path="/email-finder" element={<AdminRoute><EmailFinderPage /></AdminRoute>} />
           <Route path="/system" element={<AdminRoute><SystemHealthPage /></AdminRoute>} />
           <Route path="/system/reports/:id" element={<AdminRoute><BugReportDetailPage /></AdminRoute>} />
