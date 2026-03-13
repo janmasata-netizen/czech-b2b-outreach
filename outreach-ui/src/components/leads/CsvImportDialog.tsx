@@ -186,37 +186,38 @@ export default function CsvImportDialog({ open, onClose }: CsvImportDialogProps)
 
       try {
         if (validEmail) {
-          // Full insert: lead + jednatel + email_candidate → status='ready'
-          const { data: lead, error: le } = await supabase
-            .from('leads')
-            .insert({
-              company_name: company_name || null,
-              ico: ico || null,
-              website: website || null,
-              domain: extractDomain(website) || null,
-              team_id: rowTeamId || null,
-              status: 'ready',
-              lead_type: 'company',
-              language,
-              custom_fields: Object.keys(custom_fields).length > 0 ? custom_fields : {},
-            })
-            .select()
-            .single();
-
-          if (le) {
+          // Full insert: ingest_lead RPC + contact + email_candidate → status='ready'
+          const domain = extractDomain(website) || null;
+          const { data: rpc, error: rpcErr } = await supabase.rpc('ingest_lead', {
+            p_company_name: company_name || null,
+            p_ico: ico || null,
+            p_website: website || null,
+            p_domain: domain,
+            p_team_id: rowTeamId || null,
+            p_status: 'ready',
+            p_lead_type: 'company',
+          });
+          if (rpcErr || !rpc?.company_id) {
             errors++;
           } else {
-            const { data: jed, error: je } = await supabase
-              .from('jednatels')
-              .insert({ lead_id: lead.id, full_name: contact_name || null })
+            // Update custom_fields + language
+            if (Object.keys(custom_fields).length > 0 || language !== 'cs') {
+              await supabase.from('leads').update({
+                custom_fields: Object.keys(custom_fields).length > 0 ? custom_fields : {},
+                language,
+              }).eq('id', rpc.lead_id);
+            }
+            const { data: contact, error: ce } = await supabase
+              .from('contacts')
+              .insert({ company_id: rpc.company_id, full_name: contact_name || null })
               .select()
               .single();
-            if (je) { errors++; }
+            if (ce) { errors++; }
             else {
               const { error: ee } = await supabase
                 .from('email_candidates')
                 .insert({
-                  jednatel_id: jed.id,
+                  contact_id: contact.id,
                   email_address: validEmail,
                   is_verified: true,
                   qev_status: 'manually_verified',
@@ -406,6 +407,7 @@ export default function CsvImportDialog({ open, onClose }: CsvImportDialogProps)
           teams={teams}
           allocations={teamAllocations}
           onChange={setTeamAllocations}
+          totalCount={rows.length}
         />
       )}
 

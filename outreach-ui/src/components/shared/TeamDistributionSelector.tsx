@@ -1,22 +1,26 @@
 import { useState, useRef, useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
 import type { Team } from '@/types/database';
-import { distributeEvenly, type TeamAllocation } from '@/lib/team-distribution';
+import { distributeEvenly, distributeEvenlyByCount, type TeamAllocation } from '@/lib/team-distribution';
 
 interface TeamDistributionSelectorProps {
   teams: Team[];
   allocations: TeamAllocation[];
   onChange: (allocs: TeamAllocation[]) => void;
+  totalCount?: number;
 }
 
 export default function TeamDistributionSelector({
   teams,
   allocations,
   onChange,
+  totalCount,
 }: TeamDistributionSelectorProps) {
   const { t } = useTranslation();
   const [dropdownOpen, setDropdownOpen] = useState(false);
   const wrapperRef = useRef<HTMLDivElement>(null);
+
+  const countMode = totalCount !== undefined && totalCount > 0;
 
   // Close dropdown on outside click
   useEffect(() => {
@@ -33,15 +37,26 @@ export default function TeamDistributionSelector({
   if (!teams || teams.length <= 1) return null;
 
   const selectedIds = new Set(allocations.map((a) => a.teamId));
-  const sum = allocations.reduce((s, a) => s + a.percentage, 0);
-  const sumValid = sum === 100;
+
+  // In count mode: derive counts from percentages
+  function getCount(a: TeamAllocation): number {
+    if (!countMode) return 0;
+    return Math.round((a.percentage / 100) * totalCount!);
+  }
+
+  const sum = countMode
+    ? allocations.reduce((s, a) => s + getCount(a), 0)
+    : allocations.reduce((s, a) => s + a.percentage, 0);
+
+  const sumValid = countMode ? sum === totalCount! : sum === 100;
 
   function toggleTeam(team: Team) {
     if (selectedIds.has(team.id)) {
       // Remove team
       const next = allocations.filter((a) => a.teamId !== team.id);
       if (next.length > 0) {
-        onChange(distributeEvenly(next.map((a) => ({ id: a.teamId, name: a.teamName }))));
+        const teamList = next.map((a) => ({ id: a.teamId, name: a.teamName }));
+        onChange(countMode ? distributeEvenlyByCount(teamList, totalCount!) : distributeEvenly(teamList));
       } else {
         onChange([]);
       }
@@ -51,8 +66,14 @@ export default function TeamDistributionSelector({
         ...allocations.map((a) => ({ id: a.teamId, name: a.teamName })),
         { id: team.id, name: team.name },
       ];
-      onChange(distributeEvenly(newTeams));
+      onChange(countMode ? distributeEvenlyByCount(newTeams, totalCount!) : distributeEvenly(newTeams));
     }
+  }
+
+  function setCount(teamId: string, count: number) {
+    if (!countMode) return;
+    const pct = (count / totalCount!) * 100;
+    onChange(allocations.map((a) => (a.teamId === teamId ? { ...a, percentage: pct } : a)));
   }
 
   function setPercentage(teamId: string, pct: number) {
@@ -146,7 +167,7 @@ export default function TeamDistributionSelector({
         )}
       </div>
 
-      {/* Percentage inputs — shown only when 2+ teams selected */}
+      {/* Count/percentage inputs — shown only when 2+ teams selected */}
       {allocations.length > 1 && (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
           {allocations.map((a) => (
@@ -163,22 +184,42 @@ export default function TeamDistributionSelector({
               >
                 {a.teamName}
               </span>
-              <input
-                type="number"
-                className="glass-input"
-                min={0}
-                max={100}
-                value={a.percentage}
-                onChange={(e) => setPercentage(a.teamId, Math.max(0, Math.min(100, parseInt(e.target.value) || 0)))}
-                style={{
-                  width: 64,
-                  height: 30,
-                  fontSize: 12,
-                  textAlign: 'center',
-                  fontFamily: 'JetBrains Mono, monospace',
-                }}
-              />
-              <span style={{ fontSize: 12, color: 'var(--text-dim)' }}>%</span>
+              {countMode ? (
+                <input
+                  type="number"
+                  className="glass-input"
+                  min={0}
+                  max={totalCount}
+                  value={getCount(a)}
+                  onChange={(e) => setCount(a.teamId, Math.max(0, parseInt(e.target.value) || 0))}
+                  style={{
+                    width: 64,
+                    height: 30,
+                    fontSize: 12,
+                    textAlign: 'center',
+                    fontFamily: 'JetBrains Mono, monospace',
+                  }}
+                />
+              ) : (
+                <>
+                  <input
+                    type="number"
+                    className="glass-input"
+                    min={0}
+                    max={100}
+                    value={a.percentage}
+                    onChange={(e) => setPercentage(a.teamId, Math.max(0, Math.min(100, parseInt(e.target.value) || 0)))}
+                    style={{
+                      width: 64,
+                      height: 30,
+                      fontSize: 12,
+                      textAlign: 'center',
+                      fontFamily: 'JetBrains Mono, monospace',
+                    }}
+                  />
+                  <span style={{ fontSize: 12, color: 'var(--text-dim)' }}>%</span>
+                </>
+              )}
             </div>
           ))}
 
@@ -194,7 +235,10 @@ export default function TeamDistributionSelector({
                 borderRadius: 6,
               }}
             >
-              {t('teamDistribution.sumWarning')} ({sum}%)
+              {countMode
+                ? t('teamDistribution.countWarning', { total: totalCount }) + ` (${sum}/${totalCount})`
+                : t('teamDistribution.sumWarning') + ` (${sum}%)`
+              }
             </div>
           )}
         </div>

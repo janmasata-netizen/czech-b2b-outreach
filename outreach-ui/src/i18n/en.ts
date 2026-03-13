@@ -919,6 +919,7 @@ export default {
     label: 'Team distribution',
     selectTeams: 'Select teams...',
     sumWarning: 'Must sum to 100%',
+    countWarning: 'Must sum to {{total}}',
   },
 
   // ── System Sub-navigation ──

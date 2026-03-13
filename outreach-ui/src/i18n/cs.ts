@@ -1089,6 +1089,7 @@ export default {
     label: 'Distribuce týmů',
     selectTeams: 'Vyberte týmy...',
     sumWarning: 'Součet musí být 100%',
+    countWarning: 'Součet musí být {{total}}',
   },
 
   // ── System Sub-navigation ──

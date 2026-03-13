@@ -61,6 +61,24 @@ export function assignTeamToRows(
  * Weighted random pick for single-lead case.
  * Percentages act as probability weights.
  */
+/**
+ * Distribute counts evenly across teams, converting to percentages.
+ * E.g. 3 teams, 18 total: [6, 6, 6] → [33.33%, 33.33%, 33.34%]
+ */
+export function distributeEvenlyByCount(
+  teams: Array<{ id: string; name: string }>,
+  totalCount: number
+): TeamAllocation[] {
+  if (teams.length === 0 || totalCount === 0) return [];
+  const base = Math.floor(totalCount / teams.length);
+  let remainder = totalCount - base * teams.length;
+  return teams.map((t) => {
+    const count = base + (remainder > 0 ? 1 : 0);
+    if (remainder > 0) remainder--;
+    return { teamId: t.id, teamName: t.name, percentage: (count / totalCount) * 100 };
+  });
+}
+
 export function pickWeightedTeam(allocations: TeamAllocation[]): string {
   if (allocations.length === 0) return '';
   if (allocations.length === 1) return allocations[0].teamId;

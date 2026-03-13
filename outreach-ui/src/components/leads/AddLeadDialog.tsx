@@ -8,8 +8,6 @@ import { toast } from 'sonner';
 import { checkDuplicates, extractDomain, formatMatchMessage } from '@/lib/dedup';
 import { n8nWebhookUrl, n8nHeaders } from '@/lib/n8n';
 import { LEAD_LANGUAGE_MAP } from '@/lib/constants';
-import { pickWeightedTeam, distributeEvenly, type TeamAllocation } from '@/lib/team-distribution';
-import TeamDistributionSelector from '@/components/shared/TeamDistributionSelector';
 import type { LeadLanguage } from '@/types/database';
 
 interface AddLeadDialogProps {
@@ -35,11 +33,14 @@ export default function AddLeadDialog({ open, onClose }: AddLeadDialogProps) {
     email: '',
     language: 'cs' as LeadLanguage,
   });
-  const [teamAllocations, setTeamAllocations] = useState<TeamAllocation[]>(
-    teams && teams.length > 0 ? [{ teamId: teams[0].id, teamName: teams[0].name, percentage: 100 }] : []
-  );
+  const [teamId, setTeamId] = useState<string>(teams?.[0]?.id ?? '');
   const [customFields, setCustomFields] = useState<CustomFieldRow[]>([]);
   const [enrichEmail, setEnrichEmail] = useState(true);
+
+  // Keep teamId in sync when teams load
+  if (teams && teams.length > 0 && !teamId) {
+    setTeamId(teams[0].id);
+  }
 
   function set(field: string, value: string) {
     setForm(f => ({ ...f, [field]: value }));
@@ -93,24 +94,11 @@ export default function AddLeadDialog({ open, onClose }: AddLeadDialogProps) {
       return;
     }
 
-    // Resolve team allocations (init from teams if empty)
-    const effectiveAllocations = teamAllocations.length > 0
-      ? teamAllocations
-      : teams && teams.length > 0
-        ? [{ teamId: teams[0].id, teamName: teams[0].name, percentage: 100 }]
-        : [];
-    if (effectiveAllocations.length === 0) {
+    const team_id = teamId || (teams?.[0]?.id ?? '');
+    if (!team_id) {
       toast.error(t('addLeadDialog.createTeamFirst'));
       return;
     }
-    const allocSum = effectiveAllocations.reduce((s, a) => s + a.percentage, 0);
-    if (effectiveAllocations.length > 1 && allocSum !== 100) {
-      toast.error(t('teamDistribution.sumWarning'));
-      return;
-    }
-    const team_id = effectiveAllocations.length === 1
-      ? effectiveAllocations[0].teamId
-      : pickWeightedTeam(effectiveAllocations);
 
     // Pre-flight dedup check
     try {
@@ -239,12 +227,21 @@ export default function AddLeadDialog({ open, onClose }: AddLeadDialogProps) {
           </label>
         )}
 
+        {/* Team selector — simple dropdown */}
         {teams && teams.length > 1 && (
-          <TeamDistributionSelector
-            teams={teams}
-            allocations={teamAllocations}
-            onChange={setTeamAllocations}
-          />
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+            <label style={{ fontSize: 12, fontWeight: 500, color: 'var(--text-dim)' }}>{t('addLeadDialog.team')}</label>
+            <select
+              className="glass-input"
+              value={teamId}
+              onChange={e => setTeamId(e.target.value)}
+              style={{ height: 34, fontSize: 13 }}
+            >
+              {teams.map(team => (
+                <option key={team.id} value={team.id}>{team.name}</option>
+              ))}
+            </select>
+          </div>
         )}
 
         {/* Language selector */}
