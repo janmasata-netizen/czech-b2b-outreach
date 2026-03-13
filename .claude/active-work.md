@@ -18,4 +18,5 @@
 
 | Branch | Agent | Files (exact paths) | Started | Last Updated | PR |
 |---|---|---|---|---|---|
+| claude/email-finder-v3 | Claude Opus | outreach-ui/src/lib/dedup.ts, outreach-ui/src/pages/EmailFinderPage.tsx, n8n-workflows/sub-clean-domain.json, n8n-workflows/push-sub-clean-domain.mjs, n8n-workflows/wf-email-finder-v3.json, n8n-workflows/push-email-finder-v3.mjs | 2026-03-13 | 2026-03-13 | — |
 
