@@ -22,23 +22,55 @@
       }
     },
     {
+      "id": "wfes-fetch-workflows",
+      "name": "Fetch Workflows",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [460, 200],
+      "parameters": {
+        "url": "http://localhost:5678/api/v1/workflows?limit=100",
+        "method": "GET",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "X-N8N-API-KEY",
+              "value": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiI3NTI1ZDYwYS0zZmU3LTQyZmQtOWIwZi0xMDM4MDZlNmQwOWYiLCJpc3MiOiJuOG4iLCJhdWQiOiJwdWJsaWMtYXBpIiwianRpIjoiN2ViMjJkM2MtNzMyZi00YmJhLTgwMjctMWIzYjI3YTM1MzA1IiwiaWF0IjoxNzcxNTMyNDI1fQ.I__zvKEPw3p-TKR0GZ7I9n0Kd6OIYwElpprF7xovxrM"
+            }
+          ]
+        },
+        "options": {}
+      }
+    },
+    {
       "id": "wfes-fetch-executions",
       "name": "Fetch Executions",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
-      "position": [460, 300],
+      "position": [460, 400],
       "parameters": {
-        "url": "=http://localhost:5678/api/v1/executions?limit=250&status=error,success",
+        "url": "http://localhost:5678/api/v1/executions?limit=250",
         "method": "GET",
-        "authentication": "genericCredentialType",
-        "genericAuthType": "httpHeaderAuth",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "X-N8N-API-KEY",
+              "value": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiI3NTI1ZDYwYS0zZmU3LTQyZmQtOWIwZi0xMDM4MDZlNmQwOWYiLCJpc3MiOiJuOG4iLCJhdWQiOiJwdWJsaWMtYXBpIiwianRpIjoiN2ViMjJkM2MtNzMyZi00YmJhLTgwMjctMWIzYjI3YTM1MzA1IiwiaWF0IjoxNzcxNTMyNDI1fQ.I__zvKEPw3p-TKR0GZ7I9n0Kd6OIYwElpprF7xovxrM"
+            }
+          ]
+        },
         "options": {}
-      },
-      "credentials": {
-        "httpHeaderAuth": {
-          "id": "n8n-api-key",
-          "name": "n8n API Key"
-        }
+      }
+    },
+    {
+      "id": "wfes-merge",
+      "name": "Merge",
+      "type": "n8n-nodes-base.merge",
+      "typeVersion": 3,
+      "position": [680, 300],
+      "parameters": {
+        "mode": "append"
       }
     },
     {
@@ -46,10 +78,10 @@
       "name": "Aggregate Stats",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
-      "position": [680, 300],
+      "position": [900, 300],
       "parameters": {
         "mode": "runOnceForAllItems",
-        "jsCode": "// Get range from webhook query params\nconst range = $('Webhook Trigger').first().json.query?.range || '24h';\n\nconst rangeMs = {\n  '24h': 24 * 60 * 60 * 1000,\n  '7d': 7 * 24 * 60 * 60 * 1000,\n  '30d': 30 * 24 * 60 * 60 * 1000,\n}[range] || 24 * 60 * 60 * 1000;\n\nconst cutoff = new Date(Date.now() - rangeMs);\n\n// Parse executions from API response\nconst apiData = $('Fetch Executions').first().json;\nconst allExecs = apiData.data || [];\n\n// Filter by time range\nconst execs = allExecs.filter(e => new Date(e.startedAt || e.stoppedAt) >= cutoff);\n\n// Build time series buckets\nconst bucketCount = range === '24h' ? 24 : range === '7d' ? 7 : 30;\nconst bucketMs = rangeMs / bucketCount;\nconst timeSeries = [];\n\nfor (let i = 0; i < bucketCount; i++) {\n  const bucketStart = new Date(Date.now() - rangeMs + i * bucketMs);\n  const bucketEnd = new Date(bucketStart.getTime() + bucketMs);\n  const bucketExecs = execs.filter(e => {\n    const t = new Date(e.startedAt || e.stoppedAt);\n    return t >= bucketStart && t < bucketEnd;\n  });\n  const label = range === '24h'\n    ? bucketStart.toLocaleTimeString('cs-CZ', { hour: '2-digit', minute: '2-digit' })\n    : bucketStart.toLocaleDateString('cs-CZ', { day: 'numeric', month: 'numeric' });\n  timeSeries.push({\n    bucket: label,\n    success: bucketExecs.filter(e => e.status === 'success').length,\n    failure: bucketExecs.filter(e => e.status === 'error').length,\n  });\n}\n\n// Per-workflow stats\nconst wfMap = {};\nfor (const e of execs) {\n  const name = e.workflowData?.name || e.workflowName || 'Unknown';\n  if (!wfMap[name]) wfMap[name] = { name, success: 0, failure: 0, totalDuration: 0, lastFailure: null };\n  if (e.status === 'success') wfMap[name].success++;\n  else wfMap[name].failure++;\n  if (e.startedAt && e.stoppedAt) {\n    wfMap[name].totalDuration += new Date(e.stoppedAt).getTime() - new Date(e.startedAt).getTime();\n  }\n  if (e.status === 'error' && (!wfMap[name].lastFailure || e.stoppedAt > wfMap[name].lastFailure)) {\n    wfMap[name].lastFailure = e.stoppedAt;\n  }\n}\n\nconst workflows = Object.values(wfMap).map(w => {\n  const total = w.success + w.failure;\n  return {\n    name: w.name,\n    totalRuns: total,\n    successCount: w.success,\n    failureCount: w.failure,\n    successRate: total > 0 ? (w.success / total) * 100 : 100,\n    avgDurationMs: total > 0 ? Math.round(w.totalDuration / total) : 0,\n    lastFailure: w.lastFailure,\n  };\n}).sort((a, b) => a.successRate - b.successRate);\n\n// Recent failures (last 10)\nconst recentFailures = execs\n  .filter(e => e.status === 'error')\n  .sort((a, b) => new Date(b.stoppedAt || b.startedAt).getTime() - new Date(a.stoppedAt || a.startedAt).getTime())\n  .slice(0, 10)\n  .map(e => ({\n    workflowName: e.workflowData?.name || e.workflowName || 'Unknown',\n    error: (e.data?.resultData?.error?.message || e.stoppedAt || 'Unknown error').substring(0, 500),\n    timestamp: e.stoppedAt || e.startedAt,\n  }));\n\nreturn [{ json: { timeSeries, workflows, recentFailures } }];"
+        "jsCode": "// Get range from webhook query params\nconst range = $('Webhook Trigger').first().json.query?.range || '24h';\n\nconst rangeMs = {\n  '24h': 24 * 60 * 60 * 1000,\n  '7d': 7 * 24 * 60 * 60 * 1000,\n  '30d': 30 * 24 * 60 * 60 * 1000,\n}[range] || 24 * 60 * 60 * 1000;\n\nconst cutoff = new Date(Date.now() - rangeMs);\n\n// Build workflow name map from Fetch Workflows response\nconst wfListData = $('Fetch Workflows').first().json;\nconst wfNameMap = {};\nif (wfListData && wfListData.data) {\n  for (const wf of wfListData.data) {\n    wfNameMap[wf.id] = wf.name;\n  }\n}\n\n// Parse executions from API response\nconst apiData = $('Fetch Executions').first().json;\nconst allExecs = apiData.data || [];\n\n// Filter by time range\nconst execs = allExecs.filter(e => new Date(e.startedAt || e.stoppedAt) >= cutoff);\n\n// Build time series buckets\nconst bucketCount = range === '24h' ? 24 : range === '7d' ? 7 : 30;\nconst bucketMs = rangeMs / bucketCount;\nconst timeSeries = [];\n\nfor (let i = 0; i < bucketCount; i++) {\n  const bucketStart = new Date(Date.now() - rangeMs + i * bucketMs);\n  const bucketEnd = new Date(bucketStart.getTime() + bucketMs);\n  const bucketExecs = execs.filter(e => {\n    const t = new Date(e.startedAt || e.stoppedAt);\n    return t >= bucketStart && t < bucketEnd;\n  });\n  const label = range === '24h'\n    ? bucketStart.toLocaleTimeString('cs-CZ', { hour: '2-digit', minute: '2-digit' })\n    : bucketStart.toLocaleDateString('cs-CZ', { day: 'numeric', month: 'numeric' });\n  timeSeries.push({\n    bucket: label,\n    success: bucketExecs.filter(e => e.status === 'success').length,\n    failure: bucketExecs.filter(e => e.status === 'error').length,\n  });\n}\n\n// Per-workflow stats\nconst wfMap = {};\nfor (const e of execs) {\n  const name = wfNameMap[e.workflowId] || e.workflowData?.name || 'Unknown';\n  if (!wfMap[name]) wfMap[name] = { name, success: 0, failure: 0, totalDuration: 0, lastFailure: null };\n  if (e.status === 'success') wfMap[name].success++;\n  else wfMap[name].failure++;\n  if (e.startedAt && e.stoppedAt) {\n    wfMap[name].totalDuration += new Date(e.stoppedAt).getTime() - new Date(e.startedAt).getTime();\n  }\n  if (e.status === 'error' && (!wfMap[name].lastFailure || e.stoppedAt > wfMap[name].lastFailure)) {\n    wfMap[name].lastFailure = e.stoppedAt;\n  }\n}\n\nconst workflows = Object.values(wfMap).map(w => {\n  const total = w.success + w.failure;\n  return {\n    name: w.name,\n    totalRuns: total,\n    successCount: w.success,\n    failureCount: w.failure,\n    successRate: total > 0 ? (w.success / total) * 100 : 100,\n    avgDurationMs: total > 0 ? Math.round(w.totalDuration / total) : 0,\n    lastFailure: w.lastFailure,\n  };\n}).sort((a, b) => a.successRate - b.successRate);\n\n// Recent failures (last 10)\nconst recentFailures = execs\n  .filter(e => e.status === 'error')\n  .sort((a, b) => new Date(b.stoppedAt || b.startedAt).getTime() - new Date(a.stoppedAt || a.startedAt).getTime())\n  .slice(0, 10)\n  .map(e => ({\n    workflowName: wfNameMap[e.workflowId] || 'Unknown',\n    error: (e.data?.resultData?.error?.message || 'Unknown error').substring(0, 500),\n    timestamp: e.stoppedAt || e.startedAt,\n  }));\n\nreturn [{ json: { timeSeries, workflows, recentFailures } }];"
       }
     },
     {
@@ -57,7 +89,7 @@
       "name": "Respond to Webhook",
       "type": "n8n-nodes-base.respondToWebhook",
       "typeVersion": 1.1,
-      "position": [900, 300],
+      "position": [1120, 300],
       "parameters": {
         "respondWith": "json",
         "responseBody": "={{ $json }}"
@@ -67,10 +99,23 @@
   "connections": {
     "Webhook Trigger": {
       "main": [
-        [{ "node": "Fetch Executions", "type": "main", "index": 0 }]
+        [
+          { "node": "Fetch Workflows", "type": "main", "index": 0 },
+          { "node": "Fetch Executions", "type": "main", "index": 0 }
+        ]
+      ]
+    },
+    "Fetch Workflows": {
+      "main": [
+        [{ "node": "Merge", "type": "main", "index": 0 }]
       ]
     },
     "Fetch Executions": {
+      "main": [
+        [{ "node": "Merge", "type": "main", "index": 1 }]
+      ]
+    },
+    "Merge": {
       "main": [
         [{ "node": "Aggregate Stats", "type": "main", "index": 0 }]
       ]
