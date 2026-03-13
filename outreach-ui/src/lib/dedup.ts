@@ -76,6 +76,25 @@ export function extractDomain(url: string | undefined | null): string {
   }
 }
 
+/**
+ * Clean and validate a raw domain input string.
+ * Handles URLs, emails, multiple domains (takes first valid), messy whitespace, etc.
+ */
+export function cleanDomainInput(raw: string): { domain: string; error?: string } {
+  if (!raw?.trim()) return { domain: '', error: 'Zadejte doménu' };
+  // Split on commas, semicolons, spaces, newlines — take first non-empty token
+  const token = raw.split(/[,;\s\n]+/).map(s => s.trim()).filter(Boolean)[0] || '';
+  // If it's an email, extract domain part
+  let candidate = token.includes('@') ? token.split('@')[1] : token;
+  // Strip protocol, www, paths, query params
+  candidate = candidate.replace(/^https?:\/\//i, '').replace(/^www\./i, '').split(/[/?#]/)[0].trim().toLowerCase();
+  // Validate: must have at least one dot, valid domain chars
+  if (!candidate || !/^[a-z0-9.-]+\.[a-z]{2,}$/.test(candidate)) {
+    return { domain: '', error: 'Neplatná doména' };
+  }
+  return { domain: candidate };
+}
+
 const MATCH_FIELD_LABELS: Record<string, string> = {
   ico: 'IČO',
   domain: 'doména',

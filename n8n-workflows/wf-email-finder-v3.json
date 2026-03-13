@@ -1,0 +1,1252 @@
+{
+  "name": "WF: Email Finder V3 (Company Orchestrator)",
+  "nodes": [
+    {
+      "parameters": {
+        "content": "## Email Finder V3 — Company Orchestrator\n**Trigger:** POST /webhook/wf-email-finder-v3\n\n**Input:** `{ company_id?, company_name?, ico?, domain?, website? }` — at least one required\n\n**Flow:**\n1. Clean domain (Execute sub-clean-domain)\n2. Resolve company: has domain → lookup/create in DB; no domain → ARES/firmy.cz fallback\n3. Fetch all contacts for company\n4. For each contact: generate email patterns → SMTP check → probe if catch-all → upsert to email_candidates\n5. Website scrape for backup emails → upsert to email_candidates (source=website_scrape)\n6. Return all results\n\n**Sub-workflows:** sub-clean-domain (Execute), sub-smtp-check (Execute), sub-burner-probe (HTTP webhook)",
+        "height": 280,
+        "width": 700,
+        "color": 4
+      },
+      "id": "v3-sticky",
+      "name": "Sticky Note",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [-300, 40]
+    },
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "wf-email-finder-v3",
+        "responseMode": "responseNode",
+        "options": {},
+        "authentication": "headerAuth"
+      },
+      "id": "v3-0001",
+      "name": "Webhook Trigger",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [0, 400],
+      "webhookId": "wf-email-finder-v3",
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "Jvj4HIG7aE6YPKcJ",
+          "name": "Webhook Header Auth"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForEachItem",
+        "jsCode": "const body = $input.item.json.body || $input.item.json;\nconst company_id = (body.company_id || '').trim();\nconst company_name = (body.company_name || '').trim();\nconst ico = (body.ico || '').trim();\nconst raw_domain = (body.domain || body.website || '').trim();\n\n// Auto-detect input type for single-input UI\nconst input_text = (body.input || '').trim();\nlet detected_type = '';\nlet final_ico = ico;\nlet final_name = company_name;\nlet final_domain = raw_domain;\n\nif (input_text && !ico && !company_name && !raw_domain) {\n  if (/^\\d{8}$/.test(input_text)) {\n    detected_type = 'ico';\n    final_ico = input_text;\n  } else if (input_text.includes('@')) {\n    detected_type = 'domain';\n    final_domain = input_text.split('@')[1] || '';\n  } else if (/[a-z0-9]\\.[a-z]{2,}/i.test(input_text) && !input_text.includes(' ')) {\n    detected_type = 'domain';\n    final_domain = input_text;\n  } else {\n    detected_type = 'company_name';\n    final_name = input_text;\n  }\n}\n\nif (!company_id && !final_name && !final_ico && !final_domain) {\n  return { json: { error: 'Zadejte alespoň jedno pole (firma, IČO, nebo doména)', steps: [] } };\n}\n\n// Determine if name looks like a legal entity (for ARES path)\nconst LEGAL_SUFFIXES = /\\b(s\\.r\\.o\\.?|a\\.s\\.?|spol\\.|v\\.o\\.s\\.?|k\\.s\\.?)\\s*$/i;\nconst has_legal_name = LEGAL_SUFFIXES.test(final_name);\n\nreturn {\n  json: {\n    company_id,\n    company_name: final_name,\n    ico: final_ico,\n    raw_domain: final_domain,\n    detected_type,\n    has_legal_name,\n    steps: ['input_validated']\n  }\n};"
+      },
+      "id": "v3-0002",
+      "name": "Extract & Validate Input",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [240, 400]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": { "caseSensitive": true, "leftValue": "", "typeValidation": "strict" },
+          "conditions": [{ "leftValue": "={{ $json.error }}", "rightValue": "", "operator": { "type": "string", "operation": "notEquals" } }],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "v3-0003",
+      "name": "IF Error",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [480, 400]
+    },
+    {
+      "parameters": {
+        "respondWith": "firstIncomingItem",
+        "options": { "responseCode": 200 }
+      },
+      "id": "v3-0004",
+      "name": "Error Response",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1,
+      "position": [720, 300]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": { "caseSensitive": true, "leftValue": "", "typeValidation": "strict" },
+          "conditions": [{ "leftValue": "={{ $json.raw_domain }}", "rightValue": "", "operator": { "type": "string", "operation": "notEquals" } }],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "v3-0010",
+      "name": "IF Has Domain",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [720, 500]
+    },
+    {
+      "parameters": {
+        "source": "database",
+        "workflowId": "__SUB_CLEAN_DOMAIN_ID__",
+        "waitForSubWorkflow": true
+      },
+      "id": "v3-0011",
+      "name": "Execute Clean Domain",
+      "type": "n8n-nodes-base.executeWorkflow",
+      "typeVersion": 1,
+      "position": [960, 420]
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForEachItem",
+        "jsCode": "const cleaned = $input.item.json;\nconst prev = $('Extract & Validate Input').first().json;\n\nif (!cleaned.valid) {\n  return { json: { error: cleaned.error || 'Neplatná doména', steps: prev.steps } };\n}\n\nreturn {\n  json: {\n    ...prev,\n    domain: cleaned.domain,\n    steps: [...prev.steps, 'domain_cleaned']\n  }\n};"
+      },
+      "id": "v3-0012",
+      "name": "Apply Cleaned Domain",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1200, 420]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": { "caseSensitive": true, "leftValue": "", "typeValidation": "strict" },
+          "conditions": [{ "leftValue": "={{ $json.error }}", "rightValue": "", "operator": { "type": "string", "operation": "notEquals" } }],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "v3-0013",
+      "name": "IF Clean Error",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [1440, 420]
+    },
+    {
+      "parameters": {
+        "respondWith": "firstIncomingItem",
+        "options": { "responseCode": 200 }
+      },
+      "id": "v3-0014",
+      "name": "Clean Error Response",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1,
+      "position": [1680, 320]
+    },
+    {
+      "parameters": {
+        "method": "GET",
+        "url": "={{ 'https://cycapkswtucbucyegdsn.supabase.co/rest/v1/companies?select=id,company_name,ico,domain,website&domain=eq.' + $json.domain + '&limit=1' }}",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            { "name": "apikey", "value": "SUPABASE_SERVICE_ROLE_KEY_PLACEHOLDER" },
+            { "name": "Authorization", "value": "Bearer SUPABASE_SERVICE_ROLE_KEY_PLACEHOLDER" }
+          ]
+        },
+        "options": { "neverError": true }
+      },
+      "id": "v3-0020",
+      "name": "Lookup Company by Domain",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [1680, 480]
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "jsCode": "const prev = $('Apply Cleaned Domain').first().json;\nconst dbRows = $input.all().map(i => i.json);\n// Supabase returns array; check if first item has id\nconst company = dbRows.length > 0 && dbRows[0].id ? dbRows[0] : null;\n\nif (company) {\n  return [{ json: {\n    ...prev,\n    company_id: company.id,\n    company_name: prev.company_name || company.company_name || '',\n    ico: prev.ico || company.ico || '',\n    steps: [...prev.steps, 'company_found']\n  } }];\n}\n\n// Company not found — create it\nreturn [{ json: {\n  ...prev,\n  _create_company: true,\n  steps: [...prev.steps, 'company_not_found']\n} }];"
+      },
+      "id": "v3-0021",
+      "name": "Check Company Exists",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1920, 480]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": { "caseSensitive": true, "leftValue": "", "typeValidation": "strict" },
+          "conditions": [{ "leftValue": "={{ $json._create_company ? 'yes' : 'no' }}", "rightValue": "yes", "operator": { "type": "string", "operation": "equals" } }],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "v3-0022",
+      "name": "IF Need Create Company",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [2160, 480]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://cycapkswtucbucyegdsn.supabase.co/rest/v1/companies",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            { "name": "apikey", "value": "SUPABASE_SERVICE_ROLE_KEY_PLACEHOLDER" },
+            { "name": "Authorization", "value": "Bearer SUPABASE_SERVICE_ROLE_KEY_PLACEHOLDER" },
+            { "name": "Prefer", "value": "return=representation" }
+          ]
+        },
+        "sendBody": true,
+        "contentType": "raw",
+        "rawContentType": "application/json",
+        "body": "={{ JSON.stringify({ company_name: $json.company_name || $json.domain, domain: $json.domain, ico: $json.ico || null, website: 'https://' + $json.domain, master_status: 'new' }) }}",
+        "options": { "neverError": true }
+      },
+      "id": "v3-0023",
+      "name": "Create Company",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [2400, 400]
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "jsCode": "const prev = $('Check Company Exists').first().json;\nconst created = $input.all().map(i => i.json);\nconst company = Array.isArray(created) && created.length > 0 && created[0].id\n  ? created[0]\n  : (created[0] && created[0][0] ? created[0][0] : null);\n\nif (!company || !company.id) {\n  return [{ json: { error: 'Nepodařilo se vytvořit firmu v databázi', steps: prev.steps } }];\n}\n\nreturn [{ json: {\n  ...prev,\n  company_id: company.id,\n  company_name: company.company_name || prev.company_name || '',\n  _create_company: undefined,\n  steps: [...prev.steps, 'company_created']\n} }];"
+      },
+      "id": "v3-0024",
+      "name": "Extract Created Company",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [2640, 400]
+    },
+    {
+      "parameters": { "mode": "passthrough" },
+      "id": "v3-0030",
+      "name": "Merge Company Resolved",
+      "type": "n8n-nodes-base.merge",
+      "typeVersion": 3,
+      "position": [2880, 480]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": { "caseSensitive": true, "leftValue": "", "typeValidation": "strict" },
+          "conditions": [{ "leftValue": "={{ $json.error }}", "rightValue": "", "operator": { "type": "string", "operation": "notEquals" } }],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "v3-0031",
+      "name": "IF Company Error",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [3120, 480]
+    },
+    {
+      "parameters": {
+        "respondWith": "firstIncomingItem",
+        "options": { "responseCode": 200 }
+      },
+      "id": "v3-0032",
+      "name": "Company Error Response",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1,
+      "position": [3360, 380]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": { "caseSensitive": true, "leftValue": "", "typeValidation": "strict" },
+          "conditions": [{ "leftValue": "={{ $json.ico || '' }}", "rightValue": "", "operator": { "type": "string", "operation": "notEquals" } }],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "v3-0040",
+      "name": "IF Has ICO or Legal Name",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [960, 660]
+    },
+    {
+      "parameters": {
+        "method": "GET",
+        "url": "={{ 'https://ares.gov.cz/ekonomicke-subjekty-v-be/rest/ekonomicke-subjekty/' + ($json.ico || '') }}",
+        "options": { "neverError": true, "timeout": 15000 }
+      },
+      "id": "v3-0041",
+      "name": "ARES Lookup (BE)",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [1200, 580]
+    },
+    {
+      "parameters": {
+        "method": "GET",
+        "url": "={{ 'https://ares.gov.cz/ekonomicke-subjekty-v-be/rest/ekonomicke-subjekty-vr/' + ($('Extract & Validate Input').first().json.ico || '') }}",
+        "options": { "neverError": true, "timeout": 15000 }
+      },
+      "id": "v3-0042",
+      "name": "ARES Lookup (VR)",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [1200, 740]
+    },
+    {
+      "parameters": { "mode": "append" },
+      "id": "v3-0043",
+      "name": "Merge ARES",
+      "type": "n8n-nodes-base.merge",
+      "typeVersion": 3,
+      "position": [1440, 660]
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "jsCode": "const prev = $('Extract & Validate Input').first().json;\nconst allItems = $input.all().map(i => i.json);\n\n// BE response is first, VR is second\nconst be = allItems[0] || {};\nconst vr = allItems[1] || {};\n\n// Extract company info from ARES BE\nconst obchodniJmeno = be.obchodniJmeno || be.nazev || prev.company_name || '';\nconst ico = be.ico || prev.ico || '';\n\n// Extract website from ARES if available\nlet website = '';\nif (be.www) website = be.www;\nelse if (be.sidlo && be.sidlo.www) website = be.sidlo.www;\n\n// Extract jednatels from both BE and VR\nconst jednatels = [];\nconst seenNames = new Set();\n\nfunction extractJednatels(data) {\n  if (!data) return;\n  const organs = data.statutarniOrgan || [];\n  for (const organ of (Array.isArray(organs) ? organs : [organs])) {\n    const members = organ.clenove || organ.cleni || [];\n    for (const m of (Array.isArray(members) ? members : [members])) {\n      const fo = m.fospioba || m.fyzickaOsoba || m;\n      const jmeno = fo.jmeno || fo.krestniJmeno || '';\n      const prijmeni = fo.prijmeni || '';\n      const fullName = (jmeno + ' ' + prijmeni).trim();\n      if (fullName && !seenNames.has(fullName.toLowerCase())) {\n        seenNames.add(fullName.toLowerCase());\n        jednatels.push({ full_name: fullName, role: organ.nazev || 'jednatel' });\n      }\n    }\n  }\n}\n\nextractJednatels(be);\nextractJednatels(vr);\n\n// Clean domain from website\nlet domain = '';\nif (website) {\n  domain = website.replace(/^https?:\\/\\//i, '').replace(/^www\\./i, '').split(/[\\/?#]/)[0].trim().toLowerCase();\n}\n\nreturn [{ json: {\n  ...prev,\n  company_name: obchodniJmeno || prev.company_name,\n  ico: ico || prev.ico,\n  domain: domain,\n  raw_domain: domain,\n  website: website,\n  jednatels: jednatels,\n  ares_found: !!be.ico,\n  steps: [...prev.steps, 'ares_lookup']\n} }];"
+      },
+      "id": "v3-0044",
+      "name": "Process ARES Response",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1680, 660]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": { "caseSensitive": true, "leftValue": "", "typeValidation": "strict" },
+          "conditions": [{ "leftValue": "={{ $json.domain || '' }}", "rightValue": "", "operator": { "type": "string", "operation": "notEquals" } }],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "v3-0045",
+      "name": "IF ARES Has Domain",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [1920, 660]
+    },
+    {
+      "parameters": {
+        "method": "GET",
+        "url": "={{ 'https://www.kurzy.cz/rejstrik-firem/' + ($json.ico || '') + '/' }}",
+        "options": { "neverError": true, "timeout": 15000 }
+      },
+      "id": "v3-0046",
+      "name": "Kurzy Scrape",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [2160, 660]
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "jsCode": "const prev = $('Process ARES Response').first().json;\nconst html = ($input.first().json.data || $input.first().json || '').toString();\n\n// Extract jednatels from kurzy.cz HTML — look for names in the leadership section\nconst jednatels = [...(prev.jednatels || [])];\nconst seenNames = new Set(jednatels.map(j => j.full_name.toLowerCase()));\n\n// Kurzy.cz typically has names in <a> tags under \"Statutární orgán\" section\n// Pattern: look for Czech full names\nconst namePattern = /class=\"lnk\"[^>]*>([A-ZÁČĎÉĚÍŇÓŘŠŤÚŮÝŽ][a-záčďéěíňóřšťúůýž]+\\s+[A-ZÁČĎÉĚÍŇÓŘŠŤÚŮÝŽ][a-záčďéěíňóřšťúůýž]+)/g;\nlet match;\nwhile ((match = namePattern.exec(html)) !== null) {\n  const name = match[1].trim();\n  if (name && !seenNames.has(name.toLowerCase()) && name.split(' ').length >= 2) {\n    seenNames.add(name.toLowerCase());\n    jednatels.push({ full_name: name, role: 'jednatel' });\n  }\n}\n\n// Also try to extract website if ARES didn't have one\nlet domain = prev.domain;\nif (!domain) {\n  const webMatch = html.match(/href=\"(https?:\\/\\/[^\"]+)\"[^>]*class=\"lnk\"/);\n  if (webMatch) {\n    const url = webMatch[1];\n    domain = url.replace(/^https?:\\/\\//i, '').replace(/^www\\./i, '').split(/[\\/?#]/)[0].toLowerCase();\n  }\n}\n\nreturn [{ json: {\n  ...prev,\n  domain: domain,\n  raw_domain: domain,\n  jednatels: jednatels,\n  steps: [...prev.steps, 'kurzy_scrape']\n} }];"
+      },
+      "id": "v3-0047",
+      "name": "Process Kurzy Response",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [2400, 660]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": { "caseSensitive": true, "leftValue": "", "typeValidation": "strict" },
+          "conditions": [{ "leftValue": "={{ $json.domain || '' }}", "rightValue": "", "operator": { "type": "string", "operation": "notEquals" } }],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "v3-0048",
+      "name": "IF Has Domain After Enrich",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [2640, 660]
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForEachItem",
+        "jsCode": "const prev = $input.item.json;\nreturn { json: { error: 'Nepodařilo se najít doménu firmy. Zkuste zadat doménu ručně.', steps: prev.steps } };"
+      },
+      "id": "v3-0049",
+      "name": "No Domain Error",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [2880, 760]
+    },
+    {
+      "parameters": {
+        "respondWith": "firstIncomingItem",
+        "options": { "responseCode": 200 }
+      },
+      "id": "v3-0050",
+      "name": "No Domain Response",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1,
+      "position": [3120, 760]
+    },
+    {
+      "parameters": {
+        "method": "GET",
+        "url": "={{ 'https://cycapkswtucbucyegdsn.supabase.co/rest/v1/companies?select=id,company_name,ico,domain&domain=eq.' + $json.domain + '&limit=1' }}",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            { "name": "apikey", "value": "SUPABASE_SERVICE_ROLE_KEY_PLACEHOLDER" },
+            { "name": "Authorization", "value": "Bearer SUPABASE_SERVICE_ROLE_KEY_PLACEHOLDER" }
+          ]
+        },
+        "options": { "neverError": true }
+      },
+      "id": "v3-0051",
+      "name": "Lookup Company After ARES",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [2880, 580]
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "jsCode": "const prev = $('IF Has Domain After Enrich').first().json || $('Process Kurzy Response').first().json;\nconst dbRows = $input.all().map(i => i.json);\nconst company = dbRows.length > 0 && dbRows[0].id ? dbRows[0] : null;\n\nif (company) {\n  return [{ json: {\n    ...prev,\n    company_id: company.id,\n    steps: [...prev.steps, 'company_found']\n  } }];\n}\n\nreturn [{ json: {\n  ...prev,\n  _create_company: true,\n  steps: [...prev.steps, 'company_not_found']\n} }];"
+      },
+      "id": "v3-0052",
+      "name": "Check Company After ARES",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [3120, 580]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": { "caseSensitive": true, "leftValue": "", "typeValidation": "strict" },
+          "conditions": [{ "leftValue": "={{ $json._create_company ? 'yes' : 'no' }}", "rightValue": "yes", "operator": { "type": "string", "operation": "equals" } }],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "v3-0053",
+      "name": "IF Need Create Company ARES",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [3360, 580]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://cycapkswtucbucyegdsn.supabase.co/rest/v1/companies",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            { "name": "apikey", "value": "SUPABASE_SERVICE_ROLE_KEY_PLACEHOLDER" },
+            { "name": "Authorization", "value": "Bearer SUPABASE_SERVICE_ROLE_KEY_PLACEHOLDER" },
+            { "name": "Prefer", "value": "return=representation" }
+          ]
+        },
+        "sendBody": true,
+        "contentType": "raw",
+        "rawContentType": "application/json",
+        "body": "={{ JSON.stringify({ company_name: $json.company_name || $json.domain, domain: $json.domain, ico: $json.ico || null, website: 'https://' + $json.domain, master_status: 'new' }) }}",
+        "options": { "neverError": true }
+      },
+      "id": "v3-0054",
+      "name": "Create Company ARES",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [3600, 500]
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "jsCode": "const prev = $('Check Company After ARES').first().json;\nconst created = $input.all().map(i => i.json);\nconst company = Array.isArray(created) && created.length > 0 && created[0].id\n  ? created[0]\n  : (created[0] && created[0][0] ? created[0][0] : null);\n\nif (!company || !company.id) {\n  return [{ json: { error: 'Nepodařilo se vytvořit firmu v databázi', steps: prev.steps } }];\n}\n\nreturn [{ json: {\n  ...prev,\n  company_id: company.id,\n  _create_company: undefined,\n  steps: [...prev.steps, 'company_created']\n} }];"
+      },
+      "id": "v3-0055",
+      "name": "Extract Created Company ARES",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [3840, 500]
+    },
+    {
+      "parameters": { "mode": "passthrough" },
+      "id": "v3-0056",
+      "name": "Merge ARES Company",
+      "type": "n8n-nodes-base.merge",
+      "typeVersion": 3,
+      "position": [4080, 580]
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "jsCode": "// Create contacts from jednatels found in ARES/Kurzy\nconst prev = $input.first().json;\nconst jednatels = prev.jednatels || [];\nconst company_id = prev.company_id;\n\nif (jednatels.length === 0 || !company_id) {\n  return [{ json: prev }];\n}\n\n// We'll batch-create contacts. Output them as separate items for the upsert.\nreturn [{ json: {\n  ...prev,\n  _jednatels_to_create: jednatels,\n  steps: [...prev.steps, 'jednatels_extracted']\n} }];"
+      },
+      "id": "v3-0057",
+      "name": "Prepare Jednatels",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [4320, 580]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://cycapkswtucbucyegdsn.supabase.co/rest/v1/contacts",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            { "name": "apikey", "value": "SUPABASE_SERVICE_ROLE_KEY_PLACEHOLDER" },
+            { "name": "Authorization", "value": "Bearer SUPABASE_SERVICE_ROLE_KEY_PLACEHOLDER" },
+            { "name": "Prefer", "value": "return=representation,resolution=merge-duplicates" }
+          ]
+        },
+        "sendBody": true,
+        "contentType": "raw",
+        "rawContentType": "application/json",
+        "body": "={{ JSON.stringify(($json._jednatels_to_create || []).map(function(j) { return { company_id: $json.company_id, full_name: j.full_name, notes: j.role || 'jednatel' }; })) }}",
+        "options": { "neverError": true }
+      },
+      "id": "v3-0058",
+      "name": "Upsert Contacts",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [4560, 580]
+    },
+    {
+      "parameters": { "mode": "passthrough" },
+      "id": "v3-0060",
+      "name": "Merge All Company Paths",
+      "type": "n8n-nodes-base.merge",
+      "typeVersion": 3,
+      "position": [4800, 480]
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "jsCode": "// Get the resolved company data from whichever path we took\nconst items = $input.all().map(i => i.json);\nconst resolved = items.find(i => i.company_id && !i.error) || items[0];\nreturn [{ json: resolved }];"
+      },
+      "id": "v3-0061",
+      "name": "Pick Resolved Company",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [5040, 480]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://cycapkswtucbucyegdsn.supabase.co/rest/v1/rpc/get_contacts_for_company",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            { "name": "apikey", "value": "SUPABASE_SERVICE_ROLE_KEY_PLACEHOLDER" },
+            { "name": "Authorization", "value": "Bearer SUPABASE_SERVICE_ROLE_KEY_PLACEHOLDER" }
+          ]
+        },
+        "sendBody": true,
+        "contentType": "raw",
+        "rawContentType": "application/json",
+        "body": "={{ JSON.stringify({ p_company_id: $json.company_id }) }}",
+        "options": { "neverError": true }
+      },
+      "id": "v3-0070",
+      "name": "Fetch Contacts",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [5280, 480]
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "jsCode": "const prev = $('Pick Resolved Company').first().json;\nconst contactsRaw = $input.all().map(i => i.json);\n// RPC returns flat array of contact objects\nconst contacts = contactsRaw.filter(c => c.id && c.full_name);\n\nfunction normName(s) {\n  return (s || '').normalize('NFD').replace(/[\\u0300-\\u036f]/g, '').toLowerCase().replace(/[^a-z]/g, '');\n}\n\nconst domain = prev.domain;\nconst contactsWithCandidates = contacts.map(function(c) {\n  const parts = (c.full_name || '').trim().split(/\\s+/);\n  const f = normName(parts[0] || '');\n  const l = normName(parts[parts.length - 1] || '');\n  let emails = [];\n  if (f && l && domain) {\n    emails = [\n      f + '.' + l + '@' + domain,\n      f[0] + '.' + l + '@' + domain,\n      f + '@' + domain,\n      l + '@' + domain,\n      f + l + '@' + domain,\n      l + f + '@' + domain,\n      l + '.' + f + '@' + domain,\n      f[0] + '_' + l + '@' + domain,\n      f + '_' + l + '@' + domain,\n      (f[0] + (l[0] || '')) + '@' + domain\n    ];\n    const seen = new Set();\n    emails = emails.filter(function(e) { if (seen.has(e)) return false; seen.add(e); return true; });\n  }\n  return {\n    contact_id: c.id,\n    full_name: c.full_name,\n    email_candidates: emails\n  };\n});\n\nreturn [{ json: {\n  ...prev,\n  contacts: contactsWithCandidates,\n  steps: [...prev.steps, 'contacts_fetched']\n} }];"
+      },
+      "id": "v3-0071",
+      "name": "Generate Email Patterns",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [5520, 480]
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "jsCode": "// Flatten contacts into individual items for SplitInBatches processing\nconst prev = $input.first().json;\nconst contacts = prev.contacts || [];\n\nif (contacts.length === 0) {\n  return [{ json: {\n    ...prev,\n    _processing_done: true,\n    contact_results: [],\n    steps: [...prev.steps, 'no_contacts']\n  } }];\n}\n\n// Store context and output one item per contact\nreturn contacts.map(function(c, idx) {\n  return { json: {\n    _context: {\n      company_id: prev.company_id,\n      company_name: prev.company_name,\n      domain: prev.domain,\n      ico: prev.ico,\n      steps: prev.steps,\n      total_contacts: contacts.length\n    },\n    _contact_idx: idx,\n    contact_id: c.contact_id,\n    full_name: c.full_name,\n    candidates: c.email_candidates,\n    domain: prev.domain\n  } };\n});"
+      },
+      "id": "v3-0080",
+      "name": "Prepare Contact Items",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [5760, 480]
+    },
+    {
+      "parameters": {
+        "batchSize": 1,
+        "options": { "reset": true }
+      },
+      "id": "v3-0081",
+      "name": "Loop Contacts",
+      "type": "n8n-nodes-base.splitInBatches",
+      "typeVersion": 1,
+      "position": [6000, 480]
+    },
+    {
+      "parameters": {
+        "source": "database",
+        "workflowId": "L6D2HcFYoNorgiom",
+        "waitForSubWorkflow": true
+      },
+      "id": "v3-0082",
+      "name": "SMTP Check Contact",
+      "type": "n8n-nodes-base.executeWorkflow",
+      "typeVersion": 1,
+      "position": [6240, 480]
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "jsCode": "const contactItem = $('Loop Contacts').first().json;\nconst smtpResult = $input.first().json;\n\nconst candidates = contactItem.candidates || [];\nconst smtpCandidates = smtpResult.candidates || [];\nconst isCatchAll = smtpResult.is_catch_all === true;\nconst noMx = smtpResult.status === 'no_mx';\nconst domain = contactItem.domain;\nconst contact_id = contactItem.contact_id;\n\nlet results = [];\n\nif (noMx) {\n  results = candidates.map(function(email) {\n    return { email: email, status: 'invalid', confidence: 'high', smtp_result: 'no_mx', method: 'smtp' };\n  });\n} else if (!isCatchAll) {\n  results = smtpCandidates.map(function(c) {\n    return { email: c.email, status: c.accepted ? 'valid' : 'invalid', confidence: 'high', smtp_result: String(c.code || 0), method: 'smtp' };\n  });\n} else {\n  // Catch-all — mark as unknown, will need probe\n  results = candidates.map(function(email) {\n    return { email: email, status: 'unknown', confidence: 'low', smtp_result: 'catch_all', method: 'smtp' };\n  });\n}\n\n// Filter to valid only for name-based generation\nconst filtered = results.filter(function(r) { return r.status === 'valid' || r.status === 'unknown'; });\n\nreturn [{ json: {\n  contact_id: contact_id,\n  full_name: contactItem.full_name,\n  candidates: filtered.length > 0 ? filtered : results,\n  is_catch_all: isCatchAll,\n  domain: domain,\n  _context: contactItem._context\n} }];"
+      },
+      "id": "v3-0083",
+      "name": "Process SMTP Result",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [6480, 480]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": { "caseSensitive": true, "leftValue": "", "typeValidation": "strict" },
+          "conditions": [{ "leftValue": "={{ $json.is_catch_all ? 'yes' : 'no' }}", "rightValue": "yes", "operator": { "type": "string", "operation": "equals" } }],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "v3-0084",
+      "name": "IF Contact Catch-All",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [6720, 480]
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "jsCode": "const prev = $input.first().json;\nreturn [{ json: { domain: prev.domain, candidates: prev.candidates.map(function(c) { return c.email; }) } }];"
+      },
+      "id": "v3-0085",
+      "name": "Prepare Contact Probe",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [6960, 400]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "http://72.62.53.244:32770/webhook/sub-burner-probe",
+        "sendBody": true,
+        "contentType": "raw",
+        "rawContentType": "application/json",
+        "body": "={{ JSON.stringify($json) }}",
+        "options": { "timeout": 300000 },
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [{ "name": "X-Webhook-Secret", "value": "reWDUmcjSRPTv3k-0CKdoASO_KY7Z3ux" }]
+        }
+      },
+      "id": "v3-0086",
+      "name": "Call Probe for Contact",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [7200, 400],
+      "onError": "continueErrorOutput"
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "jsCode": "// Merge probe results back with contact info\nconst smtpResult = $('Process SMTP Result').first().json;\nconst probeResult = $input.first().json;\n\nconst probeCandiates = probeResult.candidates || [];\nlet results;\nif (probeCandiates.length > 0) {\n  results = probeCandiates;\n} else {\n  // Use SMTP results with catch-all status\n  results = smtpResult.candidates;\n}\n\nreturn [{ json: {\n  contact_id: smtpResult.contact_id,\n  full_name: smtpResult.full_name,\n  candidates: results,\n  domain: smtpResult.domain,\n  _context: smtpResult._context\n} }];"
+      },
+      "id": "v3-0087",
+      "name": "Merge Probe Result",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [7440, 400]
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "jsCode": "// Probe failed — use SMTP results as-is\nconst smtpResult = $('Process SMTP Result').first().json;\nreturn [{ json: {\n  contact_id: smtpResult.contact_id,\n  full_name: smtpResult.full_name,\n  candidates: smtpResult.candidates,\n  domain: smtpResult.domain,\n  _context: smtpResult._context\n} }];"
+      },
+      "id": "v3-0088",
+      "name": "Probe Error Fallback",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [7440, 580]
+    },
+    {
+      "parameters": { "mode": "passthrough" },
+      "id": "v3-0089",
+      "name": "Merge Contact Result",
+      "type": "n8n-nodes-base.merge",
+      "typeVersion": 3,
+      "position": [7680, 480]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://cycapkswtucbucyegdsn.supabase.co/rest/v1/email_candidates",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            { "name": "apikey", "value": "SUPABASE_SERVICE_ROLE_KEY_PLACEHOLDER" },
+            { "name": "Authorization", "value": "Bearer SUPABASE_SERVICE_ROLE_KEY_PLACEHOLDER" },
+            { "name": "Prefer", "value": "resolution=merge-duplicates" }
+          ]
+        },
+        "sendBody": true,
+        "contentType": "raw",
+        "rawContentType": "application/json",
+        "body": "={{ JSON.stringify(($json.candidates || []).map(function(c) { return { contact_id: $json.contact_id, email_address: c.email, is_verified: c.status === 'valid', qev_status: c.status === 'valid' ? 'valid' : (c.status === 'invalid' ? 'invalid' : 'pending'), source: 'combo_generation' }; })) }}",
+        "options": { "neverError": true }
+      },
+      "id": "v3-0090",
+      "name": "Upsert Email Candidates",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [7920, 480]
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "jsCode": "// Pass the contact result back to the loop\nconst contactResult = $('Merge Contact Result').first().json;\nreturn [{ json: contactResult }];"
+      },
+      "id": "v3-0091",
+      "name": "Pass Back to Loop",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [8160, 480]
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "jsCode": "// Collect all contact results from the loop\n// The done output of SplitInBatches contains all processed items\nconst items = $input.all().map(i => i.json);\n\n// Get context from the first item\nconst ctx = items[0]?._context || {};\nconst domain = ctx.domain || items[0]?.domain || '';\nconst company_id = ctx.company_id || '';\nconst company_name = ctx.company_name || '';\n\nconst contact_results = items.map(function(item) {\n  return {\n    contact_id: item.contact_id,\n    full_name: item.full_name,\n    candidates: (item.candidates || []).map(function(c) {\n      return {\n        email: c.email,\n        status: c.status,\n        confidence: c.confidence || 'medium',\n        method: c.method || 'smtp'\n      };\n    })\n  };\n});\n\nreturn [{ json: {\n  company_id: company_id,\n  company_name: company_name,\n  domain: domain,\n  ico: ctx.ico || '',\n  contacts: contact_results,\n  steps: [...(ctx.steps || []), 'smtp_checked'],\n  _do_website_scrape: true\n} }];"
+      },
+      "id": "v3-0100",
+      "name": "Collect Contact Results",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [8400, 480]
+    },
+    {
+      "parameters": {
+        "method": "GET",
+        "url": "={{ 'https://' + $json.domain }}",
+        "options": { "neverError": true, "timeout": 10000 }
+      },
+      "id": "v3-0110",
+      "name": "Scrape Homepage",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [8640, 400]
+    },
+    {
+      "parameters": {
+        "method": "GET",
+        "url": "={{ 'https://' + $('Collect Contact Results').first().json.domain + '/kontakt' }}",
+        "options": { "neverError": true, "timeout": 10000 }
+      },
+      "id": "v3-0111",
+      "name": "Scrape /kontakt",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [8640, 560]
+    },
+    {
+      "parameters": {
+        "method": "GET",
+        "url": "={{ 'https://' + $('Collect Contact Results').first().json.domain + '/contact' }}",
+        "options": { "neverError": true, "timeout": 10000 }
+      },
+      "id": "v3-0112",
+      "name": "Scrape /contact",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [8640, 720]
+    },
+    {
+      "parameters": {
+        "method": "GET",
+        "url": "={{ 'https://' + $('Collect Contact Results').first().json.domain + '/o-nas' }}",
+        "options": { "neverError": true, "timeout": 10000 }
+      },
+      "id": "v3-0113",
+      "name": "Scrape /o-nas",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [8640, 880]
+    },
+    {
+      "parameters": { "mode": "append" },
+      "id": "v3-0114",
+      "name": "Merge Scraped Pages",
+      "type": "n8n-nodes-base.merge",
+      "typeVersion": 3,
+      "position": [8880, 560]
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "jsCode": "const prevData = $('Collect Contact Results').first().json;\nconst domain = prevData.domain;\nconst pages = $input.all().map(i => i.json);\n\n// Collect all existing emails from contact results\nconst existingEmails = new Set();\n(prevData.contacts || []).forEach(function(c) {\n  (c.candidates || []).forEach(function(cand) {\n    existingEmails.add(cand.email.toLowerCase());\n  });\n});\n\n// Extract emails from all scraped HTML\nconst emailRegex = /[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\\.[a-zA-Z]{2,}/g;\nconst foundEmails = new Set();\n\nfor (const page of pages) {\n  const html = (page.data || page || '').toString();\n  let match;\n  while ((match = emailRegex.exec(html)) !== null) {\n    const email = match[0].toLowerCase();\n    // Only keep same-domain emails\n    if (email.endsWith('@' + domain) && !existingEmails.has(email)) {\n      foundEmails.add(email);\n    }\n  }\n}\n\nconst backupEmails = Array.from(foundEmails).map(function(email) {\n  return { email: email, source: 'website_scrape' };\n});\n\nreturn [{ json: {\n  ...prevData,\n  backup_emails: backupEmails,\n  steps: [...prevData.steps, 'website_scraped']\n} }];"
+      },
+      "id": "v3-0115",
+      "name": "Extract Website Emails",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [9120, 560]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://cycapkswtucbucyegdsn.supabase.co/rest/v1/email_candidates",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            { "name": "apikey", "value": "SUPABASE_SERVICE_ROLE_KEY_PLACEHOLDER" },
+            { "name": "Authorization", "value": "Bearer SUPABASE_SERVICE_ROLE_KEY_PLACEHOLDER" },
+            { "name": "Prefer", "value": "resolution=merge-duplicates" }
+          ]
+        },
+        "sendBody": true,
+        "contentType": "raw",
+        "rawContentType": "application/json",
+        "body": "={{ JSON.stringify(($json.backup_emails || []).map(function(e) { return { email_address: e.email, source: 'website_scrape', is_verified: false, qev_status: 'pending' }; })) }}",
+        "options": { "neverError": true }
+      },
+      "id": "v3-0116",
+      "name": "Upsert Backup Emails",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [9360, 560]
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "jsCode": "const prev = $('Extract Website Emails').first().json;\n\nconst totalFromContacts = (prev.contacts || []).reduce(function(sum, c) {\n  return sum + (c.candidates || []).filter(function(cand) { return cand.status === 'valid' || cand.status === 'likely_valid'; }).length;\n}, 0);\nconst totalBackup = (prev.backup_emails || []).length;\n\nreturn [{ json: {\n  company_id: prev.company_id,\n  company_name: prev.company_name,\n  domain: prev.domain,\n  ico: prev.ico || '',\n  contacts: prev.contacts || [],\n  backup_emails: prev.backup_emails || [],\n  total_found: totalFromContacts + totalBackup,\n  steps_completed: prev.steps\n} }];"
+      },
+      "id": "v3-0120",
+      "name": "Build Final Response",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [9600, 560]
+    },
+    {
+      "parameters": {
+        "respondWith": "firstIncomingItem",
+        "options": { "responseCode": 200 }
+      },
+      "id": "v3-0121",
+      "name": "Final Response",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1,
+      "position": [9840, 560]
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForEachItem",
+        "jsCode": "// No ICO and no legal name — try firmy.cz search\nconst prev = $input.item.json;\nconst searchQuery = encodeURIComponent(prev.company_name);\nreturn { json: { ...prev, _search_url: 'https://www.firmy.cz/hledej?dotaz=' + searchQuery, steps: [...prev.steps, 'firmy_search'] } };"
+      },
+      "id": "v3-0060a",
+      "name": "Prepare Firmy Search",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1200, 880]
+    },
+    {
+      "parameters": {
+        "method": "GET",
+        "url": "={{ $json._search_url }}",
+        "options": { "neverError": true, "timeout": 15000 }
+      },
+      "id": "v3-0061a",
+      "name": "Search Firmy.cz",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [1440, 880]
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "jsCode": "const prev = $('Prepare Firmy Search').first().json;\nconst html = ($input.first().json.data || $input.first().json || '').toString();\n\n// Try to extract first company website from firmy.cz results\nlet domain = '';\nconst urlMatch = html.match(/href=\"(https?:\\/\\/(?:www\\.)?([a-z0-9.-]+\\.[a-z]{2,}))[^\"]*\"[^>]*class=\"[^\"]*web/i)\n  || html.match(/href=\"(https?:\\/\\/(?:www\\.)?([a-z0-9.-]+\\.[a-z]{2,}))\"/i);\n\nif (urlMatch && urlMatch[2]) {\n  domain = urlMatch[2].toLowerCase();\n}\n\nif (!domain) {\n  return [{ json: { error: 'Nepodařilo se najít firmu. Zkuste zadat doménu nebo IČO ručně.', steps: prev.steps } }];\n}\n\nreturn [{ json: {\n  ...prev,\n  domain: domain,\n  raw_domain: domain,\n  _search_url: undefined,\n  steps: [...prev.steps, 'firmy_domain_found']\n} }];"
+      },
+      "id": "v3-0062a",
+      "name": "Extract Firmy Domain",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1680, 880]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": { "caseSensitive": true, "leftValue": "", "typeValidation": "strict" },
+          "conditions": [{ "leftValue": "={{ $json.error }}", "rightValue": "", "operator": { "type": "string", "operation": "notEquals" } }],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "v3-0063a",
+      "name": "IF Firmy Error",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [1920, 880]
+    },
+    {
+      "parameters": {
+        "respondWith": "firstIncomingItem",
+        "options": { "responseCode": 200 }
+      },
+      "id": "v3-0064a",
+      "name": "Firmy Error Response",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1,
+      "position": [2160, 960]
+    },
+    {
+      "parameters": {
+        "method": "GET",
+        "url": "={{ 'https://cycapkswtucbucyegdsn.supabase.co/rest/v1/companies?select=id,company_name,ico,domain&domain=eq.' + $json.domain + '&limit=1' }}",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            { "name": "apikey", "value": "SUPABASE_SERVICE_ROLE_KEY_PLACEHOLDER" },
+            { "name": "Authorization", "value": "Bearer SUPABASE_SERVICE_ROLE_KEY_PLACEHOLDER" }
+          ]
+        },
+        "options": { "neverError": true }
+      },
+      "id": "v3-0065a",
+      "name": "Lookup Company Firmy",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [2160, 800]
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "jsCode": "const prev = $('Extract Firmy Domain').first().json;\nconst dbRows = $input.all().map(i => i.json);\nconst company = dbRows.length > 0 && dbRows[0].id ? dbRows[0] : null;\n\nif (company) {\n  return [{ json: { ...prev, company_id: company.id, steps: [...prev.steps, 'company_found'] } }];\n}\nreturn [{ json: { ...prev, _create_company: true, steps: [...prev.steps, 'company_not_found'] } }];"
+      },
+      "id": "v3-0066a",
+      "name": "Check Company Firmy",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [2400, 800]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": { "caseSensitive": true, "leftValue": "", "typeValidation": "strict" },
+          "conditions": [{ "leftValue": "={{ $json._create_company ? 'yes' : 'no' }}", "rightValue": "yes", "operator": { "type": "string", "operation": "equals" } }],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "v3-0067a",
+      "name": "IF Create Company Firmy",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [2640, 800]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://cycapkswtucbucyegdsn.supabase.co/rest/v1/companies",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            { "name": "apikey", "value": "SUPABASE_SERVICE_ROLE_KEY_PLACEHOLDER" },
+            { "name": "Authorization", "value": "Bearer SUPABASE_SERVICE_ROLE_KEY_PLACEHOLDER" },
+            { "name": "Prefer", "value": "return=representation" }
+          ]
+        },
+        "sendBody": true,
+        "contentType": "raw",
+        "rawContentType": "application/json",
+        "body": "={{ JSON.stringify({ company_name: $json.company_name || $json.domain, domain: $json.domain, website: 'https://' + $json.domain, master_status: 'new' }) }}",
+        "options": { "neverError": true }
+      },
+      "id": "v3-0068a",
+      "name": "Create Company Firmy",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [2880, 880]
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "jsCode": "const prev = $('Check Company Firmy').first().json;\nconst created = $input.all().map(i => i.json);\nconst company = Array.isArray(created) && created.length > 0 && created[0].id ? created[0] : null;\nif (!company || !company.id) {\n  return [{ json: { error: 'Nepodařilo se vytvořit firmu', steps: prev.steps } }];\n}\nreturn [{ json: { ...prev, company_id: company.id, _create_company: undefined, steps: [...prev.steps, 'company_created'] } }];"
+      },
+      "id": "v3-0069a",
+      "name": "Extract Company Firmy",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [3120, 880]
+    },
+    {
+      "parameters": { "mode": "passthrough" },
+      "id": "v3-0070a",
+      "name": "Merge Firmy Company",
+      "type": "n8n-nodes-base.merge",
+      "typeVersion": 3,
+      "position": [3360, 800]
+    }
+  ],
+  "connections": {
+    "Webhook Trigger": {
+      "main": [[{ "node": "Extract & Validate Input", "type": "main", "index": 0 }]]
+    },
+    "Extract & Validate Input": {
+      "main": [[{ "node": "IF Error", "type": "main", "index": 0 }]]
+    },
+    "IF Error": {
+      "main": [
+        [{ "node": "Error Response", "type": "main", "index": 0 }],
+        [{ "node": "IF Has Domain", "type": "main", "index": 0 }]
+      ]
+    },
+    "IF Has Domain": {
+      "main": [
+        [{ "node": "Execute Clean Domain", "type": "main", "index": 0 }],
+        [{ "node": "IF Has ICO or Legal Name", "type": "main", "index": 0 }]
+      ]
+    },
+    "Execute Clean Domain": {
+      "main": [[{ "node": "Apply Cleaned Domain", "type": "main", "index": 0 }]]
+    },
+    "Apply Cleaned Domain": {
+      "main": [[{ "node": "IF Clean Error", "type": "main", "index": 0 }]]
+    },
+    "IF Clean Error": {
+      "main": [
+        [{ "node": "Clean Error Response", "type": "main", "index": 0 }],
+        [{ "node": "Lookup Company by Domain", "type": "main", "index": 0 }]
+      ]
+    },
+    "Lookup Company by Domain": {
+      "main": [[{ "node": "Check Company Exists", "type": "main", "index": 0 }]]
+    },
+    "Check Company Exists": {
+      "main": [[{ "node": "IF Need Create Company", "type": "main", "index": 0 }]]
+    },
+    "IF Need Create Company": {
+      "main": [
+        [{ "node": "Create Company", "type": "main", "index": 0 }],
+        [{ "node": "Merge Company Resolved", "type": "main", "index": 0 }]
+      ]
+    },
+    "Create Company": {
+      "main": [[{ "node": "Extract Created Company", "type": "main", "index": 0 }]]
+    },
+    "Extract Created Company": {
+      "main": [[{ "node": "Merge Company Resolved", "type": "main", "index": 0 }]]
+    },
+    "Merge Company Resolved": {
+      "main": [[{ "node": "IF Company Error", "type": "main", "index": 0 }]]
+    },
+    "IF Company Error": {
+      "main": [
+        [{ "node": "Company Error Response", "type": "main", "index": 0 }],
+        [{ "node": "Merge All Company Paths", "type": "main", "index": 0 }]
+      ]
+    },
+    "IF Has ICO or Legal Name": {
+      "main": [
+        [
+          { "node": "ARES Lookup (BE)", "type": "main", "index": 0 },
+          { "node": "ARES Lookup (VR)", "type": "main", "index": 0 }
+        ],
+        [{ "node": "Prepare Firmy Search", "type": "main", "index": 0 }]
+      ]
+    },
+    "ARES Lookup (BE)": {
+      "main": [[{ "node": "Merge ARES", "type": "main", "index": 0 }]]
+    },
+    "ARES Lookup (VR)": {
+      "main": [[{ "node": "Merge ARES", "type": "main", "index": 1 }]]
+    },
+    "Merge ARES": {
+      "main": [[{ "node": "Process ARES Response", "type": "main", "index": 0 }]]
+    },
+    "Process ARES Response": {
+      "main": [[{ "node": "IF ARES Has Domain", "type": "main", "index": 0 }]]
+    },
+    "IF ARES Has Domain": {
+      "main": [
+        [{ "node": "Kurzy Scrape", "type": "main", "index": 0 }],
+        [{ "node": "Kurzy Scrape", "type": "main", "index": 0 }]
+      ]
+    },
+    "Kurzy Scrape": {
+      "main": [[{ "node": "Process Kurzy Response", "type": "main", "index": 0 }]]
+    },
+    "Process Kurzy Response": {
+      "main": [[{ "node": "IF Has Domain After Enrich", "type": "main", "index": 0 }]]
+    },
+    "IF Has Domain After Enrich": {
+      "main": [
+        [{ "node": "Lookup Company After ARES", "type": "main", "index": 0 }],
+        [{ "node": "No Domain Error", "type": "main", "index": 0 }]
+      ]
+    },
+    "Lookup Company After ARES": {
+      "main": [[{ "node": "Check Company After ARES", "type": "main", "index": 0 }]]
+    },
+    "Check Company After ARES": {
+      "main": [[{ "node": "IF Need Create Company ARES", "type": "main", "index": 0 }]]
+    },
+    "IF Need Create Company ARES": {
+      "main": [
+        [{ "node": "Create Company ARES", "type": "main", "index": 0 }],
+        [{ "node": "Merge ARES Company", "type": "main", "index": 0 }]
+      ]
+    },
+    "Create Company ARES": {
+      "main": [[{ "node": "Extract Created Company ARES", "type": "main", "index": 0 }]]
+    },
+    "Extract Created Company ARES": {
+      "main": [[{ "node": "Merge ARES Company", "type": "main", "index": 0 }]]
+    },
+    "Merge ARES Company": {
+      "main": [[{ "node": "Prepare Jednatels", "type": "main", "index": 0 }]]
+    },
+    "Prepare Jednatels": {
+      "main": [[{ "node": "Upsert Contacts", "type": "main", "index": 0 }]]
+    },
+    "Upsert Contacts": {
+      "main": [[{ "node": "Merge All Company Paths", "type": "main", "index": 0 }]]
+    },
+    "No Domain Error": {
+      "main": [[{ "node": "No Domain Response", "type": "main", "index": 0 }]]
+    },
+    "Prepare Firmy Search": {
+      "main": [[{ "node": "Search Firmy.cz", "type": "main", "index": 0 }]]
+    },
+    "Search Firmy.cz": {
+      "main": [[{ "node": "Extract Firmy Domain", "type": "main", "index": 0 }]]
+    },
+    "Extract Firmy Domain": {
+      "main": [[{ "node": "IF Firmy Error", "type": "main", "index": 0 }]]
+    },
+    "IF Firmy Error": {
+      "main": [
+        [{ "node": "Firmy Error Response", "type": "main", "index": 0 }],
+        [{ "node": "Lookup Company Firmy", "type": "main", "index": 0 }]
+      ]
+    },
+    "Lookup Company Firmy": {
+      "main": [[{ "node": "Check Company Firmy", "type": "main", "index": 0 }]]
+    },
+    "Check Company Firmy": {
+      "main": [[{ "node": "IF Create Company Firmy", "type": "main", "index": 0 }]]
+    },
+    "IF Create Company Firmy": {
+      "main": [
+        [{ "node": "Create Company Firmy", "type": "main", "index": 0 }],
+        [{ "node": "Merge Firmy Company", "type": "main", "index": 0 }]
+      ]
+    },
+    "Create Company Firmy": {
+      "main": [[{ "node": "Extract Company Firmy", "type": "main", "index": 0 }]]
+    },
+    "Extract Company Firmy": {
+      "main": [[{ "node": "Merge Firmy Company", "type": "main", "index": 0 }]]
+    },
+    "Merge Firmy Company": {
+      "main": [[{ "node": "Merge All Company Paths", "type": "main", "index": 0 }]]
+    },
+    "Merge All Company Paths": {
+      "main": [[{ "node": "Pick Resolved Company", "type": "main", "index": 0 }]]
+    },
+    "Pick Resolved Company": {
+      "main": [[{ "node": "Fetch Contacts", "type": "main", "index": 0 }]]
+    },
+    "Fetch Contacts": {
+      "main": [[{ "node": "Generate Email Patterns", "type": "main", "index": 0 }]]
+    },
+    "Generate Email Patterns": {
+      "main": [[{ "node": "Prepare Contact Items", "type": "main", "index": 0 }]]
+    },
+    "Prepare Contact Items": {
+      "main": [[{ "node": "Loop Contacts", "type": "main", "index": 0 }]]
+    },
+    "Loop Contacts": {
+      "main": [
+        [{ "node": "Collect Contact Results", "type": "main", "index": 0 }],
+        [{ "node": "SMTP Check Contact", "type": "main", "index": 0 }]
+      ]
+    },
+    "SMTP Check Contact": {
+      "main": [[{ "node": "Process SMTP Result", "type": "main", "index": 0 }]]
+    },
+    "Process SMTP Result": {
+      "main": [[{ "node": "IF Contact Catch-All", "type": "main", "index": 0 }]]
+    },
+    "IF Contact Catch-All": {
+      "main": [
+        [{ "node": "Prepare Contact Probe", "type": "main", "index": 0 }],
+        [{ "node": "Merge Contact Result", "type": "main", "index": 0 }]
+      ]
+    },
+    "Prepare Contact Probe": {
+      "main": [[{ "node": "Call Probe for Contact", "type": "main", "index": 0 }]]
+    },
+    "Call Probe for Contact": {
+      "main": [
+        [{ "node": "Merge Probe Result", "type": "main", "index": 0 }],
+        [{ "node": "Probe Error Fallback", "type": "main", "index": 0 }]
+      ]
+    },
+    "Merge Probe Result": {
+      "main": [[{ "node": "Merge Contact Result", "type": "main", "index": 0 }]]
+    },
+    "Probe Error Fallback": {
+      "main": [[{ "node": "Merge Contact Result", "type": "main", "index": 0 }]]
+    },
+    "Merge Contact Result": {
+      "main": [[{ "node": "Upsert Email Candidates", "type": "main", "index": 0 }]]
+    },
+    "Upsert Email Candidates": {
+      "main": [[{ "node": "Pass Back to Loop", "type": "main", "index": 0 }]]
+    },
+    "Pass Back to Loop": {
+      "main": [[{ "node": "Loop Contacts", "type": "main", "index": 0 }]]
+    },
+    "Collect Contact Results": {
+      "main": [[
+        { "node": "Scrape Homepage", "type": "main", "index": 0 },
+        { "node": "Scrape /kontakt", "type": "main", "index": 0 },
+        { "node": "Scrape /contact", "type": "main", "index": 0 },
+        { "node": "Scrape /o-nas", "type": "main", "index": 0 }
+      ]]
+    },
+    "Scrape Homepage": {
+      "main": [[{ "node": "Merge Scraped Pages", "type": "main", "index": 0 }]]
+    },
+    "Scrape /kontakt": {
+      "main": [[{ "node": "Merge Scraped Pages", "type": "main", "index": 1 }]]
+    },
+    "Scrape /contact": {
+      "main": [[{ "node": "Merge Scraped Pages", "type": "main", "index": 0 }]]
+    },
+    "Scrape /o-nas": {
+      "main": [[{ "node": "Merge Scraped Pages", "type": "main", "index": 1 }]]
+    },
+    "Merge Scraped Pages": {
+      "main": [[{ "node": "Extract Website Emails", "type": "main", "index": 0 }]]
+    },
+    "Extract Website Emails": {
+      "main": [[{ "node": "Upsert Backup Emails", "type": "main", "index": 0 }]]
+    },
+    "Upsert Backup Emails": {
+      "main": [[{ "node": "Build Final Response", "type": "main", "index": 0 }]]
+    },
+    "Build Final Response": {
+      "main": [[{ "node": "Final Response", "type": "main", "index": 0 }]]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "pinData": {},
+  "staticData": null,
+  "tags": [],
+  "triggerCount": 0
+}
