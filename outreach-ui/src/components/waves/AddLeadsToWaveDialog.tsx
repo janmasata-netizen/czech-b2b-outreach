@@ -75,7 +75,7 @@ export default function AddLeadsToWaveDialog({ open, onClose, waveId, teamId }: 
           <div style={{ flex: 1 }} />
           <GlassButton variant="secondary" onClick={onClose}>{t('common.cancel')}</GlassButton>
           <GlassButton variant="primary" onClick={handleAdd} disabled={!selected.length || addLeads.isPending}>
-            {addLeads.isPending ? t('addLeadsToWave.adding') : t('addLeadsToWave.addCount', { count: selected.length || '' })}
+            {addLeads.isPending ? t('addLeadsToWave.adding') : t('addLeadsToWave.addCount', { count: selected.length })}
           </GlassButton>
         </>
       }

@@ -465,19 +465,13 @@ export default function GoogleSheetImportDialog({ open, onClose }: GoogleSheetIm
         </div>
       ))}
 
-      {/* Team selector */}
+      {/* Team distribution selector */}
       {teams && teams.length > 1 && (
-        <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-          <span style={{ fontSize: 13, color: 'var(--text-dim)', minWidth: 110 }}>{t('csvImport.team')}</span>
-          <select
-            className="glass-input"
-            style={{ flex: 1, height: 34, fontSize: 13 }}
-            value={teamId}
-            onChange={e => setTeamId(e.target.value)}
-          >
-            {teams.map(t => <option key={t.id} value={t.id}>{t.name}</option>)}
-          </select>
-        </div>
+        <TeamDistributionSelector
+          teams={teams}
+          allocations={teamAllocations}
+          onChange={setTeamAllocations}
+        />
       )}
 
       {/* Language selector */}
