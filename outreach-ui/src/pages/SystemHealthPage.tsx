@@ -1,9 +1,13 @@
 import { useState, useEffect } from 'react';
 import { useQuery } from '@tanstack/react-query';
+import { useSearchParams } from 'react-router-dom';
 import { supabase } from '@/lib/supabase';
 import PageHeader from '@/components/layout/PageHeader';
 import GlassCard from '@/components/glass/GlassCard';
 import GlassButton from '@/components/glass/GlassButton';
+import WorkflowMonitoringTab from '@/components/system/WorkflowMonitoringTab';
+import BugReportsTab from '@/components/system/BugReportsTab';
+import SystemLogsTab from '@/components/system/SystemLogsTab';
 
 interface HealthMetrics {
   queuedEmails: number;
@@ -84,9 +88,9 @@ function formatAgo(iso: string | null): string {
   return `před ${Math.floor(hours / 24)} dny`;
 }
 
-export default function SystemHealthPage() {
+function OverviewTab() {
   const { data, isLoading, refetch } = useSystemHealth();
-  const [now, setNow] = useState(Date.now());
+  const [, setNow] = useState(Date.now());
 
   useEffect(() => {
     const id = setInterval(() => setNow(Date.now()), 10_000);
@@ -199,4 +203,16 @@ export default function SystemHealthPage() {
       ) : null}
     </div>
   );
+}
+
+export default function SystemHealthPage() {
+  const [sp] = useSearchParams();
+  const tab = sp.get('tab');
+
+  switch (tab) {
+    case 'monitoring': return <WorkflowMonitoringTab />;
+    case 'reports':    return <BugReportsTab />;
+    case 'logs':       return <SystemLogsTab />;
+    default:           return <OverviewTab />;
+  }
 }

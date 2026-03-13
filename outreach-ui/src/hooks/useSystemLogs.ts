@@ -4,9 +4,14 @@ import type { EnrichmentLog, SystemEvent } from '@/types/database';
 
 const PAGE_SIZE = 50;
 
+// ── Enrichment Log Row (with joined leads) ──
+export interface EnrichmentLogRow extends EnrichmentLog {
+  leads?: { company_name: string | null } | null;
+}
+
 // ── Enrichment Logs ──
 export function useEnrichmentLogs(page = 0, statusFilter?: string) {
-  return useQuery<EnrichmentLog[]>({
+  return useQuery<EnrichmentLogRow[]>({
     queryKey: ['system-logs', 'enrichment', page, statusFilter],
     queryFn: async () => {
       let q = supabase
@@ -17,13 +22,13 @@ export function useEnrichmentLogs(page = 0, statusFilter?: string) {
       if (statusFilter) q = q.eq('status', statusFilter);
       const { data, error } = await q;
       if (error) throw error;
-      return data ?? [];
+      return (data ?? []) as unknown as EnrichmentLogRow[];
     },
   });
 }
 
 // ── Email Send History ──
-interface SentEmailLog {
+export interface SentEmailLog {
   id: string;
   email_address: string;
   subject: string | null;
@@ -42,13 +47,13 @@ export function useEmailSendLogs(page = 0) {
         .order('sent_at', { ascending: false })
         .range(page * PAGE_SIZE, (page + 1) * PAGE_SIZE - 1);
       if (error) throw error;
-      return data ?? [];
+      return (data ?? []) as unknown as SentEmailLog[];
     },
   });
 }
 
 // ── Reply Detection Log ──
-interface ReplyLog {
+export interface ReplyLog {
   id: string;
   from_email: string | null;
   subject: string | null;
@@ -77,12 +82,12 @@ export function useReplyLogs(page = 0) {
       ]);
 
       const matched: ReplyLog[] = (matchedRes.data ?? []).map(r => ({
-        ...r,
+        ...(r as unknown as Omit<ReplyLog, 'source'>),
         source: 'matched' as const,
       }));
 
       const unmatched: ReplyLog[] = (unmatchedRes.data ?? []).map(r => ({
-        ...r,
+        ...(r as unknown as Omit<ReplyLog, 'source' | 'lead_id'>),
         lead_id: null,
         source: 'unmatched' as const,
       }));
@@ -108,7 +113,7 @@ export function useSystemEvents(page = 0, typeFilter?: string) {
       if (typeFilter) q = q.eq('event_type', typeFilter);
       const { data, error } = await q;
       if (error) throw error;
-      return data ?? [];
+      return (data ?? []) as unknown as SystemEvent[];
     },
   });
 }
