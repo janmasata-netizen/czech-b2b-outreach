@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { useTranslation } from 'react-i18next';
 import DOMPurify from 'dompurify';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useQueryClient } from '@tanstack/react-query';
@@ -30,17 +31,18 @@ function fmtDate(iso: string): string {
   return `${d}.${m}.${y}`;
 }
 
-/** Tab id + label for each wave status */
-const TAB_META: Record<string, { id: string; label: string }> = {
-  draft:     { id: 'manager', label: 'Manager' },
-  scheduled: { id: 'live',    label: 'Live' },
-  sending:   { id: 'live',    label: 'Live' },
-  done:      { id: 'archive', label: 'Archiv' },
-  completed: { id: 'archive', label: 'Archiv' },
-  paused:    { id: 'archive', label: 'Archiv' },
+/** Tab id + label key for each wave status */
+const TAB_META: Record<string, { id: string; labelKey: string }> = {
+  draft:     { id: 'manager', labelKey: 'sub.manager' },
+  scheduled: { id: 'live',    labelKey: 'sub.live' },
+  sending:   { id: 'live',    labelKey: 'sub.live' },
+  done:      { id: 'archive', labelKey: 'sub.archive' },
+  completed: { id: 'archive', labelKey: 'sub.archive' },
+  paused:    { id: 'archive', labelKey: 'sub.archive' },
 };
 
 export default function WaveDetailPage() {
+  const { t } = useTranslation();
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const qc = useQueryClient();
@@ -99,13 +101,13 @@ export default function WaveDetailPage() {
 
   if (isLoading) return <LoadingSkeleton />;
   if (error || !data) return (
-    <EmptyState icon="⌁" title="Vlna nenalezena" action={<GlassButton onClick={() => navigate('/vlny')}>← Zpět na vlny</GlassButton>} />
+    <EmptyState icon="⌁" title={t('waves.notFound')} action={<GlassButton onClick={() => navigate('/vlny')}>{t('waves.backToWaves')}</GlassButton>} />
   );
 
   const { wave, waveLeads } = data;
-  const meta = TAB_META[wave.status] ?? { id: 'manager', label: 'Manager' };
+  const meta = TAB_META[wave.status] ?? { id: 'manager', labelKey: 'sub.manager' };
   const backUrl = `/vlny?tab=${meta.id}`;
-  const tabLabel = meta.label;
+  const tabLabel = t(meta.labelKey);
   const hasSentEmails = waveLeads.some((wl: WaveLeadRow) => (wl.sent_emails?.length ?? 0) > 0);
   const _now = new Date();
   const today = `${_now.getFullYear()}-${String(_now.getMonth() + 1).padStart(2, '0')}-${String(_now.getDate()).padStart(2, '0')}`;
@@ -203,7 +205,7 @@ export default function WaveDetailPage() {
       const ctx = buildTemplateContext(lead, jednatel);
       const missing = findMissingVariables(Array.from(allVarsUsed), ctx);
       if (missing.length > 0) {
-        warnings.push({ lead: lead?.company_name ?? lead?.ico ?? 'Neznámý', missing });
+        warnings.push({ lead: lead?.company_name ?? lead?.ico ?? t('waves.unknownLead'), missing });
       }
     }
     if (warnings.length > 0) {
@@ -240,14 +242,14 @@ export default function WaveDetailPage() {
       try {
         const wf7Data = await res.json();
         if (wf7Data?.scheduling_report?.skipped > 0) {
-          reportMsg = ` (${wf7Data.scheduling_report.skipped} leadů přeskočeno)`;
+          reportMsg = t('waves.scheduledSkipped', { count: wf7Data.scheduling_report.skipped });
         }
       } catch { /* response may not be JSON */ }
-      toast.success('Vlna naplánována — SEQ1: ' + fmtDate(seqDates[1]) + ' ' + seqTimes[1] + reportMsg);
+      toast.success(t('waves.scheduled', { date: fmtDate(seqDates[1]), time: seqTimes[1], report: reportMsg }));
       qc.invalidateQueries({ queryKey: ['waves', id] });
       qc.invalidateQueries({ queryKey: ['waves'] });
     } catch (e: unknown) {
-      toast.error('Chyba: ' + (e as Error).message, { duration: Infinity, closeButton: true });
+      toast.error(t('waves.errorScheduling') + (e as Error).message, { duration: Infinity, closeButton: true });
     } finally {
       setScheduling(false);
       setConfirmSchedule(false);
@@ -267,11 +269,11 @@ export default function WaveDetailPage() {
         if (qErr) throw qErr;
       }
       await updateWave.mutateAsync({ id: wave.id, updates: { status: 'paused' } as Partial<Wave> });
-      toast.success('Vlna zastavena — čekající e-maily zrušeny.');
+      toast.success(t('waves.stopped'));
       qc.invalidateQueries({ queryKey: ['waves', id] });
       qc.invalidateQueries({ queryKey: ['waves'] });
     } catch (e: unknown) {
-      toast.error('Chyba při zastavování vlny: ' + (e as Error).message);
+      toast.error(t('waves.errorStopping') + (e as Error).message);
     } finally {
       setStopping(false);
       setConfirmStop(false);
@@ -280,7 +282,7 @@ export default function WaveDetailPage() {
 
   async function handleRerun() {
     const hasAnyDate = availableSeqs.some(seq => !!rerunSeqDates[seq]);
-    if (!hasAnyDate) { toast.warning('Nastavte datum nového odeslání'); return; }
+    if (!hasAnyDate) { toast.warning(t('waves.setRerunDate')); return; }
     setRerunning(true);
     try {
       await updateWave.mutateAsync({
@@ -302,11 +304,11 @@ export default function WaveDetailPage() {
         body: JSON.stringify({ wave_id: wave.id }),
       });
       if (!res.ok) throw new Error(`WF7 vrátil ${res.status}`);
-      toast.success('Vlna obnovena — sekvence znovu naplánovány');
+      toast.success(t('waves.resumed'));
       qc.invalidateQueries({ queryKey: ['waves', id] });
       qc.invalidateQueries({ queryKey: ['waves'] });
     } catch (e: unknown) {
-      toast.error('Chyba při obnovování vlny: ' + (e as Error).message);
+      toast.error(t('waves.errorResuming') + (e as Error).message);
     } finally {
       setRerunning(false);
       setConfirmRerun(false);
@@ -315,16 +317,16 @@ export default function WaveDetailPage() {
 
   async function handleDelete() {
     if (hasSentEmails) {
-      toast.error('Vlna s odeslanými e-maily nemůže být smazána. Použijte tlačítko "Zastavit".');
+      toast.error(t('waves.cannotDeleteSent'));
       setConfirmDelete(false);
       return;
     }
     try {
       await deleteWave.mutateAsync(wave.id);
-      toast.success('Vlna smazána');
+      toast.success(t('waves.waveDeleted'));
       navigate(backUrl);
     } catch {
-      toast.error('Chyba při mazání vlny');
+      toast.error(t('waves.errorDeleting'));
     } finally {
       setConfirmDelete(false);
     }
@@ -357,11 +359,11 @@ export default function WaveDetailPage() {
       });
       if (!res.ok) throw new Error(`WF7 vrátil ${res.status}`);
 
-      toast.success('Testovací vlna spuštěna — e-maily se odešlou do 5 minut na ' + wave.dummy_email);
+      toast.success(t('waves.testWaveLaunched', { email: wave.dummy_email }));
       qc.invalidateQueries({ queryKey: ['waves', id] });
       qc.invalidateQueries({ queryKey: ['waves'] });
     } catch (e: unknown) {
-      toast.error('Chyba: ' + (e as Error).message);
+      toast.error(t('waves.errorScheduling') + (e as Error).message);
     } finally {
       setSendingNow(false);
       setConfirmSendNow(false);
@@ -371,10 +373,10 @@ export default function WaveDetailPage() {
   async function handleForceSendSingle(qi: EmailQueue) {
     try {
       await forceSend.mutateAsync({ queueIds: [qi.id] });
-      toast.success(`SEQ${qi.sequence_number} odeslán na ${qi.email_address}`);
+      toast.success(`SEQ${qi.sequence_number} → ${qi.email_address}`);
       qc.invalidateQueries({ queryKey: ['waves', id] });
     } catch (e: unknown) {
-      toast.error('Chyba: ' + (e as Error).message);
+      toast.error(t('waves.errorScheduling') + (e as Error).message);
     } finally {
       setConfirmForceSendItem(null);
     }
@@ -384,10 +386,10 @@ export default function WaveDetailPage() {
     try {
       const ids = forceSendEligibleItems.map((qi: EmailQueue) => qi.id);
       await forceSend.mutateAsync({ queueIds: ids });
-      toast.success(`Force send dokončen pro ${ids.length} e-mailů`);
+      toast.success(t('waves.forceSendDone', { count: ids.length }));
       qc.invalidateQueries({ queryKey: ['waves', id] });
     } catch (e: unknown) {
-      toast.error('Chyba: ' + (e as Error).message);
+      toast.error(t('waves.errorScheduling') + (e as Error).message);
     } finally {
       setConfirmForceSendAll(false);
     }
@@ -412,13 +414,13 @@ export default function WaveDetailPage() {
               color: '#fbbf24',
             }}
           >
-            {forceSend.isPending ? 'Odesílám…' : `Odeslat další seq. (${forceSendEligibleItems.length})`}
+            {forceSend.isPending ? t('waves.forceSending') : t('waves.forceSendNext', { count: forceSendEligibleItems.length })}
           </GlassButton>
         );
       }
       buttons.push(
         <GlassButton key="stop" variant="danger" onClick={() => setConfirmStop(true)} disabled={stopping}>
-          {stopping ? 'Zastavuji…' : '⏹ Zastavit'}
+          {stopping ? t('waves.stopping') : t('waves.stop')}
         </GlassButton>
       );
     }
@@ -427,7 +429,7 @@ export default function WaveDetailPage() {
     if (wave.template_set_id && waveLeads.length > 0) {
       buttons.push(
         <GlassButton key="preview" variant="secondary" onClick={() => setShowPreview(true)}>
-          Náhled e-mailu
+          {t('waves.emailPreview')}
         </GlassButton>
       );
     }
@@ -437,7 +439,7 @@ export default function WaveDetailPage() {
       <GlassButton key="duplicate" variant="secondary" onClick={async () => {
         try {
           const newWave = await createWave.mutateAsync({
-            name: `${wave.name} (kopie)`,
+            name: `${wave.name} ${t('waves.copy')}`,
             template_set_id: wave.template_set_id,
             salesman_id: wave.salesman_id,
             outreach_account_id: wave.outreach_account_id,
@@ -447,13 +449,13 @@ export default function WaveDetailPage() {
             dummy_email: wave.dummy_email,
             status: 'draft',
           } as Partial<Wave>);
-          toast.success('Vlna duplikována');
+          toast.success(t('waves.waveDuplicated'));
           navigate(`/vlny/${newWave.id}`);
         } catch {
-          toast.error('Chyba při duplikování vlny');
+          toast.error(t('waves.errorDuplicating'));
         }
       }} disabled={createWave.isPending}>
-        {createWave.isPending ? 'Duplikuji…' : 'Duplikovat'}
+        {createWave.isPending ? t('waves.duplicating') : t('waves.duplicate')}
       </GlassButton>
     );
 
@@ -464,9 +466,9 @@ export default function WaveDetailPage() {
           variant="danger"
           onClick={() => setConfirmDelete(true)}
           disabled={deleteWave.isPending || hasSentEmails}
-          title={hasSentEmails ? 'Nelze smazat — alespoň jeden e-mail byl odeslán' : undefined}
+          title={hasSentEmails ? t('waves.cannotDeleteTitle') : undefined}
         >
-          Smazat
+          {t('waves.deleteBtn')}
         </GlassButton>
       );
     }
@@ -495,7 +497,7 @@ export default function WaveDetailPage() {
     }
 
     buttons.push(
-      <GlassButton key="back" variant="secondary" onClick={() => navigate(backUrl)}>← Zpět</GlassButton>
+      <GlassButton key="back" variant="secondary" onClick={() => navigate(backUrl)}>{t('waves.backBtn')}</GlassButton>
     );
     return <div style={{ display: 'flex', gap: 8 }}>{buttons}</div>;
   }
@@ -505,12 +507,12 @@ export default function WaveDetailPage() {
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
       <Breadcrumb items={[
-        { label: 'Vlny', to: '/vlny' },
+        { label: t('nav.waves'), to: '/vlny' },
         { label: tabLabel, to: backUrl },
-        { label: wave.name ?? 'Vlna' },
+        { label: wave.name ?? t('nav.waves') },
       ]} />
       <PageHeader
-        title={wave.name ?? 'Vlna'}
+        title={wave.name ?? t('nav.waves')}
         subtitle={
           <span style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
             <StatusBadge status={wave.status} type="wave" />
@@ -519,7 +521,7 @@ export default function WaveDetailPage() {
             )}
             {wave.is_dummy && (
               <span style={{ fontSize: 11, background: 'rgba(251,191,36,0.15)', color: '#fbbf24', border: '1px solid rgba(251,191,36,0.3)', borderRadius: 4, padding: '1px 7px', fontWeight: 600 }}>
-                TESTOVACÍ
+                {t('waves.test')}
               </span>
             )}
           </span>
@@ -537,17 +539,17 @@ export default function WaveDetailPage() {
             background: 'rgba(251,191,36,0.08)', border: '1px solid rgba(251,191,36,0.25)',
           }}>
             <div style={{ fontSize: 13, fontWeight: 600, color: '#fbbf24', marginBottom: 8 }}>
-              {wave.scheduling_report.skipped} leadů přeskočeno (chybí ověřený e-mail)
+              {t('waves.skippedLeads', { count: wave.scheduling_report.skipped })}
             </div>
             <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
               {wave.scheduling_report.skipped_leads.map((sl, i) => (
                 <div key={i} style={{ fontSize: 12, color: 'var(--text-dim)' }}>
-                  • {sl.company_name} — {sl.reason === 'no_verified_email' ? 'žádný ověřený e-mail' : sl.reason}
+                  • {sl.company_name} — {sl.reason === 'no_verified_email' ? t('waves.noVerifiedEmail') : sl.reason}
                 </div>
               ))}
             </div>
             <div style={{ fontSize: 11, color: 'var(--text-muted)', marginTop: 8 }}>
-              Naplánováno: {wave.scheduling_report.queued} e-mailů
+              {t('waves.scheduledEmails', { count: wave.scheduling_report.queued })}
             </div>
           </div>
         </GlassCard>
@@ -557,7 +559,7 @@ export default function WaveDetailPage() {
       {failedEmails && failedEmails.length > 0 && (
         <GlassCard padding={20} style={{ marginBottom: 16 }}>
           <h3 style={{ fontSize: 14, fontWeight: 600, color: '#f87171', marginBottom: 12 }}>
-            Neúspěšné e-maily ({failedEmails.length})
+            {t('waves.failedEmails', { count: failedEmails.length })}
           </h3>
           <div style={{ overflowX: 'auto', borderRadius: 6, border: '1px solid var(--border)' }}>
             <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 12 }}>
@@ -565,8 +567,8 @@ export default function WaveDetailPage() {
                 <tr style={{ background: 'rgba(255,255,255,0.03)' }}>
                   <th style={{ padding: '8px 12px', textAlign: 'left', color: 'var(--text-dim)', fontWeight: 500, borderBottom: '1px solid var(--border)' }}>E-mail</th>
                   <th style={{ padding: '8px 12px', textAlign: 'left', color: 'var(--text-dim)', fontWeight: 500, borderBottom: '1px solid var(--border)' }}>Seq</th>
-                  <th style={{ padding: '8px 12px', textAlign: 'left', color: 'var(--text-dim)', fontWeight: 500, borderBottom: '1px solid var(--border)' }}>Chyba</th>
-                  <th style={{ padding: '8px 12px', textAlign: 'left', color: 'var(--text-dim)', fontWeight: 500, borderBottom: '1px solid var(--border)' }}>Pokusy</th>
+                  <th style={{ padding: '8px 12px', textAlign: 'left', color: 'var(--text-dim)', fontWeight: 500, borderBottom: '1px solid var(--border)' }}>{t('waves.error')}</th>
+                  <th style={{ padding: '8px 12px', textAlign: 'left', color: 'var(--text-dim)', fontWeight: 500, borderBottom: '1px solid var(--border)' }}>{t('waves.attempts')}</th>
                   <th style={{ padding: '8px 12px', textAlign: 'right', color: 'var(--text-dim)', fontWeight: 500, borderBottom: '1px solid var(--border)' }}></th>
                 </tr>
               </thead>
@@ -587,7 +589,7 @@ export default function WaveDetailPage() {
                           cursor: 'pointer', fontWeight: 500,
                         }}
                       >
-                        Zkusit znovu
+                        {t('waves.retryBtn')}
                       </button>
                     </td>
                   </tr>
@@ -601,14 +603,14 @@ export default function WaveDetailPage() {
       {/* ── Draft: per-sequence schedule card ── */}
       {wave.status === 'draft' && (
         <GlassCard padding={20}>
-          <div style={{ fontSize: 14, fontWeight: 600, color: 'var(--text)', marginBottom: 4 }}>Naplánovat vlnu</div>
+          <div style={{ fontSize: 14, fontWeight: 600, color: 'var(--text)', marginBottom: 4 }}>{t('waves.scheduleWave')}</div>
           <div style={{ fontSize: 12, color: 'var(--text-muted)', marginBottom: 16 }}>
-            Nastavte datum a čas odeslání pro každou sekvenci.
+            {t('waves.scheduleDesc')}
           </div>
 
           {availableSeqs.length === 0 && (
             <div style={{ fontSize: 12, color: '#fbbf24', fontStyle: 'italic', marginBottom: 12 }}>
-              Vyberte sadu šablon v konfiguraci vlny.
+              {t('waves.selectTemplateSet')}
             </div>
           )}
 
@@ -689,19 +691,19 @@ export default function WaveDetailPage() {
               display: 'flex', gap: 24, flexWrap: 'wrap',
             }}>
               <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
-                <span style={{ fontSize: 10, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Leady</span>
+                <span style={{ fontSize: 10, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>{t('waves.leads')}</span>
                 <span style={{ fontSize: 15, fontFamily: 'JetBrains Mono, monospace', color: 'var(--green)', fontWeight: 600 }}>{waveLeads.length}</span>
               </div>
               <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
-                <span style={{ fontSize: 10, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>E-mailů celkem</span>
+                <span style={{ fontSize: 10, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>{t('waves.totalEmails')}</span>
                 <span style={{ fontSize: 15, fontFamily: 'JetBrains Mono, monospace', color: 'var(--text)', fontWeight: 600 }}>{waveLeads.length * availableSeqs.length}</span>
               </div>
               <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
-                <span style={{ fontSize: 10, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Sekvence</span>
+                <span style={{ fontSize: 10, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>{t('waves.sequences')}</span>
                 <span style={{ fontSize: 15, fontFamily: 'JetBrains Mono, monospace', color: 'var(--text)', fontWeight: 600 }}>{availableSeqs.length}</span>
               </div>
               <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
-                <span style={{ fontSize: 10, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Období</span>
+                <span style={{ fontSize: 10, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>{t('waves.period')}</span>
                 <span style={{ fontSize: 13, fontFamily: 'JetBrains Mono, monospace', color: 'var(--text)' }}>
                   {fmtDate(seqDates[availableSeqs[0]] || '')} — {fmtDate(seqDates[availableSeqs[availableSeqs.length - 1]] || '')}
                 </span>
@@ -714,9 +716,9 @@ export default function WaveDetailPage() {
               variant="primary"
               onClick={() => handlePreScheduleValidation()}
               disabled={!canLaunch || scheduling}
-              title={!waveLeads.length ? 'Přidejte leady do vlny' : !canLaunch ? 'Nastavte datum pro všechny sekvence' : ''}
+              title={!waveLeads.length ? t('waves.addLeadsToWave') : !canLaunch ? t('waves.setDateForAllSeqs') : ''}
             >
-              {scheduling ? 'Spouštím…' : '▶ Naplánovat vlnu'}
+              {scheduling ? t('waves.launching') : t('waves.launchWave')}
             </GlassButton>
             {wave.is_dummy && (
               <GlassButton
@@ -729,15 +731,15 @@ export default function WaveDetailPage() {
                   color: '#fbbf24',
                 }}
               >
-                {sendingNow ? 'Spouštím…' : 'Odeslat hned (test)'}
+                {sendingNow ? t('waves.launching') : t('waves.sendNowTest')}
               </GlassButton>
             )}
           </div>
           {!waveLeads.length && (
-            <div style={{ fontSize: 11, color: '#fbbf24', marginTop: 8 }}>Přidejte leady do vlny</div>
+            <div style={{ fontSize: 11, color: '#fbbf24', marginTop: 8 }}>{t('waves.addLeadsToWave')}</div>
           )}
           {wave.is_dummy && !wave.dummy_email && (
-            <div style={{ fontSize: 11, color: '#ef4444', marginTop: 8 }}>Nastavte testovací e-mail v konfiguraci vlny</div>
+            <div style={{ fontSize: 11, color: '#ef4444', marginTop: 8 }}>{t('waves.setTestEmail')}</div>
           )}
         </GlassCard>
       )}
@@ -745,9 +747,9 @@ export default function WaveDetailPage() {
       {/* ── Re-run card (paused) ── */}
       {wave.status === 'paused' && (
         <GlassCard padding={20}>
-          <div style={{ fontSize: 14, fontWeight: 600, color: 'var(--text)', marginBottom: 4 }}>Vlna zastavena</div>
+          <div style={{ fontSize: 14, fontWeight: 600, color: 'var(--text)', marginBottom: 4 }}>{t('waves.wavePaused')}</div>
           <div style={{ fontSize: 12, color: 'var(--text-muted)', marginBottom: 16 }}>
-            Zbývající sekvence budou znovu naplánovány od zvolených dat.
+            {t('waves.rerunDesc')}
           </div>
 
           <div style={{ display: 'flex', flexDirection: 'column', gap: 0 }}>
@@ -823,11 +825,11 @@ export default function WaveDetailPage() {
               onClick={() => setConfirmRerun(true)}
               disabled={!availableSeqs.some(seq => !!rerunSeqDates[seq]) || rerunning}
             >
-              {rerunning ? 'Obnovuji…' : '▶ Obnovit vlnu'}
+              {rerunning ? t('waves.resuming') : t('waves.resumeWave')}
             </GlassButton>
           </div>
           {!availableSeqs.some(seq => !!rerunSeqDates[seq]) && (
-            <div style={{ fontSize: 11, color: '#fbbf24', marginTop: 8 }}>Nastavte nové datum alespoň pro jednu sekvenci</div>
+            <div style={{ fontSize: 11, color: '#fbbf24', marginTop: 8 }}>{t('waves.setNewDateForSeq')}</div>
           )}
         </GlassCard>
       )}
@@ -836,25 +838,25 @@ export default function WaveDetailPage() {
         <WaveConfigForm wave={wave} />
         {wave.template_set_id && templateSets && (
           <GlassCard padding={20}>
-            <h3 style={{ fontSize: 14, fontWeight: 600, color: 'var(--text)', marginBottom: 12 }}>Šablona</h3>
+            <h3 style={{ fontSize: 14, fontWeight: 600, color: 'var(--text)', marginBottom: 12 }}>{t('waves.templateHeader')}</h3>
             {(() => {
               const ts = templateSets.find(t => t.id === wave.template_set_id);
               const templates = ts?.email_templates ?? [];
               const seqNums = Array.from(new Set<number>(templates.map((t: EmailTemplate) => t.sequence_number))).sort((a, b) => a - b);
               if (seqNums.length === 0) {
-                return <div style={{ fontSize: 12, color: 'var(--text-muted)', fontStyle: 'italic' }}>Žádné šablony</div>;
+                return <div style={{ fontSize: 12, color: 'var(--text-muted)', fontStyle: 'italic' }}>{t('waves.noTemplatesInSet')}</div>;
               }
               return (
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
                   {seqNums.map(seq => {
-                    const t = templates.find((x: EmailTemplate) => x.sequence_number === seq);
+                    const tpl = templates.find((x: EmailTemplate) => x.sequence_number === seq);
                     return (
                       <div key={seq} style={{ padding: '8px 12px', background: 'var(--bg-subtle)', borderRadius: 6, border: '1px solid var(--border)' }}>
                         <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                           <span style={{ fontSize: 11, fontFamily: 'JetBrains Mono, monospace', fontWeight: 700, color: 'var(--green)', background: 'rgba(62,207,142,0.1)', padding: '1px 6px', borderRadius: 3 }}>SEQ{seq}</span>
-                          {t
-                            ? <span style={{ fontSize: 12, color: 'var(--text)', flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{t.subject || <em style={{ color: 'var(--text-muted)' }}>(bez předmětu)</em>}</span>
-                            : <span style={{ fontSize: 12, color: 'var(--text-muted)' }}>— bez šablony —</span>}
+                          {tpl
+                            ? <span style={{ fontSize: 12, color: 'var(--text)', flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{tpl.subject || <em style={{ color: 'var(--text-muted)' }}>{t('waves.noSubject')}</em>}</span>
+                            : <span style={{ fontSize: 12, color: 'var(--text-muted)' }}>{t('waves.noTemplateAssigned')}</span>}
                         </div>
                       </div>
                     );
@@ -891,13 +893,13 @@ export default function WaveDetailPage() {
         open={confirmSchedule}
         onClose={() => setConfirmSchedule(false)}
         onConfirm={handleSchedule}
-        title="Naplánovat vlnu"
-        confirmLabel="Naplánovat"
+        title={t('waves.scheduleWave')}
+        confirmLabel={t('waves.scheduleWave')}
         loading={scheduling}
       >
         <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
           <div style={{ fontSize: 13, color: 'var(--text-dim)', lineHeight: 1.5 }}>
-            Spustit vlnu <strong style={{ color: 'var(--text)' }}>{wave.name}</strong>?
+            {t('waves.confirmLaunchPrefix')} <strong style={{ color: 'var(--text)' }}>{wave.name}</strong>?
           </div>
           <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
             {availableSeqs.map(seq => (
@@ -911,12 +913,12 @@ export default function WaveDetailPage() {
           </div>
           <div style={{ display: 'flex', gap: 16 }}>
             <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
-              <span style={{ fontSize: 11, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Leady</span>
+              <span style={{ fontSize: 11, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>{t('waves.leads')}</span>
               <span style={{ fontSize: 14, fontFamily: 'JetBrains Mono, monospace', color: 'var(--green)' }}>{waveLeads.length}</span>
             </div>
           </div>
           <div style={{ fontSize: 12, color: 'var(--text-muted)', lineHeight: 1.5 }}>
-            E-maily se začnou odesílat v nastavený čas s náhodnými rozestupy 4–8 minut.
+            {t('waves.confirmScheduleNote')}
           </div>
         </div>
       </ConfirmDialog>
@@ -925,17 +927,17 @@ export default function WaveDetailPage() {
         open={confirmStop}
         onClose={() => setConfirmStop(false)}
         onConfirm={handleStop}
-        title="Zastavit vlnu"
-        confirmLabel="Zastavit"
+        title={t('waves.confirmStopTitle')}
+        confirmLabel={t('waves.confirmStopLabel')}
         variant="danger"
         loading={stopping}
       >
         <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
           <div style={{ fontSize: 13, color: 'var(--text-dim)', lineHeight: 1.5 }}>
-            Zastavit vlnu <strong style={{ color: 'var(--text)' }}>{wave.name}</strong>?
+            {t('waves.confirmStopPrefix')} <strong style={{ color: 'var(--text)' }}>{wave.name}</strong>?
           </div>
           <div style={{ fontSize: 12, color: 'var(--text-muted)', lineHeight: 1.5 }}>
-            Čekající e-maily (sekvence 2 a 3) budou zrušeny. Již odeslané e-maily zůstanou beze změny.
+            {t('waves.confirmStopNote')}
           </div>
         </div>
       </ConfirmDialog>
@@ -944,13 +946,13 @@ export default function WaveDetailPage() {
         open={confirmRerun}
         onClose={() => setConfirmRerun(false)}
         onConfirm={handleRerun}
-        title="Obnovit vlnu"
-        confirmLabel="Obnovit"
+        title={t('waves.confirmRerunTitle')}
+        confirmLabel={t('waves.confirmRerunLabel')}
         loading={rerunning}
       >
         <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
           <div style={{ fontSize: 13, color: 'var(--text-dim)', lineHeight: 1.5 }}>
-            Obnovit vlnu <strong style={{ color: 'var(--text)' }}>{wave.name}</strong>?
+            {t('waves.confirmRerunPrefix')} <strong style={{ color: 'var(--text)' }}>{wave.name}</strong>?
           </div>
           <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
             {availableSeqs.filter(seq => !!rerunSeqDates[seq]).map(seq => (
@@ -963,7 +965,7 @@ export default function WaveDetailPage() {
             ))}
           </div>
           <div style={{ fontSize: 12, color: 'var(--text-muted)', lineHeight: 1.5 }}>
-            Zbývající sekvence budou znovu naplánovány od zvolených dat a časů.
+            {t('waves.confirmRerunNote')}
           </div>
         </div>
       </ConfirmDialog>
@@ -972,17 +974,17 @@ export default function WaveDetailPage() {
         open={confirmDelete}
         onClose={() => setConfirmDelete(false)}
         onConfirm={handleDelete}
-        title="Smazat vlnu"
-        confirmLabel="Smazat"
+        title={t('waves.confirmDeleteTitle')}
+        confirmLabel={t('waves.confirmDeleteLabel')}
         variant="danger"
         loading={deleteWave.isPending}
       >
         <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
           <div style={{ fontSize: 13, color: 'var(--text-dim)', lineHeight: 1.5 }}>
-            Smazat vlnu <strong style={{ color: 'var(--text)' }}>{wave.name}</strong>?
+            {t('waves.confirmDeletePrefix')} <strong style={{ color: 'var(--text)' }}>{wave.name}</strong>?
           </div>
           <div style={{ fontSize: 12, color: 'var(--red)', lineHeight: 1.5 }}>
-            Tato akce je nevratná. Vlna a všechny přiřazené leady budou odstraněny.
+            {t('waves.confirmDeleteNote')}
           </div>
         </div>
       </ConfirmDialog>
@@ -991,31 +993,31 @@ export default function WaveDetailPage() {
         open={confirmSendNow}
         onClose={() => setConfirmSendNow(false)}
         onConfirm={handleSendNow}
-        title="Odeslat hned (test)"
-        confirmLabel="Odeslat"
+        title={t('waves.confirmSendNowTitle')}
+        confirmLabel={t('waves.confirmSendNowLabel')}
         loading={sendingNow}
       >
         <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
           <div style={{ fontSize: 13, color: 'var(--text-dim)', lineHeight: 1.5 }}>
-            Testovací e-maily se odešlou na{' '}
+            {t('waves.confirmSendNowDesc')}{' '}
             <strong style={{ color: '#fbbf24', fontFamily: 'JetBrains Mono, monospace' }}>
               {wave.dummy_email}
             </strong>{' '}
-            do 5 minut.
+            {t('waves.confirmSendNowSuffix')}
           </div>
           <div style={{ display: 'flex', gap: 16 }}>
             <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
-              <span style={{ fontSize: 11, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Leady</span>
+              <span style={{ fontSize: 11, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>{t('waves.leads')}</span>
               <span style={{ fontSize: 14, fontFamily: 'JetBrains Mono, monospace', color: 'var(--green)' }}>{waveLeads.length}</span>
             </div>
             <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
-              <span style={{ fontSize: 11, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Příjemce</span>
+              <span style={{ fontSize: 11, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>{t('waves.confirmSendNowRecipient')}</span>
               <span style={{ fontSize: 14, fontFamily: 'JetBrains Mono, monospace', color: 'var(--text)' }}>{wave.dummy_email}</span>
             </div>
           </div>
           <div style={{ fontSize: 12, color: 'var(--text-muted)', lineHeight: 1.5, padding: '8px 12px', background: 'rgba(251,191,36,0.06)', border: '1px solid rgba(251,191,36,0.2)', borderRadius: 8 }}>
-            Všechny 3 sekvence se odešlou s rozestupem ~2 minuty. Ověření e-mailů bude přeskočeno.
-            Předmět bude mít prefix <code style={{ color: '#fbbf24' }}>[TEST]</code>.
+            {t('waves.confirmSendNowNote')}{' '}
+            {t('waves.confirmSendNowTestPrefix')} <code style={{ color: '#fbbf24' }}>[TEST]</code>.
           </div>
         </div>
       </ConfirmDialog>
@@ -1025,19 +1027,19 @@ export default function WaveDetailPage() {
         open={!!confirmForceSendItem}
         onClose={() => setConfirmForceSendItem(null)}
         onConfirm={() => confirmForceSendItem && handleForceSendSingle(confirmForceSendItem)}
-        title="Odeslat sekvenci"
-        confirmLabel="Odeslat"
+        title={t('waves.confirmForceSendTitle')}
+        confirmLabel={t('waves.confirmForceSendLabel')}
         loading={forceSend.isPending}
       >
         <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
           <div style={{ fontSize: 13, color: 'var(--text-dim)', lineHeight: 1.5 }}>
-            Ihned odeslat SEQ{confirmForceSendItem?.sequence_number} na{' '}
+            {t('waves.confirmForceSendDesc')} SEQ{confirmForceSendItem?.sequence_number} {t('waves.confirmForceSendSuffix')}{' '}
             <strong style={{ color: 'var(--text)', fontFamily: 'JetBrains Mono, monospace' }}>
               {confirmForceSendItem?.email_address}
             </strong>?
           </div>
           <div style={{ fontSize: 12, color: 'var(--text-muted)', lineHeight: 1.5 }}>
-            E-mail bude odeslán okamžitě. Denní limit bude respektován.
+            {t('waves.confirmForceSendNote')}
           </div>
         </div>
       </ConfirmDialog>
@@ -1047,17 +1049,17 @@ export default function WaveDetailPage() {
         open={confirmForceSendAll}
         onClose={() => setConfirmForceSendAll(false)}
         onConfirm={handleForceSendAll}
-        title="Odeslat další sekvence"
-        confirmLabel="Odeslat"
+        title={t('waves.confirmForceSendAllTitle')}
+        confirmLabel={t('waves.confirmForceSendAllLabel')}
         loading={forceSend.isPending}
       >
         <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
           <div style={{ fontSize: 13, color: 'var(--text-dim)', lineHeight: 1.5 }}>
-            Ihned odeslat další sekvenci pro{' '}
-            <strong style={{ color: '#fbbf24' }}>{forceSendEligibleItems.length}</strong> e-mailů?
+            {t('waves.confirmForceSendAllDesc')}{' '}
+            <strong style={{ color: '#fbbf24' }}>{forceSendEligibleItems.length}</strong> {t('waves.confirmForceSendAllSuffix')}
           </div>
           <div style={{ fontSize: 12, color: 'var(--text-muted)', lineHeight: 1.5 }}>
-            E-maily budou odeslány okamžitě. Denní limit bude respektován.
+            {t('waves.confirmForceSendAllNote')}
           </div>
         </div>
       </ConfirmDialog>
@@ -1066,21 +1068,20 @@ export default function WaveDetailPage() {
       <GlassModal
         open={!!missingVarsWarning}
         onClose={() => setMissingVarsWarning(null)}
-        title="Chybějící proměnné"
+        title={t('waves.missingVarsTitle')}
         width={520}
         footer={
           <>
-            <GlassButton variant="secondary" onClick={() => setMissingVarsWarning(null)}>Zrušit</GlassButton>
+            <GlassButton variant="secondary" onClick={() => setMissingVarsWarning(null)}>{t('common.cancel')}</GlassButton>
             <GlassButton variant="primary" onClick={() => { setMissingVarsWarning(null); setConfirmSchedule(true); }}>
-              Pokračovat přesto
+              {t('waves.continueAnyway')}
             </GlassButton>
           </>
         }
       >
         <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
           <div style={{ fontSize: 13, color: 'var(--text-dim)', lineHeight: 1.5 }}>
-            Některé leady nemají vyplněné všechny proměnné použité v šablonách. Chybějící proměnné zůstanou
-            v e-mailu jako <code style={{ color: '#fbbf24' }}>{`{{nazev}}`}</code>.
+            {t('waves.missingVarsDesc').split('<code>')[0]}<code style={{ color: '#fbbf24' }}>{`{{nazev}}`}</code>.
           </div>
           <div style={{
             maxHeight: 250, overflow: 'auto', display: 'flex', flexDirection: 'column', gap: 6,
@@ -1090,7 +1091,7 @@ export default function WaveDetailPage() {
             {(missingVarsWarning ?? []).map((w, i) => (
               <div key={i} style={{ fontSize: 12, color: 'var(--text)' }}>
                 <strong>{w.lead}</strong>
-                <span style={{ color: 'var(--text-muted)' }}> — chybí: </span>
+                <span style={{ color: 'var(--text-muted)' }}>{t('waves.missingVarsMissing')}</span>
                 <span style={{ color: '#fbbf24', fontFamily: 'JetBrains Mono, monospace', fontSize: 11 }}>
                   {w.missing.join(', ')}
                 </span>
@@ -1104,10 +1105,10 @@ export default function WaveDetailPage() {
       <GlassModal
         open={showPreview}
         onClose={() => setShowPreview(false)}
-        title="Náhled e-mailu"
+        title={t('waves.emailPreview')}
         width={640}
         footer={
-          <GlassButton variant="secondary" onClick={() => setShowPreview(false)}>Zavřít</GlassButton>
+          <GlassButton variant="secondary" onClick={() => setShowPreview(false)}>{t('common.close')}</GlassButton>
         }
       >
         {(() => {
@@ -1121,13 +1122,13 @@ export default function WaveDetailPage() {
           const seqNums = Array.from(new Set<number>(templates.map((t: EmailTemplate) => t.sequence_number))).sort((a: number, b: number) => a - b);
 
           if (!templates.length) {
-            return <p style={{ fontSize: 13, color: 'var(--text-muted)' }}>Žádné šablony k zobrazení</p>;
+            return <p style={{ fontSize: 13, color: 'var(--text-muted)' }}>{t('waves.noTemplatesToShow')}</p>;
           }
 
           return (
             <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
               <div style={{ fontSize: 12, color: 'var(--text-muted)', padding: '8px 12px', background: 'var(--bg-subtle)', borderRadius: 6, border: '1px solid var(--border)' }}>
-                Náhled s daty leadu: <strong style={{ color: 'var(--text)' }}>{sampleLead?.company_name ?? '—'}</strong>
+                {t('waves.previewWithLead')} <strong style={{ color: 'var(--text)' }}>{sampleLead?.company_name ?? '—'}</strong>
                 {jednatel && <span> · {jednatel.full_name}</span>}
               </div>
               {seqNums.map(seq => {
@@ -1142,7 +1143,7 @@ export default function WaveDetailPage() {
                       background: 'var(--bg-subtle)', borderBottom: '1px solid var(--border)',
                     }}>
                       <span style={{ fontSize: 11, fontFamily: 'JetBrains Mono, monospace', fontWeight: 700, color: 'var(--green)', background: 'rgba(62,207,142,0.1)', padding: '1px 6px', borderRadius: 3 }}>SEQ{seq}</span>
-                      <span style={{ fontSize: 13, color: 'var(--text)', fontWeight: 500 }}>{renderedSubject || '(bez předmětu)'}</span>
+                      <span style={{ fontSize: 13, color: 'var(--text)', fontWeight: 500 }}>{renderedSubject || t('waves.noSubject')}</span>
                     </div>
                     <div
                       style={{ padding: '12px 16px', fontSize: 13, color: 'var(--text-dim)', lineHeight: 1.6 }}
