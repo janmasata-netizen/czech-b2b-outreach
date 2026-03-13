@@ -1,29 +1,30 @@
 import { useState } from 'react';
 import { Phone, Linkedin, MessageCircle, Check, X } from 'lucide-react';
 import GlassCard from '@/components/glass/GlassCard';
-import { useUpdateJednatelContact } from '@/hooks/useMasterLeads';
-import type { Jednatel } from '@/types/database';
+import { useUpdateContact } from '@/hooks/useContacts';
+import type { Contact } from '@/types/database';
 import { toast } from 'sonner';
 
 interface ContactMethodsCardProps {
-  jednatels: Jednatel[];
+  contacts: Contact[];
 }
 
-function InlineEdit({ value, field, jednatelId, icon: Icon, placeholder, color }: {
+function InlineEdit({ value, field, contactId, companyId, icon: Icon, placeholder, color }: {
   value: string | null | undefined;
   field: 'phone' | 'linkedin' | 'other_contact';
-  jednatelId: string;
+  contactId: string;
+  companyId: string;
   icon: React.ElementType;
   placeholder: string;
   color: string;
 }) {
   const [editing, setEditing] = useState(false);
   const [val, setVal] = useState(value ?? '');
-  const update = useUpdateJednatelContact();
+  const update = useUpdateContact();
 
   async function save() {
     try {
-      await update.mutateAsync({ id: jednatelId, updates: { [field]: val || null } });
+      await update.mutateAsync({ id: contactId, companyId, updates: { [field]: val || null } });
       setEditing(false);
     } catch {
       toast.error('Chyba při ukládání', { duration: 8000 });
@@ -67,21 +68,21 @@ function InlineEdit({ value, field, jednatelId, icon: Icon, placeholder, color }
   );
 }
 
-export default function ContactMethodsCard({ jednatels }: ContactMethodsCardProps) {
-  if (!jednatels.length) return null;
+export default function ContactMethodsCard({ contacts }: ContactMethodsCardProps) {
+  if (!contacts.length) return null;
 
   return (
     <GlassCard padding={20}>
       <h3 style={{ fontSize: 14, fontWeight: 600, color: 'var(--text)', marginBottom: 12 }}>Kontaktní údaje</h3>
-      {jednatels.map(jed => (
-        <div key={jed.id} style={{ marginBottom: 12, paddingBottom: 12, borderBottom: '1px solid var(--border)' }}>
+      {contacts.map(contact => (
+        <div key={contact.id} style={{ marginBottom: 12, paddingBottom: 12, borderBottom: '1px solid var(--border)' }}>
           <div style={{ fontSize: 12, fontWeight: 500, color: 'var(--text-dim)', marginBottom: 6 }}>
-            {jed.full_name ?? 'Bez jména'}
+            {contact.full_name ?? 'Bez jména'}
           </div>
           <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
-            <InlineEdit value={jed.phone} field="phone" jednatelId={jed.id} icon={Phone} placeholder="+ telefon" color="#fb923c" />
-            <InlineEdit value={jed.linkedin} field="linkedin" jednatelId={jed.id} icon={Linkedin} placeholder="+ LinkedIn" color="#22d3ee" />
-            <InlineEdit value={jed.other_contact} field="other_contact" jednatelId={jed.id} icon={MessageCircle} placeholder="+ jiný kontakt" color="#a78bfa" />
+            <InlineEdit value={contact.phone} field="phone" contactId={contact.id} companyId={contact.company_id} icon={Phone} placeholder="+ telefon" color="#fb923c" />
+            <InlineEdit value={contact.linkedin} field="linkedin" contactId={contact.id} companyId={contact.company_id} icon={Linkedin} placeholder="+ LinkedIn" color="#22d3ee" />
+            <InlineEdit value={contact.other_contact} field="other_contact" contactId={contact.id} companyId={contact.company_id} icon={MessageCircle} placeholder="+ jiný kontakt" color="#a78bfa" />
           </div>
         </div>
       ))}

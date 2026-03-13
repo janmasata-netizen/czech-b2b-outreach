@@ -3,7 +3,7 @@ import GlassCard from '@/components/glass/GlassCard';
 interface ContactRow {
   id: string;
   full_name: string | null;
-  role: string | null;
+  role?: string | null;
   notes?: string | null;
   email_status?: string | null;
 }

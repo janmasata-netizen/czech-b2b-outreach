@@ -108,6 +108,7 @@ export interface Lead {
   updated_at?: string;
   team?: Team;
   company?: Company;
+  contacts?: Contact[];
   jednatels?: Jednatel[];
   email_candidates?: EmailCandidate[];
   wave_leads?: WaveLead[];
@@ -399,7 +400,7 @@ export interface MasterLeadFilters {
 }
 
 export interface WaveLeadRow extends WaveLead {
-  leads?: Lead & { jednatels?: (Jednatel & { email_candidates?: EmailCandidate[] })[] };
+  leads?: Lead & { companies?: { contacts: (Contact & { email_candidates?: EmailCandidate[] })[] } | null; jednatels?: (Jednatel & { email_candidates?: EmailCandidate[] })[] };
   sent_emails?: SentEmail[];
   lead_replies?: LeadReply[];
   email_queue?: EmailQueue[];
@@ -504,5 +505,6 @@ export interface RetargetPoolLead {
   retarget_round: number;
   unlocks_at: string;
   total_waves_count: number;
-  jednatels: { id: string; full_name: string | null; salutation: string | null }[] | null;
+  contacts?: { id: string; full_name: string | null; salutation: string | null }[] | null;
+  jednatels?: { id: string; full_name: string | null; salutation: string | null }[] | null;
 }

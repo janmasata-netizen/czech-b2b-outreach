@@ -25,7 +25,7 @@ interface SentEmail {
   sequence_number: number;
   email_address: string;
   sent_at: string;
-  jednatel_id: string | null;
+  contact_id?: string | null;
 }
 
 interface Wave {
@@ -66,7 +66,7 @@ export interface LeadTimelineProps {
   companyName: string | null;
   teamName?: string | null;
   emailCandidates: EmailCandidate[];
-  jednatels: { email_status: string | null }[];
+  contacts: Array<{ email_status?: string | null }>;
   waveLeads: WaveLead[];
   leadReplies: LeadReply[];
   enrichmentLog: EnrichmentLog[];
@@ -215,7 +215,7 @@ export default function EnrichmentTimeline({
   companyName,
   teamName,
   emailCandidates,
-  jednatels,
+  contacts,
   waveLeads,
   leadReplies,
   enrichmentLog,
@@ -226,7 +226,7 @@ export default function EnrichmentTimeline({
   );
   const hasVerifiedEmail = verifiedEmails.length > 0;
   const isInWave = waveLeads.length > 0;
-  const allEmailsNotFound = jednatels.length > 0 && jednatels.every(j => j.email_status === 'email_not_found');
+  const allEmailsNotFound = contacts.length > 0 && contacts.every(c => c.email_status === 'email_not_found');
 
   // "Email found" date: earliest success log from qev_verify or seznam_verify
   const emailFoundLog = enrichmentLog

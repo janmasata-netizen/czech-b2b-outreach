@@ -87,7 +87,7 @@ export default function LeadsTable({ leads, isLoading, selected, onSelect }: Lea
               : bestCand?.qev_status && bestCand.qev_status !== 'unknown'
               ? bestCand.qev_status
               : bestCand?.seznam_status ?? null;
-            const jednatels = lead.jednatels?.map(j => j.full_name).filter(Boolean).join(', ');
+            const contactNames = lead.contacts?.map(c => c.full_name).filter(Boolean).join(', ');
             // wave_leads come from Supabase join with nested waves
             const wl = lead.wave_leads?.[0] as (WaveLead & { waves?: { name: string; status: string } }) | undefined;
             const waveName: string | undefined = wl?.waves?.name;
@@ -131,7 +131,7 @@ export default function LeadsTable({ leads, isLoading, selected, onSelect }: Lea
                 <td style={{ padding: '11px 14px' }}>
                   {emailStatus ? <EmailStatusBadge status={emailStatus} /> : <span style={{ fontSize: 12, color: 'var(--text-muted)' }}>—</span>}
                 </td>
-                <td style={{ padding: '11px 14px', fontSize: 12, color: 'var(--text-dim)' }}>{jednatels || '—'}</td>
+                <td style={{ padding: '11px 14px', fontSize: 12, color: 'var(--text-dim)' }}>{contactNames || '—'}</td>
                 <td style={{ padding: '11px 14px' }}><StatusBadge status={lead.status ?? 'new'} /></td>
                 <td style={{ padding: '11px 14px' }} onClick={e => e.stopPropagation()}>
                   {wl && waveName ? (

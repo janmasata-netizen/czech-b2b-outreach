@@ -200,9 +200,9 @@ export default function WaveDetailPage() {
     const warnings: Array<{ lead: string; missing: string[] }> = [];
     for (const wl of waveLeads) {
       const lead = wl.leads ?? wl.lead;
-      const jednatels = lead?.jednatels ?? [];
-      const jednatel = jednatels[0] ?? null;
-      const ctx = buildTemplateContext(lead, jednatel);
+      const contacts = lead?.contacts ?? [];
+      const contact = contacts[0] ?? null;
+      const ctx = buildTemplateContext(lead, contact);
       const missing = findMissingVariables(Array.from(allVarsUsed), ctx);
       if (missing.length > 0) {
         warnings.push({ lead: lead?.company_name ?? lead?.ico ?? t('waves.unknownLead'), missing });
@@ -1116,9 +1116,9 @@ export default function WaveDetailPage() {
           const templates = ts?.email_templates ?? [];
           const sampleWl = waveLeads[0];
           const sampleLead = sampleWl?.leads ?? sampleWl?.lead ?? {};
-          const jednatels = sampleLead?.jednatels ?? [];
-          const jednatel = jednatels[0] ?? null;
-          const ctx = buildTemplateContext(sampleLead, jednatel);
+          const contacts = sampleLead?.contacts ?? [];
+          const contact = contacts[0] ?? null;
+          const ctx = buildTemplateContext(sampleLead, contact);
           const seqNums = Array.from(new Set<number>(templates.map((t: EmailTemplate) => t.sequence_number))).sort((a: number, b: number) => a - b);
 
           if (!templates.length) {
@@ -1129,7 +1129,7 @@ export default function WaveDetailPage() {
             <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
               <div style={{ fontSize: 12, color: 'var(--text-muted)', padding: '8px 12px', background: 'var(--bg-subtle)', borderRadius: 6, border: '1px solid var(--border)' }}>
                 {t('waves.previewWithLead')} <strong style={{ color: 'var(--text)' }}>{sampleLead?.company_name ?? '—'}</strong>
-                {jednatel && <span> · {jednatel.full_name}</span>}
+                {contact && <span> · {contact.full_name}</span>}
               </div>
               {seqNums.map(seq => {
                 const tpl = templates.find((t: EmailTemplate) => t.sequence_number === seq);

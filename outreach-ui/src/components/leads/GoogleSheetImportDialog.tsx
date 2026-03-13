@@ -272,38 +272,46 @@ export default function GoogleSheetImportDialog({ open, onClose }: GoogleSheetIm
 
       try {
         if (enrichmentLevel === 'import_only') {
-          // Direct DB insert (same as CSV import)
-          if (email) {
-            const { data: lead, error: le } = await supabase
-              .from('leads')
-              .insert({
-                company_name: company_name || null,
-                ico: ico || null,
-                website: website || null,
-                domain: extractDomain(website) || null,
-                team_id: rowTeamId || null,
-                status: 'ready',
-                lead_type: 'company',
-                language,
-                custom_fields: Object.keys(custom_fields).length > 0 ? custom_fields : {},
-              })
-              .select()
-              .single();
+          // Use ingest_lead RPC to create/find company + lead
+          const { data: rpcResult, error: rpcErr } = await supabase.rpc('ingest_lead', {
+            p_company_name: company_name || contact_name || null,
+            p_ico: ico || null,
+            p_website: website || null,
+            p_domain: extractDomain(website) || null,
+            p_team_id: rowTeamId || null,
+            p_language: language,
+            p_lead_type: 'company',
+          });
 
-            if (le) {
-              errors++;
-            } else {
-              const { data: jed, error: je } = await supabase
-                .from('jednatels')
-                .insert({ lead_id: lead.id, full_name: contact_name || null })
+          if (rpcErr) {
+            errors++;
+          } else {
+            const leadId = rpcResult?.lead_id;
+            const companyId = rpcResult?.company_id;
+
+            // Update lead with custom_fields and status
+            if (leadId) {
+              await supabase
+                .from('leads')
+                .update({
+                  status: email ? 'ready' : 'new',
+                  custom_fields: Object.keys(custom_fields).length > 0 ? custom_fields : {},
+                })
+                .eq('id', leadId);
+            }
+
+            if (email && companyId) {
+              const { data: contact, error: ce } = await supabase
+                .from('contacts')
+                .insert({ company_id: companyId, full_name: contact_name || null })
                 .select()
                 .single();
-              if (je) { errors++; }
+              if (ce) { errors++; }
               else {
                 const { error: ee } = await supabase
                   .from('email_candidates')
                   .insert({
-                    jednatel_id: jed.id,
+                    contact_id: contact.id,
                     email_address: email,
                     is_verified: true,
                     qev_status: 'manually_verified',
@@ -312,21 +320,6 @@ export default function GoogleSheetImportDialog({ open, onClose }: GoogleSheetIm
                 if (ee) errors++;
               }
             }
-          } else {
-            const { error: le } = await supabase
-              .from('leads')
-              .insert({
-                company_name: company_name || null,
-                ico: ico || null,
-                website: website || null,
-                domain: extractDomain(website) || null,
-                team_id: rowTeamId || null,
-                status: 'new',
-                lead_type: 'company',
-                language,
-                custom_fields: Object.keys(custom_fields).length > 0 ? custom_fields : {},
-              });
-            if (le) errors++;
           }
         } else {
           // find_emails or full_pipeline → call lead-ingest webhook

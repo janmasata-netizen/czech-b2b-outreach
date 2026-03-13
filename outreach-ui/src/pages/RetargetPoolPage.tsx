@@ -212,7 +212,7 @@ function LeadRow({ lead, isSelected, isExpanded, onToggleSelect, onToggleExpand 
   onToggleSelect: () => void;
   onToggleExpand: () => void;
 }) {
-  const jednatels = lead.jednatels ?? [];
+  const contacts = lead.contacts ?? lead.jednatels ?? [];
 
   return (
     <>
@@ -243,10 +243,10 @@ function LeadRow({ lead, isSelected, isExpanded, onToggleSelect, onToggleExpand 
         </td>
         <td style={{ ...CELL, fontFamily: 'JetBrains Mono, monospace', fontSize: 12 }}>{lead.ico ?? '—'}</td>
         <td style={CELL}>
-          {jednatels.length === 0 ? (
+          {contacts.length === 0 ? (
             <span style={{ color: 'var(--text-muted)' }}>—</span>
           ) : (
-            jednatels.map(j => j.full_name).filter(Boolean).join(', ') || '—'
+            contacts.map(c => c.full_name).filter(Boolean).join(', ') || '—'
           )}
         </td>
         <td style={CELL}>{lead.last_wave_name ?? '—'}</td>
