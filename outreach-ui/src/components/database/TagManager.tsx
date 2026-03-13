@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { X, Lock } from 'lucide-react';
 import GlassCard from '@/components/glass/GlassCard';
 import GlassButton from '@/components/glass/GlassButton';
@@ -12,6 +13,7 @@ const PRESET_COLORS = [
 ];
 
 export default function TagManager({ teamId }: { teamId?: string }) {
+  const { t } = useTranslation();
   const { data: tags = [] } = useTags(teamId);
   const createTag = useCreateTag();
   const deleteTag = useDeleteTag();
@@ -24,18 +26,18 @@ export default function TagManager({ teamId }: { teamId?: string }) {
     try {
       await createTag.mutateAsync({ name: name.trim(), color, team_id: teamId ?? null });
       setName('');
-      toast.success('Štítek vytvořen');
+      toast.success(t('tags.tagCreated'));
     } catch {
-      toast.error('Chyba při vytváření štítku', { duration: 8000 });
+      toast.error(t('tags.errorCreating'), { duration: 8000 });
     }
   }
 
   async function handleDelete(id: string) {
     try {
       await deleteTag.mutateAsync(id);
-      toast.success('Štítek smazán');
+      toast.success(t('tags.tagDeleted'));
     } catch {
-      toast.error('Chyba při mazání štítku', { duration: 8000 });
+      toast.error(t('tags.errorDeleting'), { duration: 8000 });
     }
   }
 
@@ -45,7 +47,7 @@ export default function TagManager({ teamId }: { teamId?: string }) {
         style={{ display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer' }}
         onClick={() => setOpen(o => !o)}
       >
-        <span style={{ fontSize: 13, fontWeight: 600, color: 'var(--text)' }}>Správa štítků</span>
+        <span style={{ fontSize: 13, fontWeight: 600, color: 'var(--text)' }}>{t('tags.tagManager')}</span>
         <span style={{ fontSize: 11, color: 'var(--text-muted)' }}>({tags.length})</span>
         <span style={{ marginLeft: 'auto', fontSize: 12, color: 'var(--text-dim)', transform: open ? 'rotate(180deg)' : 'none', transition: 'transform 0.2s' }}>▼</span>
       </div>
@@ -66,7 +68,7 @@ export default function TagManager({ teamId }: { teamId?: string }) {
                 <span style={{ width: 8, height: 8, borderRadius: '50%', background: tag.color }} />
                 {tag.name}
                 {isSystemTag(tag.name) ? (
-                  <span title="Systémový štítek" style={{ display: 'flex', opacity: 0.4 }}>
+                  <span title={t('tags.systemTag')} style={{ display: 'flex', opacity: 0.4 }}>
                     <Lock size={12} />
                   </span>
                 ) : (
@@ -88,7 +90,7 @@ export default function TagManager({ teamId }: { teamId?: string }) {
           <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
             <input
               className="glass-input"
-              placeholder="Název štítku"
+              placeholder={t('tags.tagName')}
               value={name}
               onChange={e => setName(e.target.value)}
               onKeyDown={e => e.key === 'Enter' && handleCreate()}
