@@ -1,4 +1,5 @@
 import { useState, type FormEvent } from 'react';
+import { useTranslation } from 'react-i18next';
 import GlassModal from '@/components/glass/GlassModal';
 import GlassButton from '@/components/glass/GlassButton';
 import GlassInput from '@/components/glass/GlassInput';
@@ -20,6 +21,7 @@ interface CreateWaveDialogProps {
 const LABEL: React.CSSProperties = { fontSize: 12, fontWeight: 500, color: 'var(--text-dim)' };
 
 export default function CreateWaveDialog({ open, onClose, onCreated, preselectedLeadIds, retargetMode, sourceWaveId }: CreateWaveDialogProps) {
+  const { t } = useTranslation();
   const { data: teams } = useTeams();
   const createWave = useCreateWave();
   const addLeads = useAddLeadsToWave();
@@ -32,9 +34,9 @@ export default function CreateWaveDialog({ open, onClose, onCreated, preselected
 
   async function handleSubmit(e: FormEvent) {
     e.preventDefault();
-    if (!name.trim()) { toast.error('Zadejte název vlny', { duration: 8000 }); return; }
+    if (!name.trim()) { toast.error(t('createWave.enterWaveName'), { duration: 8000 }); return; }
     const resolvedTeam = teamId || teams?.[0]?.id;
-    if (!resolvedTeam) { toast.error('Vyberte tým', { duration: 8000 }); return; }
+    if (!resolvedTeam) { toast.error(t('createWave.selectTeam'), { duration: 8000 }); return; }
     try {
       const wave = await createWave.mutateAsync({
         name: name.trim(),
@@ -58,8 +60,8 @@ export default function CreateWaveDialog({ open, onClose, onCreated, preselected
       }
 
       toast.success(retargetMode
-        ? `Retarget vlna vytvořena s ${preselectedLeadIds?.length ?? 0} leady`
-        : 'Vlna vytvořena'
+        ? t('createWave.retargetWaveCreated', { count: preselectedLeadIds?.length ?? 0 })
+        : t('createWave.waveCreated')
       );
       onCreated?.(wave.id);
       setName('');
@@ -67,7 +69,7 @@ export default function CreateWaveDialog({ open, onClose, onCreated, preselected
       setPresetId('');
       onClose();
     } catch (err: unknown) {
-      toast.error('Chyba: ' + (err instanceof Error ? err.message : String(err)), { duration: 8000 });
+      toast.error(t('emailEdit.errorSaving') + (err instanceof Error ? err.message : String(err)), { duration: 8000 });
     }
   }
 
@@ -75,20 +77,20 @@ export default function CreateWaveDialog({ open, onClose, onCreated, preselected
     <GlassModal
       open={open}
       onClose={onClose}
-      title={retargetMode ? 'Nová retarget vlna' : 'Nová vlna'}
+      title={retargetMode ? 'Nová retarget vlna' : t('createWave.title')}
       width={420}
       footer={
         <>
-          <GlassButton variant="secondary" onClick={onClose}>Zrušit</GlassButton>
+          <GlassButton variant="secondary" onClick={onClose}>{t('common.cancel')}</GlassButton>
           <GlassButton variant="primary" onClick={(e) => handleSubmit(e as unknown as FormEvent)} disabled={createWave.isPending}>
-            {createWave.isPending ? 'Ukládám…' : 'Vytvořit vlnu'}
+            {createWave.isPending ? t('common.saving') : t('createWave.create')}
           </GlassButton>
         </>
       }
     >
       <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
         <GlassInput
-          label="Název vlny"
+          label={t('createWave.nameLabel')}
           placeholder="Q2 2026 — Dentální kliniky"
           value={name}
           onChange={e => setName(e.target.value)}
@@ -96,7 +98,7 @@ export default function CreateWaveDialog({ open, onClose, onCreated, preselected
         />
         {teams && teams.length > 1 && (
           <div style={{ display: 'flex', flexDirection: 'column', gap: 5 }}>
-            <label style={LABEL}>Tým</label>
+            <label style={LABEL}>{t('settings.userDetailTeam')}</label>
             <select className="glass-input" value={teamId} onChange={e => setTeamId(e.target.value)}>
               {teams.map(t => <option key={t.id} value={t.id}>{t.name}</option>)}
             </select>
@@ -106,12 +108,12 @@ export default function CreateWaveDialog({ open, onClose, onCreated, preselected
           <label style={LABEL}>Preset</label>
           {presets?.length ? (
             <select className="glass-input" value={presetId} onChange={e => setPresetId(e.target.value)}>
-              <option value="">— Bez presetu —</option>
+              <option value="">{t('createWave.noPreset')}</option>
               {presets.map((p: WavePreset) => <option key={p.id} value={p.id}>{p.name}</option>)}
             </select>
           ) : (
             <select className="glass-input" disabled>
-              <option>Žádné presety — vytvořte na stránce vlny</option>
+              <option>{t('createWave.noPresetsAvailable')}</option>
             </select>
           )}
         </div>

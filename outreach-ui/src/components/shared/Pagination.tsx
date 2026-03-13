@@ -1,3 +1,4 @@
+import { useTranslation } from 'react-i18next';
 import GlassButton from '@/components/glass/GlassButton';
 
 interface PaginationProps {
@@ -9,6 +10,7 @@ interface PaginationProps {
 }
 
 export default function Pagination({ page, totalPages, onPage, totalItems, pageSize }: PaginationProps) {
+  const { t } = useTranslation();
   if (totalPages <= 1) return null;
 
   const from = pageSize ? (page - 1) * pageSize + 1 : null;
@@ -18,15 +20,15 @@ export default function Pagination({ page, totalPages, onPage, totalItems, pageS
     <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '12px 0' }}>
       {totalItems != null && from != null && to != null ? (
         <span style={{ fontSize: 13, color: 'var(--text-muted)' }}>
-          {from}–{to} z {totalItems}
+          {from}–{to} {t('common.of')} {totalItems}
         </span>
       ) : <span />}
       <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
-        <GlassButton size="sm" onClick={() => onPage(page - 1)} disabled={page <= 1}>‹ Předchozí</GlassButton>
+        <GlassButton size="sm" onClick={() => onPage(page - 1)} disabled={page <= 1}>{t('pagination.previous')}</GlassButton>
         <span style={{ fontSize: 13, color: 'var(--text-dim)', padding: '0 8px', fontFamily: 'JetBrains Mono, monospace' }}>
           {page} / {totalPages}
         </span>
-        <GlassButton size="sm" onClick={() => onPage(page + 1)} disabled={page >= totalPages}>Další ›</GlassButton>
+        <GlassButton size="sm" onClick={() => onPage(page + 1)} disabled={page >= totalPages}>{t('pagination.next')}</GlassButton>
       </div>
     </div>
   );

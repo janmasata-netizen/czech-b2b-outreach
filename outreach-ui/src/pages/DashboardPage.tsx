@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { useDashboardStats, useReadyLeadsCount, useActiveWavesCount, useRetargetReadyCount, useReplyCount } from '@/hooks/useDashboard';
 import { useTeams } from '@/hooks/useLeads';
 import { useAuthContext } from '@/components/AuthProvider';
@@ -20,6 +21,7 @@ const REPLY_RANGES = [
 ] as const;
 
 export default function DashboardPage() {
+  const { t } = useTranslation();
   const { profile } = useAuthContext();
   const isAdmin = profile?.is_admin ?? false;
 
@@ -38,9 +40,9 @@ export default function DashboardPage() {
   if (isError) {
     return (
       <div style={{ display: 'flex', flexDirection: 'column', gap: 24 }}>
-        <PageHeader title="Přehled" subtitle="Realtime monitoring outreach kampaně" />
+        <PageHeader title={t('dashboard.title')} subtitle={t('dashboard.subtitle')} />
         <div style={{ padding: 24, color: 'var(--red)', textAlign: 'center', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 12 }}>
-          <span>Chyba při načítání statistik.</span>
+          <span>{t('dashboard.errorLoading')}</span>
           <button
             onClick={() => window.location.reload()}
             style={{
@@ -54,7 +56,7 @@ export default function DashboardPage() {
               fontWeight: 500,
             }}
           >
-            Zkusit znovu
+            {t('dashboard.retry')}
           </button>
         </div>
       </div>
@@ -77,7 +79,7 @@ export default function DashboardPage() {
         minWidth: 160,
       }}
     >
-      <option value="">Všechny týmy</option>
+      <option value="">{t('filters.allTeams')}</option>
       {teams.map(team => (
         <option key={team.id} value={team.id}>{team.name}</option>
       ))}
@@ -86,20 +88,20 @@ export default function DashboardPage() {
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 24 }}>
-      <PageHeader title="Přehled" subtitle="Realtime monitoring outreach kampaně" actions={teamSelector} />
+      <PageHeader title={t('dashboard.title')} subtitle={t('dashboard.subtitle')} actions={teamSelector} />
 
       <OnboardingChecklist />
 
       <StatsGrid cols={4}>
-        <StatCard label="Celkem leadů" value={stats?.totalLeads.toLocaleString('cs-CZ') ?? '—'} icon="◈" color="var(--accent)" />
-        <StatCard label="Ověřeno e-mailů" value={stats?.verifiedLeads.toLocaleString('cs-CZ') ?? '—'} icon="✓" color="var(--green)" />
-        <StatCard label="Odesláno" value={stats?.sentEmails.toLocaleString('cs-CZ') ?? '—'} icon="✉" color="var(--purple)" />
-        <StatCard label="Míra odpovědí" value={stats ? formatPercent(stats.replyRate) : '—'} icon="↩" color="var(--cyan)" sub={`${stats?.repliedLeads ?? 0} odpovědí celkem`} />
+        <StatCard label={t('dashboard.totalLeads')} value={stats?.totalLeads.toLocaleString('cs-CZ') ?? '—'} icon="◈" color="var(--accent)" />
+        <StatCard label={t('dashboard.verifiedEmails')} value={stats?.verifiedLeads.toLocaleString('cs-CZ') ?? '—'} icon="✓" color="var(--green)" />
+        <StatCard label={t('dashboard.sent')} value={stats?.sentEmails.toLocaleString('cs-CZ') ?? '—'} icon="✉" color="var(--purple)" />
+        <StatCard label={t('dashboard.replyRate')} value={stats ? formatPercent(stats.replyRate) : '—'} icon="↩" color="var(--cyan)" sub={t('dashboard.repliesTotal', { count: stats?.repliedLeads ?? 0 })} />
       </StatsGrid>
 
       <StatsGrid cols={4}>
         <StatCard label="Připraveno k oslovení" value={(readyLeads ?? 0).toLocaleString('cs-CZ')} icon="📋" color="var(--green)" />
-        <StatCard label="Aktivní vlny" value={(activeWavesCount ?? 0).toLocaleString('cs-CZ')} icon="⌁" color="var(--purple)" />
+        <StatCard label={t('dashboard.activeWaves')} value={(activeWavesCount ?? 0).toLocaleString('cs-CZ')} icon="⌁" color="var(--purple)" />
         <StatCard label="Retarget pool" value={(retargetReady ?? 0).toLocaleString('cs-CZ')} icon="🔄" color="var(--orange)" />
         <StatCard
           label="Odpovědi"

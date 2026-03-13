@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { useTranslation } from 'react-i18next';
 import { useSearchParams } from 'react-router-dom';
 import { useLeads } from '@/hooks/useLeads';
 import { useQuery } from '@tanstack/react-query';
@@ -36,6 +37,7 @@ function useNeedsReviewCount() {
 }
 
 export default function LeadsPage() {
+  const { t } = useTranslation();
   const [searchParams, setSearchParams] = useSearchParams();
   const rawTab = searchParams.get('tab');
   const tab: Tab = (rawTab === 'problematic' || rawTab === 'discovery' || rawTab === 'ready') ? rawTab : 'all';
@@ -82,10 +84,10 @@ export default function LeadsPage() {
   }
 
   const PAGE_TITLES: Record<Tab, string> = {
-    all:         'Leady',
-    discovery:   'Hledání e-mailů',
-    ready:       'Připraveni',
-    problematic: 'Problémové leady',
+    all:         t('leads.title'),
+    discovery:   t('leads.emailDiscovery'),
+    ready:       t('leads.readyLeads'),
+    problematic: t('leads.problematicLeads'),
   };
 
   return (
@@ -121,7 +123,7 @@ export default function LeadsPage() {
 
       {tab === 'problematic' && (
         <div style={{ padding: '10px 14px', background: 'rgba(248,113,113,0.06)', border: '1px solid rgba(248,113,113,0.2)', borderRadius: 8, fontSize: 13, color: '#f87171' }}>
-          Leady bez nalezeného e-mailu. Jsou vyřazeny z vln a čekají na alternativní způsob oslovení.
+          {t('leads.problematicDesc')}
         </div>
       )}
 
@@ -145,7 +147,7 @@ export default function LeadsPage() {
           <span style={{ fontWeight: 700, fontSize: 15, background: 'rgba(251,146,60,0.2)', border: '1px solid rgba(251,146,60,0.4)', borderRadius: 20, padding: '1px 9px', lineHeight: 1.6 }}>
             {needsReviewCount}
           </span>
-          <span><strong>leadů čeká na kontrolu</strong> — catch-all doména, nelze automaticky ověřit email. Klikněte pro zobrazení.</span>
+          <span dangerouslySetInnerHTML={{ __html: t('leads.needsReview') }} />
         </button>
       )}
 

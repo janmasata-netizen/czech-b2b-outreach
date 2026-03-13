@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import GlassButton from '@/components/glass/GlassButton';
 import ConfirmDialog from '@/components/shared/ConfirmDialog';
 import { useDeleteLeads, useUpdateLeadStatus } from '@/hooks/useLeads';
@@ -12,6 +13,7 @@ interface BulkActionsProps {
 }
 
 export default function BulkActions({ selected, onClear }: BulkActionsProps) {
+  const { t } = useTranslation();
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [showStatusPicker, setShowStatusPicker] = useState(false);
   const [showTagPicker, setShowTagPicker] = useState(false);
@@ -24,55 +26,55 @@ export default function BulkActions({ selected, onClear }: BulkActionsProps) {
   async function handleDelete() {
     try {
       await deleteMutation.mutateAsync(selected);
-      toast.success(`Smazáno ${selected.length} leadů`);
+      toast.success(t('bulk.deleted', { count: selected.length }));
       onClear();
       setConfirmDelete(false);
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     } catch (e: any) {
-      toast.error('Chyba při mazání leadů' + (e?.message ? ': ' + e.message : ''), { duration: 8000 });
+      toast.error(t('bulk.errorDeleting') + (e?.message ? ': ' + e.message : ''), { duration: 8000 });
     }
   }
 
   async function handleStatusChange(status: string) {
     try {
       await Promise.all(selected.map(id => updateStatus.mutateAsync({ id, status })));
-      toast.success(`Stav změněn na "${status}" pro ${selected.length} leadů`);
+      toast.success(t('bulk.statusChanged', { status, count: selected.length }));
       setShowStatusPicker(false);
     } catch {
-      toast.error('Chyba při změně stavu', { duration: 8000 });
+      toast.error(t('bulk.errorChangingStatus'), { duration: 8000 });
     }
   }
 
   async function handleBulkTag(tagId: string, tagName: string) {
     try {
       await Promise.all(selected.map(leadId => addTag.mutateAsync({ leadId, tagId, tagName })));
-      toast.success(`Štítek "${tagName}" přidán k ${selected.length} leadům`);
+      toast.success(t('bulk.tagAdded', { name: tagName, count: selected.length }));
       setShowTagPicker(false);
     } catch {
-      toast.error('Chyba při přidávání štítku', { duration: 8000 });
+      toast.error(t('bulk.errorAddingTag'), { duration: 8000 });
     }
   }
 
   if (!selected.length) return null;
 
   const STATUS_OPTIONS = [
-    { value: 'ready', label: 'Připraven' },
-    { value: 'problematic', label: 'Problémový' },
-    { value: 'needs_review', label: 'Čeká na kontrolu' },
+    { value: 'ready', label: t('bulk.statusReady') },
+    { value: 'problematic', label: t('bulk.statusProblematic') },
+    { value: 'needs_review', label: t('bulk.statusNeedsReview') },
   ];
 
   return (
     <>
       <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '10px 16px', background: 'rgba(62,207,142,0.06)', border: '1px solid rgba(62,207,142,0.2)', borderRadius: 8, flexWrap: 'wrap', position: 'relative' }}>
         <span style={{ fontSize: 13, color: 'var(--text-dim)', fontWeight: 500 }}>
-          Vybráno: <strong style={{ color: 'var(--green)' }}>{selected.length}</strong>
+          {t('common.selected')}: <strong style={{ color: 'var(--green)' }}>{selected.length}</strong>
         </span>
         <div style={{ flex: 1 }} />
 
         {/* Status picker */}
         <div style={{ position: 'relative' }}>
           <GlassButton size="sm" variant="secondary" onClick={() => { setShowStatusPicker(v => !v); setShowTagPicker(false); }}>
-            Změnit stav
+            {t('bulk.changeStatus')}
           </GlassButton>
           {showStatusPicker && (
             <div style={{
@@ -103,7 +105,7 @@ export default function BulkActions({ selected, onClear }: BulkActionsProps) {
         {tags.length > 0 && (
           <div style={{ position: 'relative' }}>
             <GlassButton size="sm" variant="secondary" onClick={() => { setShowTagPicker(v => !v); setShowStatusPicker(false); }}>
-              Přidat štítek
+              {t('bulk.addTag')}
             </GlassButton>
             {showTagPicker && (
               <div style={{
@@ -133,10 +135,10 @@ export default function BulkActions({ selected, onClear }: BulkActionsProps) {
         )}
 
         <GlassButton size="sm" variant="danger" onClick={() => setConfirmDelete(true)}>
-          Smazat vybrané
+          {t('bulk.deleteSelected')}
         </GlassButton>
         <GlassButton size="sm" variant="secondary" onClick={onClear}>
-          Zrušit výběr
+          {t('common.clearSelection')}
         </GlassButton>
       </div>
 
@@ -144,9 +146,9 @@ export default function BulkActions({ selected, onClear }: BulkActionsProps) {
         open={confirmDelete}
         onClose={() => setConfirmDelete(false)}
         onConfirm={handleDelete}
-        title="Smazat leady"
-        message={`Opravdu chcete smazat ${selected.length} vybraných leadů? Tato akce je nevratná.`}
-        confirmLabel="Smazat"
+        title={t('bulk.deleteLeads')}
+        message={t('bulk.deleteLeadsConfirm', { count: selected.length })}
+        confirmLabel={t('common.delete')}
         loading={deleteMutation.isPending}
       />
     </>

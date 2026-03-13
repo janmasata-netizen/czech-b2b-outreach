@@ -1,8 +1,10 @@
 import { useState, type FormEvent } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { useTranslation } from 'react-i18next';
 import { useAuthContext } from '@/components/AuthProvider';
 
 export default function LoginPage() {
+  const { t } = useTranslation();
   const { signIn, user } = useAuthContext();
   const navigate = useNavigate();
   const [email, setEmail] = useState('');
@@ -23,7 +25,7 @@ export default function LoginPage() {
       await signIn(email, password);
       navigate('/prehled', { replace: true });
     } catch (err: unknown) {
-      setError(err instanceof Error ? err.message : 'Přihlášení selhalo');
+      setError(err instanceof Error ? err.message : t('auth.loginFailed'));
     } finally {
       setLoading(false);
     }
@@ -40,14 +42,14 @@ export default function LoginPage() {
             alt="Meisat"
             style={{ height: 48, marginBottom: 14, objectFit: 'contain', display: 'block' }}
           />
-          <p style={{ fontSize: 13, color: 'var(--text-dim)' }}>Přihlaste se ke svému účtu</p>
+          <p style={{ fontSize: 13, color: 'var(--text-dim)' }}>{t('auth.loginTitle')}</p>
         </div>
 
         {/* Card */}
         <div style={{ background: 'var(--bg-surface)', border: '1px solid var(--border)', borderRadius: 10, padding: '28px 28px 24px' }}>
           <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
             <div style={{ display: 'flex', flexDirection: 'column', gap: 5 }}>
-              <label style={{ fontSize: 12, fontWeight: 500, color: 'var(--text-dim)' }}>E-mail</label>
+              <label style={{ fontSize: 12, fontWeight: 500, color: 'var(--text-dim)' }}>{t('auth.email')}</label>
               <input
                 className="glass-input"
                 type="email"
@@ -60,7 +62,7 @@ export default function LoginPage() {
             </div>
 
             <div style={{ display: 'flex', flexDirection: 'column', gap: 5 }}>
-              <label style={{ fontSize: 12, fontWeight: 500, color: 'var(--text-dim)' }}>Heslo</label>
+              <label style={{ fontSize: 12, fontWeight: 500, color: 'var(--text-dim)' }}>{t('auth.password')}</label>
               <input
                 className="glass-input"
                 type="password"

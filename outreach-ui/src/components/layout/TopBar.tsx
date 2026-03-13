@@ -1,18 +1,28 @@
 import { useState, useRef, useEffect } from 'react';
-import { LogOut, Settings, Menu } from 'lucide-react';
+import { LogOut, Settings, Menu, Bug } from 'lucide-react';
 import { Link } from 'react-router-dom';
+import { useTranslation } from 'react-i18next';
 import { useAuthContext } from '@/components/AuthProvider';
 import { useMobileNav } from '@/hooks/useMobileNav';
+import BugReportModal from '@/components/system/BugReportModal';
 
 export const TOP_H = 48;
 
 export default function TopBar() {
   const { user, profile, signOut } = useAuthContext();
   const { isMobile, toggleSidebar } = useMobileNav();
+  const { t, i18n } = useTranslation();
   const [open, setOpen] = useState(false);
+  const [bugModalOpen, setBugModalOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
 
-  const displayName = profile?.full_name ?? user?.email?.split('@')[0] ?? 'Uživatel';
+  const toggleLang = () => {
+    const next = i18n.language === 'cs' ? 'en' : 'cs';
+    i18n.changeLanguage(next);
+    localStorage.setItem('lang', next);
+  };
+
+  const displayName = profile?.full_name ?? user?.email?.split('@')[0] ?? t('auth.user');
   const initials = displayName.slice(0, 2).toUpperCase();
 
   useEffect(() => {
@@ -67,7 +77,41 @@ export default function TopBar() {
         />
       </div>
 
-      {/* Right: user avatar + dropdown */}
+      {/* Right: lang toggle + user avatar + dropdown */}
+      <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+        <button
+          onClick={toggleLang}
+          title={i18n.language === 'cs' ? 'Switch to English' : 'Přepnout do češtiny'}
+          style={{
+            width: 32, height: 32, borderRadius: '50%',
+            border: '1px solid var(--border)',
+            background: 'none',
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+            cursor: 'pointer', color: 'var(--text-dim)',
+            fontSize: 11, fontWeight: 700, letterSpacing: '0.02em',
+            transition: 'border-color 0.15s, color 0.15s, background 0.15s',
+          }}
+          onMouseEnter={e => { e.currentTarget.style.borderColor = 'var(--border-strong)'; e.currentTarget.style.color = 'var(--text)'; e.currentTarget.style.background = 'var(--bg-surface)'; }}
+          onMouseLeave={e => { e.currentTarget.style.borderColor = 'var(--border)'; e.currentTarget.style.color = 'var(--text-dim)'; e.currentTarget.style.background = 'none'; }}
+        >
+          {i18n.language === 'cs' ? 'EN' : 'CS'}
+        </button>
+        <button
+          onClick={() => setBugModalOpen(true)}
+          title={t('bugReport.title')}
+          style={{
+            width: 32, height: 32, borderRadius: '50%',
+            border: '1px solid var(--border)',
+            background: 'none',
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+            cursor: 'pointer', color: 'var(--text-dim)',
+            transition: 'border-color 0.15s, color 0.15s, background 0.15s',
+          }}
+          onMouseEnter={e => { e.currentTarget.style.borderColor = 'var(--border-strong)'; e.currentTarget.style.color = 'var(--text)'; e.currentTarget.style.background = 'var(--bg-surface)'; }}
+          onMouseLeave={e => { e.currentTarget.style.borderColor = 'var(--border)'; e.currentTarget.style.color = 'var(--text-dim)'; e.currentTarget.style.background = 'none'; }}
+        >
+          <Bug size={16} />
+        </button>
       <div ref={ref} style={{ position: 'relative' }}>
         <button
           onClick={() => setOpen(o => !o)}
@@ -156,7 +200,7 @@ export default function TopBar() {
                 }}
               >
                 <Settings size={14} />
-                Nastavení
+                {t('nav.settings')}
               </Link>
               <button
                 onClick={() => { setOpen(false); signOut(); }}
@@ -178,13 +222,15 @@ export default function TopBar() {
                 onMouseLeave={e => (e.currentTarget.style.background = 'none')}
               >
                 <LogOut size={14} />
-                Odhlásit se
+                {t('auth.logout')}
               </button>
             </div>
 
           </div>
         )}
       </div>
+      </div>
+      <BugReportModal open={bugModalOpen} onClose={() => setBugModalOpen(false)} />
     </header>
   );
 }
