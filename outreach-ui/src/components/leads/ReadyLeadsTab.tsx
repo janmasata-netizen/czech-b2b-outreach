@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { useNavigate } from 'react-router-dom';
 import { useLeads } from '@/hooks/useLeads';
 import { extractDomain } from '@/lib/utils';
@@ -18,6 +19,7 @@ const TH: React.CSSProperties = {
 };
 
 export default function ReadyLeadsTab() {
+  const { t } = useTranslation();
   const navigate = useNavigate();
   const [page, setPage] = useState(1);
   const [selected, setSelected] = useState<string[]>([]);
@@ -42,9 +44,9 @@ export default function ReadyLeadsTab() {
     return (
       <EmptyState
         icon="◎"
-        title="Žádné připravené leady"
-        description="Leady s ověřeným e-mailem se zobrazí zde. Přidejte lead a počkejte na dokončení obohacování."
-        action={<GlassButton variant="secondary" onClick={() => navigate('/leady?new=1')}>+ Přidat lead</GlassButton>}
+        title={t('leads.noReadyLeads')}
+        description={t('leads.noReadyLeadsDesc')}
+        action={<GlassButton variant="secondary" onClick={() => navigate('/leady?new=1')}>+ {t('leads.addLeadShort')}</GlassButton>}
       />
     );
   }
@@ -54,7 +56,7 @@ export default function ReadyLeadsTab() {
       {/* Bulk action bar */}
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
         <div style={{ fontSize: 13, color: 'var(--text-muted)' }}>
-          {total.toLocaleString('cs-CZ')} připravených leadů
+          {t('leads.readyLeadsCount', { count: total })}
         </div>
         {selected.length > 0 && (
           <GlassButton
@@ -62,7 +64,7 @@ export default function ReadyLeadsTab() {
             size="sm"
             onClick={() => setPushIds(selected)}
           >
-            Přidat {selected.length} do vlny
+            {t('leads.addCountToWave', { count: selected.length })}
           </GlassButton>
         )}
       </div>
@@ -80,7 +82,7 @@ export default function ReadyLeadsTab() {
                     style={{ accentColor: 'var(--green)' }}
                   />
                 </th>
-                {['Firma', 'IČO', 'Doména', 'Web', ''].map(h => (
+                {[t('leads.tableHeaders.company'), t('leads.tableHeaders.ico'), t('leads.tableHeaders.domain'), t('leads.tableHeaders.web'), ''].map(h => (
                   <th key={h} style={TH}>{h}</th>
                 ))}
               </tr>
@@ -129,7 +131,7 @@ export default function ReadyLeadsTab() {
                         variant="primary"
                         onClick={() => setPushIds([lead.id])}
                       >
-                        Přidat do vlny
+                        {t('leads.addToWave')}
                       </GlassButton>
                     </td>
                   </tr>

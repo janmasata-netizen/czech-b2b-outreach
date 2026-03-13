@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { useTranslation } from 'react-i18next';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useWaves } from '@/hooks/useWaves';
 import PageHeader from '@/components/layout/PageHeader';
@@ -7,31 +8,34 @@ import CreateWaveDialog from '@/components/waves/CreateWaveDialog';
 
 type Tab = 'manager' | 'live' | 'archive';
 
-const TABS: { id: Tab; statuses: string[]; title: string; emptyTitle: string; emptyDesc: string }[] = [
+type TabDef = { id: Tab; statuses: string[]; titleKey: string; emptyTitleKey: string; emptyDescKey: string };
+
+const TABS: TabDef[] = [
   {
     id: 'manager',
     statuses: ['draft'],
-    title: 'Manager',
-    emptyTitle: 'Žádné koncepty',
-    emptyDesc: 'Vytvořte první vlnu pomocí tlačítka níže v postranním panelu.',
+    titleKey: 'sub.manager',
+    emptyTitleKey: 'waves.noDrafts',
+    emptyDescKey: 'waves.noDraftsDesc',
   },
   {
     id: 'live',
     statuses: ['scheduled', 'sending'],
-    title: 'Live',
-    emptyTitle: 'Žádné aktivní vlny',
-    emptyDesc: 'Naplánované a odesílané vlny se zobrazí zde.',
+    titleKey: 'sub.live',
+    emptyTitleKey: 'waves.noActiveWaves',
+    emptyDescKey: 'waves.noActiveWavesDesc',
   },
   {
     id: 'archive',
     statuses: ['done', 'completed', 'paused'],
-    title: 'Archiv',
-    emptyTitle: 'Archiv je prázdný',
-    emptyDesc: 'Dokončené vlny se zobrazí zde.',
+    titleKey: 'sub.archive',
+    emptyTitleKey: 'waves.emptyArchive',
+    emptyDescKey: 'waves.emptyArchiveDesc',
   },
 ];
 
 export default function WavesPage() {
+  const { t } = useTranslation();
   const { data: waves, isLoading } = useWaves();
   const [searchParams, setSearchParams] = useSearchParams();
   const [showCreate, setShowCreate] = useState(false);
@@ -58,16 +62,16 @@ export default function WavesPage() {
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
       <PageHeader
-        title={tab.title}
-        subtitle={`${filtered.length} vln`}
+        title={t(tab.titleKey)}
+        subtitle={t('waves.wavesCount', { count: filtered.length })}
       />
 
       <div style={{ background: 'var(--bg-surface)', border: '1px solid var(--border)', borderRadius: 8, overflow: 'hidden' }}>
         {filtered.length === 0 && !isLoading ? (
           <div style={{ padding: '48px 24px', textAlign: 'center' }}>
             <div style={{ fontSize: 24, marginBottom: 8, color: 'var(--text-muted)' }}>⌁</div>
-            <div style={{ fontSize: 14, fontWeight: 600, color: 'var(--text)', marginBottom: 4 }}>{tab.emptyTitle}</div>
-            <div style={{ fontSize: 13, color: 'var(--text-muted)' }}>{tab.emptyDesc}</div>
+            <div style={{ fontSize: 14, fontWeight: 600, color: 'var(--text)', marginBottom: 4 }}>{t(tab.emptyTitleKey)}</div>
+            <div style={{ fontSize: 13, color: 'var(--text-muted)' }}>{t(tab.emptyDescKey)}</div>
           </div>
         ) : (
           <WavesTable waves={filtered} isLoading={isLoading} />

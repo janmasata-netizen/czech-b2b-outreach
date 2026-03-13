@@ -7,60 +7,12 @@ import {
   LayoutList, Zap, Archive, AlertTriangle, CircleCheck, Plus, Ban, Upload,
   Hash, UserSearch, MailCheck, Radar,
 } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
 import { TOP_H } from './TopBar';
 import { useMobileNav } from '@/hooks/useMobileNav';
 import { useAuthContext } from '@/components/AuthProvider';
 
-const DATA_ITEMS = [
-  { to: '/prehled',      label: 'Přehled',      Icon: LayoutDashboard, exact: true  },
-  { to: '/databaze',     label: 'Databáze',     Icon: Database,        exact: false },
-  { to: '/leady',        label: 'Leady',        Icon: Users,           exact: false },
-];
-
-const ACTION_ITEMS = [
-  { to: '/vlny',         label: 'Vlny',         Icon: Send,            exact: false },
-  { to: '/sablony',     label: 'Šablony',      Icon: FileText,        exact: true  },
-  { to: '/retarget',     label: 'Retarget',     Icon: RefreshCcw,      exact: true  },
-];
-
-const PEOPLE_ITEMS = [
-  { to: '/nastaveni/tymy',       label: 'Týmy',       Icon: Building2, exact: true },
-  { to: '/nastaveni/obchodnici', label: 'Obchodníci', Icon: UserCheck, exact: true },
-  { to: '/nastaveni/uzivatele',  label: 'Uživatelé',  Icon: UserCog,   exact: true },
-];
-
-const CONFIG_ITEMS = [
-  { to: '/nastaveni/api-klice', label: 'API klíče',     Icon: Key,      exact: true },
-  { to: '/email-finder',        label: 'Email Finder',  Icon: Search,   exact: false },
-  { to: '/system',              label: 'Systém',        Icon: Activity,  exact: true  },
-];
-
-/* SubPanel sections — duplicated here for mobile drawer */
 type SubItem = { label: string; to: string; tabParam?: string; defaultTab?: true; Icon: React.ElementType };
-const LEAD_SUBS: SubItem[] = [
-  { label: 'Všechny',          to: '/leady', defaultTab: true,        Icon: Users         },
-  { label: 'Hledání e-mailů',  to: '/leady', tabParam: 'discovery',   Icon: Search        },
-  { label: 'Připraveni',       to: '/leady', tabParam: 'ready',        Icon: CircleCheck   },
-  { label: 'Problémové',       to: '/leady', tabParam: 'problematic',  Icon: AlertTriangle },
-];
-const WAVE_SUBS: SubItem[] = [
-  { label: 'Manager', to: '/vlny', defaultTab: true,    Icon: LayoutList },
-  { label: 'Live',    to: '/vlny', tabParam: 'live',    Icon: Zap        },
-  { label: 'Archiv',  to: '/vlny', tabParam: 'archive', Icon: Archive    },
-];
-const DB_SUBS: SubItem[] = [
-  { label: 'Všechny',      to: '/databaze', defaultTab: true,         Icon: Database      },
-  { label: 'Aktivní',      to: '/databaze', tabParam: 'active',       Icon: CircleCheck   },
-  { label: 'Blacklist',    to: '/databaze', tabParam: 'blacklist',    Icon: Ban           },
-  { label: 'Archivováno',  to: '/databaze', tabParam: 'archived',     Icon: Archive       },
-];
-const FINDER_SUBS: SubItem[] = [
-  { label: 'Podle IČO',    to: '/email-finder', defaultTab: true,      Icon: Hash       },
-  { label: 'Podle jména',  to: '/email-finder', tabParam: 'name',      Icon: UserSearch },
-  { label: 'Ověřit e-mail',to: '/email-finder', tabParam: 'verify',    Icon: MailCheck  },
-  { label: 'Přímá sonda',  to: '/email-finder', tabParam: 'probe',     Icon: Radar      },
-  { label: 'Hromadné',    to: '/email-finder', tabParam: 'bulk',      Icon: Upload      },
-];
 
 const W_COLLAPSED = 44;
 const W_EXPANDED  = 216;
@@ -74,7 +26,57 @@ export default function Sidebar() {
   const [hover, setHover] = useState(false);
   const { isMobile, sidebarOpen, closeSidebar } = useMobileNav();
   const { profile } = useAuthContext();
+  const { t } = useTranslation();
   const isAdmin = profile?.is_admin === true;
+
+  const DATA_ITEMS = [
+    { to: '/prehled',      label: t('nav.dashboard'),  Icon: LayoutDashboard, exact: true  },
+    { to: '/databaze',     label: t('nav.database'),   Icon: Database,        exact: false },
+    { to: '/leady',        label: t('nav.leads'),      Icon: Users,           exact: false },
+  ];
+
+  const ACTION_ITEMS = [
+    { to: '/vlny',         label: t('nav.waves'),      Icon: Send,            exact: false },
+    { to: '/sablony',     label: t('nav.templates'),  Icon: FileText,        exact: true  },
+    { to: '/retarget',     label: t('nav.retarget'),   Icon: RefreshCcw,      exact: true  },
+  ];
+
+  const PEOPLE_ITEMS = [
+    { to: '/nastaveni/tymy',       label: t('nav.teams'),     Icon: Building2, exact: true },
+    { to: '/nastaveni/obchodnici', label: t('nav.salesmen'),  Icon: UserCheck, exact: true },
+    { to: '/nastaveni/uzivatele',  label: t('nav.users'),     Icon: UserCog,   exact: true },
+  ];
+
+  const CONFIG_ITEMS = [
+    { to: '/nastaveni/api-klice', label: t('nav.apiKeys'),     Icon: Key,      exact: true },
+    { to: '/email-finder',        label: t('nav.emailFinder'), Icon: Search,   exact: false },
+    { to: '/system',              label: t('nav.system'),      Icon: Activity,  exact: true  },
+  ];
+
+  const LEAD_SUBS: SubItem[] = [
+    { label: t('sub.all'),            to: '/leady', defaultTab: true,        Icon: Users         },
+    { label: t('sub.emailDiscovery'), to: '/leady', tabParam: 'discovery',   Icon: Search        },
+    { label: t('sub.ready'),          to: '/leady', tabParam: 'ready',        Icon: CircleCheck   },
+    { label: t('sub.problematic'),    to: '/leady', tabParam: 'problematic',  Icon: AlertTriangle },
+  ];
+  const WAVE_SUBS: SubItem[] = [
+    { label: t('sub.manager'), to: '/vlny', defaultTab: true,    Icon: LayoutList },
+    { label: t('sub.live'),    to: '/vlny', tabParam: 'live',    Icon: Zap        },
+    { label: t('sub.archive'), to: '/vlny', tabParam: 'archive', Icon: Archive    },
+  ];
+  const DB_SUBS: SubItem[] = [
+    { label: t('sub.all'),        to: '/databaze', defaultTab: true,       Icon: Database      },
+    { label: t('sub.active'),     to: '/databaze', tabParam: 'active',     Icon: CircleCheck   },
+    { label: t('sub.blacklist'),  to: '/databaze', tabParam: 'blacklist',  Icon: Ban           },
+    { label: t('sub.archived'),   to: '/databaze', tabParam: 'archived',   Icon: Archive       },
+  ];
+  const FINDER_SUBS: SubItem[] = [
+    { label: t('sub.byIco'),       to: '/email-finder', defaultTab: true,      Icon: Hash       },
+    { label: t('sub.byName'),      to: '/email-finder', tabParam: 'name',      Icon: UserSearch },
+    { label: t('sub.verifyEmail'), to: '/email-finder', tabParam: 'verify',    Icon: MailCheck  },
+    { label: t('sub.directProbe'), to: '/email-finder', tabParam: 'probe',     Icon: Radar      },
+    { label: t('sub.bulk'),        to: '/email-finder', tabParam: 'bulk',      Icon: Upload      },
+  ];
 
   const open = isMobile ? sidebarOpen : hover;
 
@@ -256,10 +258,10 @@ export default function Sidebar() {
             {DATA_ITEMS.map(item => (
               <div key={item.to}>
                 {navLink(item)}
-                {item.to === '/databaze' && showDbSubs && renderSubItems(DB_SUBS, 'Stav', [{ label: 'Přidat záznam', href: '/databaze?new=1' }])}
-                {item.to === '/leady' && showLeadSubs && renderSubItems(LEAD_SUBS, 'Filtry', [
-                  { label: 'Přidat lead', href: '/leady?new=1' },
-                  { label: 'Importovat', href: '/leady?action=import', Icon: Upload },
+                {item.to === '/databaze' && showDbSubs && renderSubItems(DB_SUBS, t('sub.status'), [{ label: t('subActions.addRecord'), href: '/databaze?new=1' }])}
+                {item.to === '/leady' && showLeadSubs && renderSubItems(LEAD_SUBS, t('sub.filters'), [
+                  { label: t('subActions.addLead'), href: '/leady?new=1' },
+                  { label: t('subActions.import'), href: '/leady?action=import', Icon: Upload },
                 ])}
               </div>
             ))}
@@ -267,7 +269,7 @@ export default function Sidebar() {
             {ACTION_ITEMS.map(item => (
               <div key={item.to}>
                 {navLink(item)}
-                {item.to === '/vlny' && showWaveSubs && renderSubItems(WAVE_SUBS, 'Zobrazení', [{ label: 'Nová vlna', href: '/vlny?new=1' }])}
+                {item.to === '/vlny' && showWaveSubs && renderSubItems(WAVE_SUBS, t('sub.display'), [{ label: t('subActions.newWave'), href: '/vlny?new=1' }])}
               </div>
             ))}
             {isAdmin && (
@@ -278,7 +280,7 @@ export default function Sidebar() {
                 {CONFIG_ITEMS.map(item => (
                   <div key={item.to}>
                     {navLink(item)}
-                    {item.to === '/email-finder' && showFinderSubs && renderSubItems(FINDER_SUBS, 'Režim')}
+                    {item.to === '/email-finder' && showFinderSubs && renderSubItems(FINDER_SUBS, t('sub.mode'))}
                   </div>
                 ))}
               </>

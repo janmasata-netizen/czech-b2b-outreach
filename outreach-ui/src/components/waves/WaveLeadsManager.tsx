@@ -1,4 +1,5 @@
 import { Fragment, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import GlassCard from '@/components/glass/GlassCard';
 import GlassButton from '@/components/glass/GlassButton';
 import EmptyState from '@/components/shared/EmptyState';

@@ -209,6 +209,19 @@ export default {
     },
   },
 
+  // ── Dashboard Charts ──
+  dashboardCharts: {
+    sentEmails: 'Odeslané e-maily',
+    noData: 'Žádná data',
+    replyRateByTemplate: 'Reply rate podle šablony',
+    replyRateByWave: 'Reply rate podle vlny',
+    noTemplateSet: '— bez šablony —',
+    sequence1: 'Sekvence 1',
+    sequence2: 'Sekvence 2',
+    sequence3: 'Sekvence 3',
+    all: 'Vše',
+  },
+
   // ── Onboarding ──
   onboarding: {
     title: 'Nastavení systemu',
@@ -490,17 +503,60 @@ export default {
     helpText: 'Šablony, datum a leady nastavíte po vytvoření vlny.',
     creating: 'Vytvářím…',
     create: 'Vytvořit',
+    noPreset: '— Bez presetu —',
+    noPresetsAvailable: 'Žádné presety — vytvořte na stránce vlny',
+    retargetLeadsCount: '{{count}} leadů bude automaticky přidáno do vlny.',
+    waveCreated: 'Vlna vytvořena',
+    retargetWaveCreated: 'Retarget vlna vytvořena s {{count}} leady',
+    enterWaveName: 'Zadejte název vlny',
+    selectTeam: 'Vyberte tým',
   },
 
   // ── Wave Config Form ──
   waveConfig: {
+    title: 'Konfigurace vlny',
     errorSaving: 'Chyba při ukládání vlny',
+    waveSaved: 'Vlna uložena',
+    lockedMessage: 'Vlna je aktivní — nastavení nelze měnit',
+    templateSet: 'Sada šablon',
+    noTemplate: '— Bez šablon —',
+    salesman: 'Obchodník (Reply-To)',
+    selectSalesman: '— Vyberte obchodníka —',
+    fromEmail: 'Odesílací email (FROM)',
+    testWave: 'Testovací vlna',
+    dummyRecipient: 'Dummy příjemce (testovací email)',
+    saveChanges: 'Uložit změny',
+    unsavedChanges: 'Neuložené změny',
+    savePresetTitle: 'Uložit preset',
+    presetName: 'Název presetu',
+    presetDescription: 'Uloží aktuální šablonu, odesílací email a obchodníka jako znovupoužitelný preset.',
   },
 
   // ── Add Leads to Wave Dialog ──
   addLeadsToWave: {
     title: 'Přidat leady do vlny',
     adding: 'Přidávám…',
+  },
+
+  // ── Wave Leads Manager ──
+  waveLeadsManager: {
+    title: 'Leady ve vlně',
+    addLeads: '+ Přidat leady',
+    noLeads: 'Žádné leady',
+    noLeadsDesc: 'Přidejte leady do vlny.',
+    removeFromWave: 'Odebrat',
+    removeConfirm: 'Odebrat "{{name}}" z vlny?\nStav leadu bude nastaven zpět na "připraven".',
+    removed: 'Lead odebrán z vlny',
+    tableHeaders: {
+      status: 'Stav',
+      company: 'Firma',
+      ico: 'IČO',
+      email: 'Email',
+      emailStatus: 'Email stav',
+      emailOk: 'Email ✓',
+      sent: 'Odesláno',
+      reply: 'Odpověď',
+    },
   },
 
   // ── Database ──
@@ -627,6 +683,97 @@ export default {
     editSalesman: 'Upravit obchodníka',
     newUser: 'Nový uživatel',
     deleteUser: 'Smazat uživatele',
+    // Teams
+    teamsTitle: 'Týmy',
+    teamName: 'Název týmu',
+    dailyLimit: 'Denní limit odesílání',
+    dailyLimitHint: 'Maximální počet emailů odeslaných za den pro tento tým. FROM email se nastavuje přímo na vlně.',
+    retargetLockout: 'Retarget lockout (dny)',
+    retargetLockoutHint: 'Počet dnů od posledního kontaktu, po které nelze lead znovu oslovit. Výchozí: 120.',
+    dailyLimitLabel: 'Denní limit:',
+    noTeams: 'Žádné týmy',
+    teamCreated: 'Tým vytvořen',
+    teamSaved: 'Tým uložen',
+    enterTeamName: 'Zadejte název týmu',
+    errorSaving: 'Chyba při ukládání: ',
+    // Salesmen
+    salesmenTitle: 'Obchodníci',
+    salesmenSubtitle: 'Každý obchodník má vlastní IMAP inbox a Reply-To e-mail. Max. 5 aktivních.',
+    salesmanName: 'Jméno obchodníka',
+    salesmanEmail: 'E-mail (Reply-To)',
+    imapCredential: 'Název IMAP credentialu v n8n *',
+    imapCredentialHint: 'Musí odpovídat názvu IMAP credentialu vytvořeného v n8n.',
+    selectSlot: '— Vyberte slot —',
+    activeLabel: 'Aktivní (zahrnout do reply detection)',
+    noSalesmen: 'Žádní obchodníci',
+    salesmanSaved: 'Obchodník uložen',
+    enterSalesmanName: 'Zadejte jméno obchodníka',
+    enterSalesmanEmail: 'Zadejte e-mail obchodníka',
+    enterImapCredential: 'Zadejte název IMAP credentialu v n8n',
+    selectTeam: 'Vyberte tým',
+    maxSalesmen: 'Nelze přidat více než 5 aktivních obchodníků',
+    deleteSalesmanTitle: 'Smazat obchodníka',
+    deleteSalesmanConfirm: 'Opravdu smazat obchodníka <1>{{name}}</1>? Existující vlny a odpovědi přiřazené tomuto obchodníkovi zůstanou zachovány.',
+    salesmanDeleted: 'Obchodník smazán',
+    errorDeletingSalesman: 'Chyba při mazání obchodníka',
+    activeSalesmenCount: '{{count}} / 5 aktivních obchodníků',
+    // Users
+    usersTitle: 'Uživatelé',
+    fullName: 'Celé jméno',
+    password: 'Heslo *',
+    passwordMin: 'Minimálně 8 znaků',
+    team: 'Tým *',
+    selectTeamOption: '— Vyberte tým —',
+    administrator: 'Administrátor',
+    adminDesc: '(může spravovat uživatele)',
+    fillRequired: 'Vyplňte jméno, e-mail a heslo',
+    userCreated: 'Uživatel vytvořen',
+    changePassword: 'Změnit heslo',
+    changeOwnPassword: 'Změnit vlastní heslo',
+    newPassword: 'Nové heslo *',
+    passwordChanged: 'Heslo změněno',
+    passwordHint: 'Heslo bude změněno pro tohoto uživatele.',
+    enterNewPassword: 'Zadejte nové heslo',
+    nameRequired: 'Jméno nesmí být prázdné',
+    profileSaved: 'Profil uložen',
+    userDeleted: 'Uživatel smazán',
+    deleteUserConfirm: 'Opravdu chcete smazat uživatele <1>{{name}}</1>? Tato akce je nevratná.',
+    noUsers: 'Žádní uživatelé',
+    errorLoading: 'Chyba při načítání uživatelů: ',
+    unknownError: 'Neznámá chyba',
+    you: 'vy',
+    noTeamOption: '— Žádný —',
+    userDetailName: 'Jméno',
+    userDetailEmail: 'E-mail',
+    userDetailRole: 'Role',
+    userDetailTeam: 'Tým',
+    userDetailDailyLimit: 'Denní limit',
+    userDetailSentToday: 'Odesláno dnes',
+    userDetailTeamActive: 'Tým aktivní',
+    userDetailRegistration: 'Registrace',
+    userRole: 'Uživatel',
+    // API Keys
+    apiKeysTitle: 'API klíče',
+    saved: 'Uloženo',
+    keyLabel: 'Klíč:',
+    // Templates
+    templatesTitle: 'Šablony',
+    newTemplate: '+ Nová šablona',
+    templateName: 'Název šablony',
+    noTemplates: 'Žádné šablony',
+    templateCreated: 'Šablona vytvořena',
+    errorCreatingTemplate: 'Chyba při vytváření šablony',
+    templateDeleted: 'Šablona smazána',
+    templateInUse: 'Šablonu nelze smazat — je používána vlnou',
+    errorDeletingTemplate: 'Chyba při mazání šablony',
+    unknownTeam: 'Neznámý tým',
+    // Wave presets
+    wavePresetsTitle: 'Vlnové presety',
+    noPresets: 'Žádné presety. Preset vytvoříte na stránce vlny tlačítkem Uložit jako preset.',
+    presetDeleted: 'Preset smazán',
+    errorDeletingPreset: 'Chyba při mazání presetu',
+    unknownTeamPreset: 'Neznámý tým',
+    emptyPreset: 'Prázdný preset',
   },
 
   // ── Email Finder ──
@@ -805,6 +952,16 @@ export default {
     enterCompanyName: 'Zadejte název firmy',
   },
 
+  // ── Email Sequence Cards ──
+  emailSequence: {
+    noTemplates: 'Žádné šablony přiřazeny',
+    notScheduled: 'Nenaplánováno',
+    templateMissing: 'Šablona pro tuto sekvenci chybí',
+    sendNow: 'Odeslat hned',
+    draft: 'Koncept',
+    sending: 'Odesílám…',
+  },
+
   // ── Waves table ──
   wavesTable: {
     tableHeaders: {
@@ -822,6 +979,10 @@ export default {
   emailEdit: {
     subject: 'Předmět',
     errorSaving: 'Chyba: ',
+    editTitle: 'Upravit email — SEQ{{seq}}',
+    emailBody: 'Tělo e-mailu',
+    emailUpdated: 'Email aktualizován',
+    variables: 'Proměnné: ',
   },
 
   // ── Shared ConfirmDialog (shared/) ──
@@ -859,6 +1020,15 @@ export default {
   // ── Wave Results ──
   waveResults: {
     title: 'Výsledky',
+    totalLeads: 'Celkem leadů',
+    sent: 'Odesláno',
+    replies: 'Odpovědí',
+    replyRate: 'Reply rate',
+    sequenceProgress: 'Průběh sekvencí',
+    sequence: 'Sekvence {{num}}',
+    sentCount: '{{count}} / {{total}} odesláno',
+    sentAt: 'Odesláno {{date}}',
+    scheduledAt: 'Naplánováno {{date}}',
   },
 
   // ── Team Distribution ──

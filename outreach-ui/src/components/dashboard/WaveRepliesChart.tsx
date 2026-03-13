@@ -1,3 +1,4 @@
+import { useTranslation } from 'react-i18next';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell } from 'recharts';
 import { useWaveReplies } from '@/hooks/useDashboard';
 import { formatPercent } from '@/lib/utils';

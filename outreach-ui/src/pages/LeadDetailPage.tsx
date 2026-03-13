@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { useParams, useNavigate, Link } from 'react-router-dom';
 import { useLead, useUpdateLead } from '@/hooks/useLeads';
 import PageHeader from '@/components/layout/PageHeader';
@@ -19,6 +20,7 @@ import { Building2 } from 'lucide-react';
 import { toast } from 'sonner';
 
 export default function LeadDetailPage() {
+  const { t } = useTranslation();
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const { data: lead, isLoading, error } = useLead(id);
@@ -27,7 +29,7 @@ export default function LeadDetailPage() {
   const [editForm, setEditForm] = useState({ company_name: '', ico: '', website: '', domain: '' });
 
   if (isLoading) return <LoadingSkeleton />;
-  if (error || !lead) return <EmptyState icon="◈" title="Lead nenalezen" action={<GlassButton onClick={() => navigate('/leady')}>← Zpět na leady</GlassButton>} />;
+  if (error || !lead) return <EmptyState icon="◈" title={t('leads.notFound')} action={<GlassButton onClick={() => navigate('/leady')}>{t('leads.backToLeads')}</GlassButton>} />;
 
   function openEdit() {
     setEditForm({
@@ -40,7 +42,7 @@ export default function LeadDetailPage() {
   }
 
   async function handleSaveEdit() {
-    if (!editForm.company_name) { toast.error('Zadejte název firmy', { duration: 8000 }); return; }
+    if (!editForm.company_name) { toast.error(t('toast.enterCompanyName'), { duration: 8000 }); return; }
     try {
       await updateLead.mutateAsync({
         id: lead!.id,
@@ -51,10 +53,10 @@ export default function LeadDetailPage() {
           domain: editForm.domain || undefined,
         },
       });
-      toast.success('Lead aktualizován');
+      toast.success(t('toast.leadUpdated'));
       setEditing(false);
     } catch {
-      toast.error('Chyba při ukládání', { duration: 8000 });
+      toast.error(t('toast.errorSaving'), { duration: 8000 });
     }
   }
 
@@ -64,7 +66,7 @@ export default function LeadDetailPage() {
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
       <Breadcrumb items={[
-        { label: 'Leady', to: '/leady' },
+        { label: t('leads.title'), to: '/leady' },
         { label: lead.company_name ?? 'Lead' },
       ]} />
       <PageHeader
@@ -75,19 +77,19 @@ export default function LeadDetailPage() {
             {companyId && (
               <Link to={`/databaze/${companyId}`} style={{ textDecoration: 'none' }}>
                 <GlassButton size="sm" variant="secondary">
-                  <Building2 size={13} /> Firma
+                  <Building2 size={13} /> {t('leads.company')}
                 </GlassButton>
               </Link>
             )}
-            <GlassButton size="sm" variant="secondary" onClick={openEdit}>Upravit</GlassButton>
-            <GlassButton variant="secondary" onClick={() => navigate('/leady')}>← Zpět</GlassButton>
+            <GlassButton size="sm" variant="secondary" onClick={openEdit}>{t('common.edit')}</GlassButton>
+            <GlassButton variant="secondary" onClick={() => navigate('/leady')}>{t('common.back')}</GlassButton>
           </div>
         }
       />
 
       {enrichmentError && (
         <div style={{ padding: '10px 14px', background: 'rgba(239,68,68,0.08)', border: '1px solid rgba(239,68,68,0.25)', borderRadius: 8, fontSize: 13, color: '#ef4444' }}>
-          <strong>Chyba obohacení:</strong> {enrichmentError}
+          <strong>{t('leads.enrichmentError')}</strong> {enrichmentError}
         </div>
       )}
 
@@ -122,38 +124,38 @@ export default function LeadDetailPage() {
       <GlassModal
         open={editing}
         onClose={() => setEditing(false)}
-        title="Upravit lead"
+        title={t('leads.editLead')}
         width={480}
         footer={
           <>
-            <GlassButton variant="secondary" onClick={() => setEditing(false)}>Zrušit</GlassButton>
+            <GlassButton variant="secondary" onClick={() => setEditing(false)}>{t('common.cancel')}</GlassButton>
             <GlassButton variant="primary" onClick={handleSaveEdit} disabled={updateLead.isPending}>
-              {updateLead.isPending ? 'Ukládám…' : 'Uložit'}
+              {updateLead.isPending ? t('common.saving') : t('common.save')}
             </GlassButton>
           </>
         }
       >
         <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
           <GlassInput
-            label="Název firmy"
+            label={t('database.name')}
             value={editForm.company_name}
             onChange={e => setEditForm(f => ({ ...f, company_name: e.target.value }))}
             required
           />
           <GlassInput
-            label="IČO"
+            label={t('database.ico')}
             value={editForm.ico}
             onChange={e => setEditForm(f => ({ ...f, ico: e.target.value }))}
             style={{ fontFamily: 'JetBrains Mono, monospace' }}
           />
           <GlassInput
-            label="Web"
+            label={t('database.web')}
             placeholder="www.firma.cz"
             value={editForm.website}
             onChange={e => setEditForm(f => ({ ...f, website: e.target.value }))}
           />
           <GlassInput
-            label="Doména (pro email gen)"
+            label={t('database.domainForEmail')}
             placeholder="firma.cz"
             value={editForm.domain}
             onChange={e => setEditForm(f => ({ ...f, domain: e.target.value }))}

@@ -347,7 +347,7 @@ export default function EmailFinderPage() {
     e.preventDefault();
 
     const controller = new AbortController();
-    const fetchTimeout = setTimeout(() => controller.abort(), mode === 'probe' ? 380_000 : 240_000);
+    const fetchTimeout = setTimeout(() => controller.abort(), mode === 'probe' ? 330_000 : 240_000);
     let probeTimer: ReturnType<typeof setTimeout> | null = null;
 
     if (mode === 'ico') {

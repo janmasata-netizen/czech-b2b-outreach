@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { useTranslation } from 'react-i18next';
 import { useSearchParams } from 'react-router-dom';
 import { useCompanies } from '@/hooks/useCompanies';
 import type { CompanyFilters, MasterStatus } from '@/types/database';
@@ -15,6 +16,7 @@ import { exportCsv } from '@/lib/export';
 import { supabase } from '@/lib/supabase';
 
 export default function DatabasePage() {
+  const { t } = useTranslation();
   const [sp, setSp] = useSearchParams();
   const [page, setPage] = useState(1);
   const [selected, setSelected] = useState<string[]>([]);
@@ -70,8 +72,8 @@ export default function DatabasePage() {
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
       <PageHeader
-        title="Databáze"
-        subtitle={`${totalCount} firem`}
+        title={t('database.title')}
+        subtitle={t('database.companiesCount', { count: totalCount })}
         actions={
           <div style={{ display: 'flex', gap: 8 }}>
             <GlassButton size="sm" variant="secondary" onClick={async () => {
@@ -86,7 +88,7 @@ export default function DatabasePage() {
               Export CSV
             </GlassButton>
             <GlassButton variant="primary" size="sm" onClick={() => setShowAdd(true)}>
-              + Přidat firmu
+              {t('database.addCompany')}
             </GlassButton>
           </div>
         }

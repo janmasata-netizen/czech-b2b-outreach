@@ -1,4 +1,5 @@
 import { Component, type ErrorInfo, type ReactNode } from 'react';
+import i18next from 'i18next';
 
 interface Props {
   children: ReactNode;
@@ -35,9 +36,9 @@ export default class ErrorBoundary extends Component<Props, State> {
           padding: 32,
           fontFamily: 'system-ui, sans-serif',
         }}>
-          <h1 style={{ fontSize: 24, marginBottom: 8 }}>Něco se pokazilo</h1>
+          <h1 style={{ fontSize: 24, marginBottom: 8 }}>{i18next.t('errorBoundary.title')}</h1>
           <p style={{ color: '#666', marginBottom: 16 }}>
-            {this.state.error?.message || 'Neočekávaná chyba aplikace.'}
+            {this.state.error?.message || i18next.t('errorBoundary.defaultMessage')}
           </p>
           <button
             onClick={() => window.location.reload()}
@@ -50,7 +51,7 @@ export default class ErrorBoundary extends Component<Props, State> {
               fontSize: 14,
             }}
           >
-            Obnovit stránku
+            {i18next.t('errorBoundary.reload')}
           </button>
         </div>
       );

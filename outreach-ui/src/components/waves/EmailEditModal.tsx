@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
+import { useTranslation } from 'react-i18next';
 import GlassModal from '@/components/glass/GlassModal';
 import GlassInput from '@/components/glass/GlassInput';
 import GlassButton from '@/components/glass/GlassButton';

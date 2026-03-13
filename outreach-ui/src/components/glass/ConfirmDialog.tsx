@@ -1,3 +1,4 @@
+import { useTranslation } from 'react-i18next';
 import GlassModal from './GlassModal';
 import GlassButton from './GlassButton';
 
@@ -19,11 +20,12 @@ export default function ConfirmDialog({
   onConfirm,
   title,
   children,
-  confirmLabel = 'Potvrdit',
-  cancelLabel = 'Zrušit',
+  confirmLabel,
+  cancelLabel,
   variant = 'primary',
   loading = false,
 }: ConfirmDialogProps) {
+  const { t } = useTranslation();
   return (
     <GlassModal
       open={open}
@@ -33,10 +35,10 @@ export default function ConfirmDialog({
       footer={
         <>
           <GlassButton variant="secondary" onClick={onClose} disabled={loading}>
-            {cancelLabel}
+            {cancelLabel ?? t('confirmDialog.cancel')}
           </GlassButton>
           <GlassButton variant={variant} onClick={onConfirm} disabled={loading}>
-            {loading ? 'Zpracovávám…' : confirmLabel}
+            {loading ? t('confirmDialog.processing') : (confirmLabel ?? t('confirmDialog.confirm'))}
           </GlassButton>
         </>
       }

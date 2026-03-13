@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { useParams, useNavigate, Link } from 'react-router-dom';
 import { useCompany, useUpdateCompany } from '@/hooks/useCompanies';
 import { useCreateContact, useUpdateContact, useDeleteContact } from '@/hooks/useContacts';
@@ -17,6 +18,7 @@ import { toast } from 'sonner';
 import type { Contact, EmailCandidate } from '@/types/database';
 
 export default function CompanyDetailPage() {
+  const { t } = useTranslation();
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const { data: company, isLoading, error } = useCompany(id);
@@ -32,7 +34,7 @@ export default function CompanyDetailPage() {
   const [editingContactId, setEditingContactId] = useState<string | null>(null);
 
   if (isLoading) return <LoadingSkeleton />;
-  if (error || !company) return <EmptyState icon="◈" title="Firma nenalezena" action={<GlassButton onClick={() => navigate('/databaze')}>← Zpět na databázi</GlassButton>} />;
+  if (error || !company) return <EmptyState icon="◈" title={t('database.notFound')} action={<GlassButton onClick={() => navigate('/databaze')}>{t('database.backToDatabase')}</GlassButton>} />;
 
   function openEdit() {
     setEditForm({
@@ -45,7 +47,7 @@ export default function CompanyDetailPage() {
   }
 
   async function handleSaveEdit() {
-    if (!editForm.company_name) { toast.error('Zadejte název firmy', { duration: 8000 }); return; }
+    if (!editForm.company_name) { toast.error(t('database.enterCompanyName'), { duration: 8000 }); return; }
     try {
       await updateCompany.mutateAsync({
         id: company!.id,
@@ -56,10 +58,10 @@ export default function CompanyDetailPage() {
           domain: editForm.domain || undefined,
         },
       });
-      toast.success('Firma aktualizována');
+      toast.success(t('database.companyUpdated'));
       setEditing(false);
     } catch {
-      toast.error('Chyba při ukládání', { duration: 8000 });
+      toast.error(t('database.errorSaving'), { duration: 8000 });
     }
   }
 
@@ -82,7 +84,7 @@ export default function CompanyDetailPage() {
   }
 
   async function handleSaveContact() {
-    if (!contactForm.full_name) { toast.error('Zadejte jméno kontaktu', { duration: 8000 }); return; }
+    if (!contactForm.full_name) { toast.error(t('database.enterContactName'), { duration: 8000 }); return; }
     try {
       if (editingContactId) {
         await updateContact.mutateAsync({

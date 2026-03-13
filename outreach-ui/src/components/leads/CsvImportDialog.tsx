@@ -1,4 +1,5 @@
 import { useState, useRef } from 'react';
+import { useTranslation } from 'react-i18next';
 import { useQueryClient } from '@tanstack/react-query';
 import GlassModal from '@/components/glass/GlassModal';
 import GlassButton from '@/components/glass/GlassButton';
@@ -30,6 +31,7 @@ interface Progress {
 }
 
 export default function CsvImportDialog({ open, onClose }: CsvImportDialogProps) {
+  const { t } = useTranslation();
   const { data: teams } = useTeams();
   const qc = useQueryClient();
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -83,7 +85,7 @@ export default function CsvImportDialog({ open, onClose }: CsvImportDialogProps)
       setTeamAllocations(teams && teams.length > 0 ? [{ teamId: teams[0].id, teamName: teams[0].name, percentage: 100 }] : []);
     };
     reader.onerror = () => {
-      toast.error('Nepodařilo se přečíst soubor');
+      toast.error(t('csvImport.failedToRead'));
     };
     reader.readAsText(file, 'UTF-8');
   }
@@ -95,7 +97,7 @@ export default function CsvImportDialog({ open, onClose }: CsvImportDialogProps)
 
   async function handleMapNext() {
     if (!mapping.company_name && !mapping.ico && !mapping.contact_name) {
-      setMapError('Musíte namapovat alespoň Název firmy, IČO nebo Jméno kontaktu.');
+      setMapError(t('csvImport.mustMapColumn'));
       return;
     }
     setMapError('');
@@ -120,7 +122,7 @@ export default function CsvImportDialog({ open, onClose }: CsvImportDialogProps)
       }
     } catch (err) {
       console.error('Dedup check failed:', err);
-      toast.error('Kontrola duplicit selhala — zkuste to znovu');
+      toast.error(t('csvImport.dedupFailed'));
     } finally {
       setDedupChecking(false);
     }
@@ -272,29 +274,29 @@ export default function CsvImportDialog({ open, onClose }: CsvImportDialogProps)
     qc.invalidateQueries({ queryKey: ['leads'] });
     setStep('done');
     if (enrichmentLevel !== 'import_only') {
-      toast.info('Pipeline běží na pozadí — e-maily budou generovány a ověřovány automaticky.');
+      toast.info(t('csvImport.pipelineRunning'));
     }
   }
 
   // ---- STEP: review (dedup) ----
   const dupCount = dedupResult?.duplicateIndices.size ?? 0;
   const cleanCount = rows.length - dupCount;
-  const matchFieldLabels: Record<string, string> = { ico: 'IČO', domain: 'Doména', email: 'E-mail', company_name: 'Název firmy' };
+  const matchFieldLabels: Record<string, string> = { ico: t('csvImport.matchFields.ico'), domain: t('csvImport.matchFields.domain'), email: t('csvImport.matchFields.email'), company_name: t('csvImport.matchFields.company_name') };
 
   const stepReview = dedupResult && (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
       <div style={{ padding: '12px 16px', background: 'rgba(251,146,60,0.08)', border: '1px solid rgba(251,146,60,0.25)', borderRadius: 8, fontSize: 13, color: '#fb923c' }}>
-        Nalezeno <strong>{dupCount}</strong> duplicitních leadů z {rows.length}. Tyto řádky budou přeskočeny.
+        {t('csvImport.duplicatesFound')}: <strong>{dupCount}</strong> / {rows.length}
       </div>
       <div style={{ maxHeight: 300, overflowY: 'auto', borderRadius: 6, border: '1px solid var(--border)' }}>
         <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 12 }}>
           <thead>
             <tr style={{ background: 'rgba(255,255,255,0.03)', position: 'sticky', top: 0 }}>
-              <th style={{ padding: '7px 10px', textAlign: 'left', color: 'var(--text-dim)', fontWeight: 500, borderBottom: '1px solid var(--border)' }}>Řádek</th>
-              <th style={{ padding: '7px 10px', textAlign: 'left', color: 'var(--text-dim)', fontWeight: 500, borderBottom: '1px solid var(--border)' }}>Firma</th>
-              <th style={{ padding: '7px 10px', textAlign: 'left', color: 'var(--text-dim)', fontWeight: 500, borderBottom: '1px solid var(--border)' }}>Shoda</th>
-              <th style={{ padding: '7px 10px', textAlign: 'left', color: 'var(--text-dim)', fontWeight: 500, borderBottom: '1px solid var(--border)' }}>Hodnota</th>
-              <th style={{ padding: '7px 10px', textAlign: 'left', color: 'var(--text-dim)', fontWeight: 500, borderBottom: '1px solid var(--border)' }}>Existující firma</th>
+              <th style={{ padding: '7px 10px', textAlign: 'left', color: 'var(--text-dim)', fontWeight: 500, borderBottom: '1px solid var(--border)' }}>{t('csvImport.row')}</th>
+              <th style={{ padding: '7px 10px', textAlign: 'left', color: 'var(--text-dim)', fontWeight: 500, borderBottom: '1px solid var(--border)' }}>{t('csvImport.company')}</th>
+              <th style={{ padding: '7px 10px', textAlign: 'left', color: 'var(--text-dim)', fontWeight: 500, borderBottom: '1px solid var(--border)' }}>{t('csvImport.match')}</th>
+              <th style={{ padding: '7px 10px', textAlign: 'left', color: 'var(--text-dim)', fontWeight: 500, borderBottom: '1px solid var(--border)' }}>{t('csvImport.matchValue')}</th>
+              <th style={{ padding: '7px 10px', textAlign: 'left', color: 'var(--text-dim)', fontWeight: 500, borderBottom: '1px solid var(--border)' }}>{t('csvImport.existingCompany')}</th>
             </tr>
           </thead>
           <tbody>
@@ -346,8 +348,8 @@ export default function CsvImportDialog({ open, onClose }: CsvImportDialogProps)
           onClick={() => fileInputRef.current?.click()}
         >
           <span style={{ fontSize: 32 }}>📁</span>
-          <span style={{ fontSize: 14, fontWeight: 500, color: 'var(--text)' }}>Klikněte pro výběr CSV souboru</span>
-          <span style={{ fontSize: 12 }}>nebo přetáhněte soubor sem</span>
+          <span style={{ fontSize: 14, fontWeight: 500, color: 'var(--text)' }}>{t('csvImport.clickToSelect')}</span>
+          <span style={{ fontSize: 12 }}>{t('csvImport.orDrag')}</span>
         </div>
       ) : (
         <div style={{ background: 'rgba(74,222,128,0.06)', border: '1px solid rgba(74,222,128,0.25)', borderRadius: 8, padding: '14px 16px', display: 'flex', flexDirection: 'column', gap: 6 }}>
@@ -356,16 +358,16 @@ export default function CsvImportDialog({ open, onClose }: CsvImportDialogProps)
             <span style={{ fontSize: 13, fontWeight: 600, color: 'var(--text)' }}>{fileName}</span>
           </div>
           <div style={{ fontSize: 12, color: 'var(--text-dim)' }}>
-            {rows.length} řádků, {headers.length} sloupců
+            {rows.length} {t('csvImport.rows')}, {headers.length} {t('csvImport.columns')}
           </div>
           <div style={{ fontSize: 12, color: 'var(--text-dim)' }}>
-            Detekované sloupce: {headers.join(', ')}
+            {t('csvImport.detectedColumns')}: {headers.join(', ')}
           </div>
           <button
             onClick={() => { fileInputRef.current?.click(); }}
             style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--accent)', fontSize: 12, textAlign: 'left', padding: 0, marginTop: 4 }}
           >
-            Změnit soubor
+            {t('csvImport.changeFile')}
           </button>
         </div>
       )}
@@ -378,11 +380,11 @@ export default function CsvImportDialog({ open, onClose }: CsvImportDialogProps)
     <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
       {/* Mapping selects */}
       {[
-        { label: 'Název firmy',    field: 'company_name' as const },
-        { label: 'IČO',           field: 'ico' as const },
-        { label: 'Web',           field: 'website' as const },
-        { label: 'Jméno kontaktu', field: 'contact_name' as const },
-        { label: 'E-mail',        field: 'email' as const },
+        { label: t('csvImport.companyName'),  field: 'company_name' as const },
+        { label: t('csvImport.ico'),         field: 'ico' as const },
+        { label: t('csvImport.web'),         field: 'website' as const },
+        { label: t('csvImport.contactName'), field: 'contact_name' as const },
+        { label: t('csvImport.email'),       field: 'email' as const },
       ].map(({ label, field }) => (
         <div key={field} style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
           <span style={{ fontSize: 13, color: 'var(--text-dim)', minWidth: 110 }}>{label}</span>
@@ -392,7 +394,7 @@ export default function CsvImportDialog({ open, onClose }: CsvImportDialogProps)
             value={mapping[field]}
             onChange={e => setMapping(m => ({ ...m, [field]: e.target.value }))}
           >
-            <option value="">— nenastaveno —</option>
+            <option value="">{t('csvImport.notMapped')}</option>
             {headers.map(h => <option key={h} value={h}>{h}</option>)}
           </select>
         </div>
@@ -424,11 +426,11 @@ export default function CsvImportDialog({ open, onClose }: CsvImportDialogProps)
 
       {/* Enrichment level */}
       <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginTop: 4 }}>
-        <span style={{ fontSize: 12, fontWeight: 500, color: 'var(--text-dim)' }}>Úroveň obohacení</span>
+        <span style={{ fontSize: 12, fontWeight: 500, color: 'var(--text-dim)' }}>{t('csvImport.enrichmentLevel')}</span>
         {([
-          { value: 'import_only' as const, label: 'Pouze import', desc: 'Uloží leady do DB bez obohacení' },
-          { value: 'find_emails' as const, label: 'Najít e-maily', desc: 'Vygeneruje a ověří e-maily z jména + webu' },
-          { value: 'full_pipeline' as const, label: 'Kompletní pipeline', desc: 'Hledá IČO na webu → ARES → e-maily → ověření' },
+          { value: 'import_only' as const, label: t('csvImport.importOnly'), desc: t('csvImport.importOnlyDesc') },
+          { value: 'find_emails' as const, label: t('csvImport.findEmails'), desc: t('csvImport.findEmailsDesc') },
+          { value: 'full_pipeline' as const, label: t('csvImport.fullPipeline'), desc: t('csvImport.fullPipelineDesc') },
         ]).map(opt => (
           <label
             key={opt.value}
@@ -457,10 +459,10 @@ export default function CsvImportDialog({ open, onClose }: CsvImportDialogProps)
       {/* Note about email column */}
       <div style={{ fontSize: 12, color: 'var(--text-dim)', padding: '8px 12px', background: 'rgba(255,255,255,0.03)', border: '1px solid var(--border)', borderRadius: 6 }}>
         {enrichmentLevel === 'import_only'
-          ? <>Řádky s e-mailem → stav <strong style={{ color: 'var(--green)' }}>Připraven</strong>. Řádky bez e-mailu → stav <strong>Nový</strong>.</>
+          ? t('csvImport.importOnlyNote', { returnObjects: false }).toString().replace(/<\/?[0-9]+>/g, '')
           : enrichmentLevel === 'find_emails'
-          ? <>Řádky s e-mailem → <strong style={{ color: 'var(--green)' }}>Připraven</strong>. Řádky bez e-mailu → spustí se automatické vyhledávání e-mailů.</>
-          : <>Řádky bez IČO → scrape z webu. Všechny bez e-mailu → plný enrichment pipeline.</>
+          ? t('csvImport.findEmailsNote', { returnObjects: false }).toString().replace(/<\/?[0-9]+>/g, '')
+          : t('csvImport.fullPipelineNote', { returnObjects: false }).toString().replace(/<\/?[0-9]+>/g, '')
         }
       </div>
 
@@ -471,7 +473,7 @@ export default function CsvImportDialog({ open, onClose }: CsvImportDialogProps)
         if (extraCols.length === 0) return null;
         return (
           <div style={{ fontSize: 12, color: 'var(--cyan)', padding: '8px 12px', background: 'rgba(34,211,238,0.06)', border: '1px solid rgba(34,211,238,0.2)', borderRadius: 6 }}>
-            Zbývající sloupce budou uloženy jako vlastní pole: <strong>{extraCols.join(', ')}</strong>
+            {t('csvImport.extraColumnsNote', { columns: '' }).replace(/<\/?[0-9]+>/g, '')} <strong>{extraCols.join(', ')}</strong>
           </div>
         );
       })()}
@@ -486,14 +488,14 @@ export default function CsvImportDialog({ open, onClose }: CsvImportDialogProps)
       {/* Preview table */}
       {previewRows.length > 0 && (
         <div style={{ marginTop: 4 }}>
-          <div style={{ fontSize: 12, color: 'var(--text-dim)', marginBottom: 8, fontWeight: 500 }}>Náhled (první 3 řádky):</div>
+          <div style={{ fontSize: 12, color: 'var(--text-dim)', marginBottom: 8, fontWeight: 500 }}>{t('csvImport.preview')}</div>
           <div style={{ overflowX: 'auto', borderRadius: 6, border: '1px solid var(--border)' }}>
             <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 12 }}>
               <thead>
                 <tr style={{ background: 'rgba(255,255,255,0.03)' }}>
                   {(['company_name', 'ico', 'website', 'contact_name', 'email'] as const).map(f => (
                     <th key={f} style={{ padding: '7px 10px', textAlign: 'left', color: 'var(--text-dim)', fontWeight: 500, borderBottom: '1px solid var(--border)', whiteSpace: 'nowrap' }}>
-                      {f === 'company_name' ? 'Firma' : f === 'ico' ? 'IČO' : f === 'website' ? 'Web' : f === 'contact_name' ? 'Kontakt' : 'E-mail'}
+                      {f === 'company_name' ? t('csvImport.company') : f === 'ico' ? t('csvImport.ico') : f === 'website' ? t('csvImport.web') : f === 'contact_name' ? t('csvImport.contact') : t('csvImport.email')}
                     </th>
                   ))}
                 </tr>
@@ -525,7 +527,7 @@ export default function CsvImportDialog({ open, onClose }: CsvImportDialogProps)
   const stepImporting = (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
       <div style={{ fontSize: 14, color: 'var(--text)', fontWeight: 500 }}>
-        Importuji {progress.total} leadů…
+        {t('csvImport.importingLeads', { count: progress.total })}
       </div>
       <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
         <GlassProgress value={pct} height={8} />
@@ -535,13 +537,13 @@ export default function CsvImportDialog({ open, onClose }: CsvImportDialogProps)
       </div>
       <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
         <div style={{ fontSize: 13, color: 'var(--green)' }}>
-          ✓ {Math.max(0, progress.done - progress.errors - progress.duplicates)} importováno
+          ✓ {Math.max(0, progress.done - progress.errors - progress.duplicates)} {t('csvImport.imported')}
         </div>
         <div style={{ fontSize: 13, color: '#fb923c' }}>
-          ⚠ {progress.duplicates} duplicitní
+          ⚠ {progress.duplicates} {t('csvImport.duplicate')}
         </div>
         <div style={{ fontSize: 13, color: '#f87171' }}>
-          ✗ {progress.errors} chyb
+          ✗ {progress.errors} {t('csvImport.errors')}
         </div>
       </div>
     </div>
@@ -551,11 +553,11 @@ export default function CsvImportDialog({ open, onClose }: CsvImportDialogProps)
   const imported = Math.max(0, progress.done - progress.errors - progress.duplicates);
   const stepDone = (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-      <div style={{ fontSize: 14, fontWeight: 600, color: 'var(--text)', marginBottom: 4 }}>Import dokončen</div>
+      <div style={{ fontSize: 14, fontWeight: 600, color: 'var(--text)', marginBottom: 4 }}>{t('csvImport.done')}</div>
       <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-        <div style={{ fontSize: 13, color: 'var(--green)' }}>✓ {imported} leadů importováno</div>
-        <div style={{ fontSize: 13, color: '#fb923c' }}>⚠ {progress.duplicates} duplicitních (přeskočeno)</div>
-        <div style={{ fontSize: 13, color: '#f87171' }}>✗ {progress.errors} chyb</div>
+        <div style={{ fontSize: 13, color: 'var(--green)' }}>✓ {t('csvImport.leadsImported', { count: imported })}</div>
+        <div style={{ fontSize: 13, color: '#fb923c' }}>⚠ {t('csvImport.duplicatesSkipped', { count: progress.duplicates })}</div>
+        <div style={{ fontSize: 13, color: '#f87171' }}>✗ {t('csvImport.errorsCount', { count: progress.errors })}</div>
       </div>
     </div>
   );
@@ -566,40 +568,40 @@ export default function CsvImportDialog({ open, onClose }: CsvImportDialogProps)
     <>
       {step === 'upload' && (
         <>
-          <GlassButton variant="secondary" onClick={handleClose}>Zrušit</GlassButton>
+          <GlassButton variant="secondary" onClick={handleClose}>{t('common.cancel')}</GlassButton>
           <GlassButton variant="primary" disabled={!canProceedToMap} onClick={() => setStep('map')}>
-            Mapovat →
+            {t('csvImport.map')}
           </GlassButton>
         </>
       )}
       {step === 'map' && (
         <>
-          <GlassButton variant="secondary" onClick={() => setStep('upload')}>← Zpět</GlassButton>
+          <GlassButton variant="secondary" onClick={() => setStep('upload')}>{t('common.back')}</GlassButton>
           <GlassButton variant="primary" onClick={handleMapNext} disabled={dedupChecking}>
-            {dedupChecking ? 'Kontroluji duplicity…' : `Spustit import ${rows.length}×`}
+            {dedupChecking ? t('csvImport.checkingDuplicates') : t('csvImport.startImport', { count: rows.length })}
           </GlassButton>
         </>
       )}
       {step === 'review' && dedupResult && (
         <>
-          <GlassButton variant="secondary" onClick={() => { setDedupResult(null); setStep('map'); }}>← Zpět</GlassButton>
+          <GlassButton variant="secondary" onClick={() => { setDedupResult(null); setStep('map'); }}>{t('common.back')}</GlassButton>
           <GlassButton variant="primary" onClick={() => runImport(dedupResult.duplicateIndices)}>
-            Přeskočit {dupCount} duplikátů a importovat {cleanCount}
+            {t('csvImport.skipAndImport', { skip: dupCount, clean: cleanCount })}
           </GlassButton>
         </>
       )}
       {step === 'done' && (
-        <GlassButton variant="primary" onClick={handleClose}>Zavřít</GlassButton>
+        <GlassButton variant="primary" onClick={handleClose}>{t('common.close')}</GlassButton>
       )}
     </>
   );
 
   const titles: Record<Step, string> = {
-    upload:    'Importovat leady z CSV',
-    map:       'Mapování sloupců',
-    review:    'Nalezeny duplicity',
-    importing: 'Import probíhá…',
-    done:      'Import dokončen',
+    upload:    t('csvImport.title'),
+    map:       t('csvImport.mapColumns'),
+    review:    t('csvImport.duplicatesFound'),
+    importing: t('csvImport.importing'),
+    done:      t('csvImport.done'),
   };
 
   return (
