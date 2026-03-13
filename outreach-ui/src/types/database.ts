@@ -443,6 +443,36 @@ export interface WavePreset {
   salesman?: Salesman;
 }
 
+// ── Bug Reports ──
+export type BugReportSeverity = 'low' | 'medium' | 'high' | 'critical';
+export type BugReportCategory = 'ui' | 'emails' | 'enrichment' | 'waves' | 'system' | 'other';
+export type BugReportStatus = 'open' | 'in_progress' | 'resolved' | 'closed';
+
+export interface BugReport {
+  id: string;
+  title: string;
+  description: string;
+  severity: BugReportSeverity;
+  category: BugReportCategory;
+  screenshot_url: string | null;
+  reporter_id: string;
+  status: BugReportStatus;
+  created_at: string;
+  updated_at: string;
+  profiles?: { full_name: string | null };
+}
+
+// ── System Events ──
+export interface SystemEvent {
+  id: string;
+  event_type: string;
+  actor_id: string | null;
+  description: string;
+  details: Record<string, unknown> | null;
+  created_at: string;
+  profiles?: { full_name: string | null };
+}
+
 export interface RetargetPoolLead {
   lead_id: string;
   company_name: string | null;
