@@ -6,8 +6,8 @@ import EmptyState from '@/components/shared/EmptyState';
 
 const COLORS = ['#3ECF8E', '#a78bfa', '#22d3ee', '#fb923c', '#f87171', '#fbbf24', '#34d399', '#818cf8'];
 
-export default function WaveRepliesChart() {
-  const { data: waves = [], isLoading } = useWaveReplies();
+export default function WaveRepliesChart({ teamId }: { teamId?: string }) {
+  const { data: waves = [], isLoading } = useWaveReplies(teamId);
 
   const chartData = waves.map(w => ({
     name: w.name || '—',

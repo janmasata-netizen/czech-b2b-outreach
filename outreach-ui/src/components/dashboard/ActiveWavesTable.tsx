@@ -12,8 +12,8 @@ const TH: React.CSSProperties = {
   borderBottom: '1px solid var(--border)', whiteSpace: 'nowrap' as const,
 };
 
-export default function ActiveWavesTable() {
-  const { data: waves, isLoading } = useActiveWaves();
+export default function ActiveWavesTable({ teamId }: { teamId?: string }) {
+  const { data: waves, isLoading } = useActiveWaves(teamId);
   const navigate = useNavigate();
 
   return (

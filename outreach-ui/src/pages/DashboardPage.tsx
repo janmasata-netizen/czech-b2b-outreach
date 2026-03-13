@@ -1,4 +1,7 @@
-import { useDashboardStats } from '@/hooks/useDashboard';
+import { useState } from 'react';
+import { useDashboardStats, useReadyLeadsCount, useActiveWavesCount, useRetargetReadyCount, useReplyCount } from '@/hooks/useDashboard';
+import { useTeams } from '@/hooks/useLeads';
+import { useAuthContext } from '@/components/AuthProvider';
 import PageHeader from '@/components/layout/PageHeader';
 import StatsGrid from '@/components/shared/StatsGrid';
 import StatCard from '@/components/shared/StatCard';
@@ -9,8 +12,28 @@ import ActiveWavesTable from '@/components/dashboard/ActiveWavesTable';
 import OnboardingChecklist from '@/components/dashboard/OnboardingChecklist';
 import { formatPercent } from '@/lib/utils';
 
+const REPLY_RANGES = [
+  { label: '7d', days: 7 },
+  { label: '30d', days: 30 },
+  { label: '90d', days: 90 },
+  { label: 'Vše', days: 0 },
+] as const;
+
 export default function DashboardPage() {
-  const { data: stats, isError } = useDashboardStats();
+  const { profile } = useAuthContext();
+  const isAdmin = profile?.is_admin ?? false;
+
+  const [selectedTeamId, setSelectedTeamId] = useState<string | undefined>();
+  const effectiveTeamId = isAdmin ? selectedTeamId : (profile?.team_id ?? undefined);
+
+  const [replyDays, setReplyDays] = useState(30);
+
+  const { data: teams } = useTeams();
+  const { data: stats, isError } = useDashboardStats(0, effectiveTeamId);
+  const { data: readyLeads } = useReadyLeadsCount(effectiveTeamId);
+  const { data: activeWavesCount } = useActiveWavesCount(effectiveTeamId);
+  const { data: retargetReady } = useRetargetReadyCount(effectiveTeamId);
+  const { data: replyCount } = useReplyCount(replyDays, effectiveTeamId);
 
   if (isError) {
     return (
@@ -38,9 +61,32 @@ export default function DashboardPage() {
     );
   }
 
+  const teamSelector = isAdmin && teams?.length ? (
+    <select
+      value={selectedTeamId ?? ''}
+      onChange={e => setSelectedTeamId(e.target.value || undefined)}
+      style={{
+        padding: '6px 12px',
+        fontSize: 13,
+        fontWeight: 500,
+        borderRadius: 6,
+        border: '1px solid var(--border)',
+        background: 'var(--bg-surface)',
+        color: 'var(--text)',
+        cursor: 'pointer',
+        minWidth: 160,
+      }}
+    >
+      <option value="">Všechny týmy</option>
+      {teams.map(team => (
+        <option key={team.id} value={team.id}>{team.name}</option>
+      ))}
+    </select>
+  ) : null;
+
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 24 }}>
-      <PageHeader title="Přehled" subtitle="Realtime monitoring outreach kampaně" />
+      <PageHeader title="Přehled" subtitle="Realtime monitoring outreach kampaně" actions={teamSelector} />
 
       <OnboardingChecklist />
 
@@ -52,20 +98,47 @@ export default function DashboardPage() {
       </StatsGrid>
 
       <StatsGrid cols={4}>
-        <StatCard label="Obohaceno" value={stats?.enrichedLeads.toLocaleString('cs-CZ') ?? '—'} icon="⚡" color="var(--yellow)" />
-        <StatCard label="Bounced" value={stats?.bouncedLeads.toLocaleString('cs-CZ') ?? '—'} icon="⚠" color="var(--red)" />
-        <StatCard label="Ve frontě" value={stats?.pendingQueue.toLocaleString('cs-CZ') ?? '—'} icon="⏳" color="var(--orange)" />
-        <StatCard label="Obohacení %" value={stats ? formatPercent(stats.totalLeads > 0 ? (stats.enrichedLeads / stats.totalLeads) * 100 : 0) : '—'} icon="%" color="var(--accent)" />
+        <StatCard label="Připraveno k oslovení" value={(readyLeads ?? 0).toLocaleString('cs-CZ')} icon="📋" color="var(--green)" />
+        <StatCard label="Aktivní vlny" value={(activeWavesCount ?? 0).toLocaleString('cs-CZ')} icon="⌁" color="var(--purple)" />
+        <StatCard label="Retarget pool" value={(retargetReady ?? 0).toLocaleString('cs-CZ')} icon="🔄" color="var(--orange)" />
+        <StatCard
+          label="Odpovědi"
+          value={(replyCount ?? 0).toLocaleString('cs-CZ')}
+          icon="↩"
+          color="var(--cyan)"
+          sub={
+            <span style={{ display: 'inline-flex', gap: 2 }}>
+              {REPLY_RANGES.map(r => (
+                <button
+                  key={r.days}
+                  onClick={e => { e.stopPropagation(); setReplyDays(r.days); }}
+                  style={{
+                    padding: '1px 6px',
+                    fontSize: 10,
+                    fontWeight: 600,
+                    borderRadius: 4,
+                    border: `1px solid ${replyDays === r.days ? 'var(--cyan)' : 'var(--border)'}`,
+                    background: 'transparent',
+                    color: replyDays === r.days ? 'var(--cyan)' : 'var(--text-muted)',
+                    cursor: 'pointer',
+                  }}
+                >
+                  {r.label}
+                </button>
+              ))}
+            </span>
+          }
+        />
       </StatsGrid>
 
-      <SentEmailsAreaChart />
+      <SentEmailsAreaChart teamId={effectiveTeamId} />
 
       <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 3fr) minmax(280px, 2fr)', gap: 16 }}>
-        <WaveRepliesChart />
-        <TemplateRepliesChart />
+        <WaveRepliesChart teamId={effectiveTeamId} />
+        <TemplateRepliesChart teamId={effectiveTeamId} />
       </div>
 
-      <ActiveWavesTable />
+      <ActiveWavesTable teamId={effectiveTeamId} />
     </div>
   );
 }

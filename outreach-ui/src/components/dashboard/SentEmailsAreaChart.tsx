@@ -11,9 +11,9 @@ const RANGES = [
   { label: 'Vše', days: 0 },
 ] as const;
 
-export default function SentEmailsAreaChart() {
+export default function SentEmailsAreaChart({ teamId }: { teamId?: string }) {
   const [days, setDays] = useState(14);
-  const { data, isLoading } = useEmailVolumeChart(days);
+  const { data, isLoading } = useEmailVolumeChart(days, teamId);
 
   const rawId = useId().replace(/:/g, '_');
   const gSeq1 = `grad_seq1_${rawId}`;
