@@ -171,7 +171,10 @@ export default function EmailFinderPage() {
 
   async function handleFind(e: FormEvent) {
     e.preventDefault();
-    const input = findInput.trim();
+    // Read live DOM value to avoid React 18 batching race on fast typing
+    const form = e.target as HTMLFormElement;
+    const inputEl = form.querySelector('input');
+    const input = (inputEl?.value ?? findInput).trim();
     if (!input) { toast.error('Zadejte firmu, IČO, nebo doménu'); return; }
 
     setLoading(true);
@@ -216,7 +219,10 @@ export default function EmailFinderPage() {
 
   async function handleVerify(e: FormEvent) {
     e.preventDefault();
-    const email = verifyEmail.trim();
+    // Read live DOM value to avoid React 18 batching race on fast typing
+    const form = e.target as HTMLFormElement;
+    const inputEl = form.querySelector('input');
+    const email = (inputEl?.value ?? verifyEmail).trim();
     if (!email) { toast.error('Zadejte e-mailovou adresu'); return; }
     if (!/^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(email)) {
       toast.error('Neplatná e-mailová adresa');
