@@ -28,6 +28,8 @@ const TH: React.CSSProperties = {
   borderBottom: '1px solid var(--border)', whiteSpace: 'nowrap' as const,
 };
 
+const IN_PROGRESS_STATUSES: string[] = ['enriching', 'enriched', 'email_discovery', 'email_verified'];
+
 export default function ImportGroupDetail({ group, onClose }: ImportGroupDetailProps) {
   const { t } = useTranslation();
   const navigate = useNavigate();
@@ -250,7 +252,7 @@ export default function ImportGroupDetail({ group, onClose }: ImportGroupDetailP
                 const primaryEmail = emails.find(e => e.is_verified)?.email_address ?? emails[0]?.email_address ?? '—';
                 const primaryContact = contacts[0]?.full_name ?? '—';
                 const isExpanded = expanded === lead.id;
-                const isEnriching = lead.status === 'enriching';
+                const isEnriching = IN_PROGRESS_STATUSES.includes(lead.status);
 
                 return (
                   <tr key={lead.id} style={isEnriching ? { borderLeft: '3px solid #fb923c' } : undefined}>
