@@ -167,7 +167,7 @@
           "parameters": [
             {
               "name": "select",
-              "value": "id,lead_id,leads(domain,company_name,ico,custom_fields,companies(contacts(id,first_name,last_name,full_name,salutation,email_status,email_candidates!email_candidates_contact_id_fkey(id,email_address,is_verified,qev_status,seznam_status,type,confidence))))"
+              "value": "id,lead_id,leads(domain,company_name,ico,custom_fields,companies(contacts(id,first_name,last_name,full_name,salutation,email_candidates!email_candidates_contact_id_fkey(id,email_address,is_verified,qev_status,seznam_status,type,confidence))))"
             },
             {
               "name": "wave_id",

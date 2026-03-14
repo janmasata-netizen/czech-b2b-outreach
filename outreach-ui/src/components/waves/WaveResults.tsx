@@ -1,6 +1,6 @@
 import GlassCard from '@/components/glass/GlassCard';
 import StatCard from '@/components/shared/StatCard';
-import type { WaveAnalytics, WaveLeadRow, SentEmail } from '@/types/database';
+import type { WaveAnalytics, WaveLeadRow, SentEmail, EmailQueue } from '@/types/database';
 import { formatPercent } from '@/lib/utils';
 
 interface WaveResultsProps {
@@ -8,7 +8,7 @@ interface WaveResultsProps {
   waveLeads?: WaveLeadRow[];
 }
 
-const SEQ_COLORS = ['#3ECF8E', '#a78bfa', '#22d3ee'] as const;
+const SEQ_COLORS = ['#3ECF8E', '#a78bfa', '#22d3ee', '#fb923c', '#f472b6'];
 
 function fmtSeqDate(date: string | null | undefined, time: string | null | undefined): string | null {
   if (!date) return null;
@@ -30,8 +30,22 @@ function fmtSentAt(iso: string): string {
 export default function WaveResults({ wave, waveLeads = [] }: WaveResultsProps) {
   const total = wave.lead_count || waveLeads.length;
 
+  // Discover all sequence numbers dynamically from data
+  const allSeqNums = new Set<number>();
+  for (const wl of waveLeads) {
+    for (const e of (wl.sent_emails ?? [])) allSeqNums.add(e.sequence_number);
+    for (const qi of (wl.email_queue ?? []) as EmailQueue[]) allSeqNums.add(qi.sequence_number);
+  }
+  // Also include seqs from sequence_schedule
+  if (wave.sequence_schedule?.length) {
+    for (const e of wave.sequence_schedule) allSeqNums.add(e.seq);
+  }
+  // Fallback: if nothing found, use legacy 1-3
+  if (allSeqNums.size === 0) { allSeqNums.add(1); allSeqNums.add(2); allSeqNums.add(3); }
+  const seqNumbers = Array.from(allSeqNums).sort((a, b) => a - b);
+
   // Count sent emails per sequence from waveLeads + find earliest sent_at
-  const seqCounts = [1, 2, 3].map(seq => {
+  const seqCounts = seqNumbers.map(seq => {
     let count = 0;
     let earliestSentAt: string | null = null;
     for (const wl of waveLeads) {
@@ -43,15 +57,24 @@ export default function WaveResults({ wave, waveLeads = [] }: WaveResultsProps) 
         }
       }
     }
-    const dateKey = `send_date_seq${seq}`;
-    const timeKey = `send_time_seq${seq}`;
-    let scheduled = fmtSeqDate(wave[dateKey as keyof WaveAnalytics] as string | null, wave[timeKey as keyof WaveAnalytics] as string | null);
+
+    // Read scheduled date from sequence_schedule JSONB first, then legacy columns
+    let scheduled: string | null = null;
+    if (wave.sequence_schedule?.length) {
+      const entry = wave.sequence_schedule.find(e => e.seq === seq);
+      if (entry) scheduled = fmtSeqDate(entry.send_date, entry.send_time);
+    }
+    if (!scheduled && seq <= 3) {
+      const dateKey = `send_date_seq${seq}`;
+      const timeKey = `send_time_seq${seq}`;
+      scheduled = fmtSeqDate(wave[dateKey as keyof WaveAnalytics] as string | null, wave[timeKey as keyof WaveAnalytics] as string | null);
+    }
 
     // Fallback: derive scheduled date from email_queue if wave-level date is null
     if (!scheduled) {
       let earliestScheduledAt: string | null = null;
       for (const wl of waveLeads) {
-        for (const qi of (wl.email_queue ?? [])) {
+        for (const qi of (wl.email_queue ?? []) as EmailQueue[]) {
           if (qi.sequence_number === seq && qi.scheduled_at && qi.status !== 'cancelled') {
             if (!earliestScheduledAt || qi.scheduled_at < earliestScheduledAt)
               earliestScheduledAt = qi.scheduled_at;
@@ -82,7 +105,7 @@ export default function WaveResults({ wave, waveLeads = [] }: WaveResultsProps) 
           <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
             {seqCounts.map(({ seq, count, scheduled, earliestSentAt }) => {
               const pct = total > 0 ? (count / total) * 100 : 0;
-              const color = SEQ_COLORS[seq - 1];
+              const color = SEQ_COLORS[(seq - 1) % SEQ_COLORS.length];
               const isSent = count > 0 && earliestSentAt;
               return (
                 <div key={seq}>
