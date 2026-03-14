@@ -298,33 +298,6 @@ export default function EmailFinderPage() {
   return (
     <div style={{ padding: isMobile ? '16px 0' : '24px 32px' }} className="email-finder-page">
       <PageHeader title="Email Finder" />
-      <p style={{ fontSize: 13, color: 'var(--text-dim)', marginTop: -8, marginBottom: 24 }}>
-        Najděte e-mailové adresy pro firmu nebo ověřte konkrétní adresu
-      </p>
-
-      {/* Tab switcher */}
-      <div style={{ display: 'flex', gap: 0, marginBottom: 20, borderBottom: '1px solid var(--border)' }}>
-        {([
-          { id: 'find' as Tab, label: 'Najít emaily' },
-          { id: 'verify' as Tab, label: 'Ověřit email' },
-        ]).map(tab => (
-          <button
-            key={tab.id}
-            type="button"
-            onClick={() => switchTab(tab.id)}
-            style={{
-              padding: '10px 20px', fontSize: 13, fontWeight: 600,
-              background: 'none', border: 'none', cursor: 'pointer',
-              color: activeTab === tab.id ? 'var(--green)' : 'var(--text-dim)',
-              borderBottom: activeTab === tab.id ? '2px solid var(--green)' : '2px solid transparent',
-              transition: 'all 0.15s',
-            }}
-          >
-            {tab.label}
-          </button>
-        ))}
-      </div>
-
       {/* Tab: Find Emails */}
       {activeTab === 'find' && (
         <>
@@ -341,7 +314,7 @@ export default function EmailFinderPage() {
                 onChange={e => setFindInput(e.target.value)}
                 style={{ fontFamily: detectedType.type === 'ico' ? 'JetBrains Mono, monospace' : undefined }}
               />
-              <div style={{ display: 'flex', gap: 8, marginTop: 6, minHeight: 20 }}>
+              <div style={{ display: 'flex', gap: 8, marginTop: 6, minHeight: 0 }}>
                 {detectedType.label && (
                   <span style={{
                     display: 'inline-flex', alignItems: 'center',
