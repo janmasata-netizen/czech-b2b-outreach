@@ -3,6 +3,14 @@ import { render, screen } from '@testing-library/react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import DashboardPage from './DashboardPage';
 
+// Mock AuthProvider
+vi.mock('@/components/AuthProvider', () => ({
+  useAuthContext: () => ({
+    profile: { is_admin: true, team_id: 'team-1' },
+    user: { id: 'user-1' },
+  }),
+}));
+
 // Mock all child components to isolate DashboardPage logic
 vi.mock('@/components/layout/PageHeader', () => ({
   default: ({ title }: { title: string }) => <div data-testid="page-header">{title}</div>,
@@ -45,6 +53,14 @@ const mockStats = {
 
 vi.mock('@/hooks/useDashboard', () => ({
   useDashboardStats: () => mockStats,
+  useReadyLeadsCount: () => ({ data: 0 }),
+  useActiveWavesCount: () => ({ data: 0 }),
+  useRetargetReadyCount: () => ({ data: 0 }),
+  useReplyCount: () => ({ data: 0 }),
+}));
+
+vi.mock('@/hooks/useLeads', () => ({
+  useTeams: () => ({ data: [] }),
 }));
 
 vi.mock('@/lib/utils', () => ({

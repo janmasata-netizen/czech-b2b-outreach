@@ -1,4 +1,5 @@
 import '@testing-library/jest-dom';
+import '@/i18n';
 
 // Mock env vars for tests
 Object.defineProperty(import.meta, 'env', {

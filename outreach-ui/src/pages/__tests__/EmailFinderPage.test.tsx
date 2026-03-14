@@ -28,6 +28,11 @@ vi.mock('@/hooks/useMobile', () => ({
   default: () => false,
 }));
 
+// Mock dedup helper
+vi.mock('@/lib/dedup', () => ({
+  cleanDomainInput: (v: string) => v,
+}));
+
 // Mock glass components to simplify rendering
 vi.mock('@/components/glass/GlassCard', () => ({
   default: ({ children, ...props }: React.HTMLAttributes<HTMLDivElement>) => (
@@ -70,14 +75,13 @@ describe('EmailFinderPage', () => {
   it('renders the page description text', () => {
     renderWithProviders(<EmailFinderPage />);
     expect(
-      screen.getByText('Najděte e-mailové adresy pro firmu nebo ověřte konkrétní adresu'),
+      screen.getByText(/Zadejte firmu, IČO, nebo doménu/),
     ).toBeInTheDocument();
   });
 
-  it('renders ICO mode form inputs by default', () => {
+  it('renders find form input by default', () => {
     renderWithProviders(<EmailFinderPage />);
-    expect(screen.getByText('IČO *')).toBeInTheDocument();
-    expect(screen.getByText('Web')).toBeInTheDocument();
+    expect(screen.getByText('Firma, IČO, nebo doména')).toBeInTheDocument();
   });
 
   it('renders the submit button with search text', () => {
