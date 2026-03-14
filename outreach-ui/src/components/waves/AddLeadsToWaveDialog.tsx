@@ -22,7 +22,7 @@ export default function AddLeadsToWaveDialog({ open, onClose, waveId, teamId }: 
   const [search, setSearch] = useState('');
   const [languageFilter, setLanguageFilter] = useState('');
   const [selected, setSelected] = useState<string[]>([]);
-  const { data: leads = [], isLoading } = useLeadsNotInWave(teamId ?? undefined, search || undefined);
+  const { data: leads = [], isLoading } = useLeadsNotInWave(teamId ?? undefined, search || undefined, languageFilter || undefined);
   const addLeads = useAddLeadsToWave();
 
   function toggle(id: string) {

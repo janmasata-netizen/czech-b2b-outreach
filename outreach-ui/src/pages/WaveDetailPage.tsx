@@ -121,6 +121,7 @@ export default function WaveDetailPage() {
   const canLaunch = wave.status === 'draft'
     && waveLeads.length > 0
     && availableSeqs.length > 0
+    && !!wave.from_email
     && availableSeqs.every(seq => !!seqDates[seq]);
 
   // Gap button options and defaults
@@ -200,7 +201,7 @@ export default function WaveDetailPage() {
     const warnings: Array<{ lead: string; missing: string[] }> = [];
     for (const wl of waveLeads) {
       const lead = wl.leads ?? wl.lead;
-      const contacts = lead?.contacts ?? [];
+      const contacts = lead?.companies?.contacts ?? [];
       const contact = contacts[0] ?? null;
       const ctx = buildTemplateContext(lead, contact);
       const missing = findMissingVariables(Array.from(allVarsUsed), ctx);
@@ -265,7 +266,7 @@ export default function WaveDetailPage() {
           .from('email_queue')
           .update({ status: 'cancelled' })
           .in('wave_lead_id', waveleadIds)
-          .in('status', ['queued', 'pending', 'scheduled']);
+          .in('status', ['queued', 'pending_prev']);
         if (qErr) throw qErr;
       }
       await updateWave.mutateAsync({ id: wave.id, updates: { status: 'paused' } as Partial<Wave> });
