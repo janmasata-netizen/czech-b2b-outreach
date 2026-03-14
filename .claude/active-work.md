@@ -20,5 +20,4 @@
 |---|---|---|---|---|---|
 | claude/fix-enrichment-flow | claude-opus | outreach-ui/src/components/leads/ImportGroupDetail.tsx, outreach-ui/src/components/leads/MoveToReadyDialog.tsx, outreach-ui/src/components/leads/ReadyLeadsTab.tsx, outreach-ui/src/hooks/useLeads.ts, outreach-ui/src/i18n/cs.ts | 2026-03-14 | 2026-03-14 | — |
 | claude/reply-detection-audit | claude-opus | n8n-workflows/sub-reply-check.json, n8n-workflows/test-reply-detection.json, n8n-workflows/push-test-reply.mjs, n8n-workflows/push-reply-detection.mjs | 2026-03-14 | 2026-03-14 | — |
-| claude/audit-fixes | claude-opus | n8n-workflows/wf7-wave-schedule.json, n8n-workflows/wf8-send-cron.json, n8n-workflows/push-wf7-wf8.mjs, n8n-workflows/migrate-extract-live-functions.mjs, n8n-workflows/migrate-fix-search-path.mjs, outreach-ui/src/pages/WaveDetailPage.tsx, outreach-ui/src/pages/WavesPage.tsx, outreach-ui/src/components/waves/WaveConfigForm.tsx, outreach-ui/src/components/waves/AddLeadsToWaveDialog.tsx | 2026-03-14 | 2026-03-14 | — |
 
