@@ -5,7 +5,7 @@
       "parameters": {
         "httpMethod": "POST",
         "path": "wf7-wave-schedule",
-        "responseMode": "onReceived",
+        "responseMode": "responseNode",
         "options": {},
         "authentication": "headerAuth"
       },
@@ -488,6 +488,36 @@
         2400,
         540
       ]
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "jsCode": "const items = $('Build Queue').all().map(i => i.json);\nconst dateItem = items.find(i => i._type === 'wave_date_update');\nconst report = dateItem ? dateItem.scheduling_report : { queued: 0, skipped: 0, skipped_leads: [] };\nreturn [{ json: { success: true, scheduling_report: report } }];"
+      },
+      "id": "wf07-0000-0000-0000-000000000017",
+      "name": "Build Response",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        2880,
+        340
+      ]
+    },
+    {
+      "parameters": {
+        "respondWith": "firstIncomingItem",
+        "options": {
+          "responseCode": 200
+        }
+      },
+      "id": "wf07-0000-0000-0000-000000000018",
+      "name": "Respond Success",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [
+        3120,
+        340
+      ]
     }
   ],
   "connections": {
@@ -631,6 +661,28 @@
         [
           {
             "node": "Update Wave Scheduled",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Update Wave Scheduled": {
+      "main": [
+        [
+          {
+            "node": "Build Response",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Build Response": {
+      "main": [
+        [
+          {
+            "node": "Respond Success",
             "type": "main",
             "index": 0
           }
