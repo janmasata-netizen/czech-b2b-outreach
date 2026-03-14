@@ -53,20 +53,20 @@ An automated Czech B2B cold email outreach system built on n8n + Supabase. It en
 - **SMTP proxy**: `smtp-proxy/` — Docker microservice on VPS port 3002 (127.0.0.1 only), reached by n8n via `http://smtp-proxy:3002`
 - Both proxies: config in `config.json` (gitignored), see `config.example.json` for template. Deploy via `node deploy.mjs`
 
-## n8n Workflow IDs (all active)
+## n8n Workflow IDs (all active unless noted)
 | File / Name | n8n ID | Trigger |
 |---|---|---|
 | wf1-lead-ingest.json | beB84wDnEG2soY1m | webhook:lead-ingest |
 | wf2-ares-lookup.json | 2i6zvyAy3j7BjaZE | webhook:wf2-ares |
 | wf3-kurzy-scrape.json | nPbr15LJxGaZUqo7 | webhook:wf3-kurzy |
 | wf4-email-gen.json | RNuSFAtwoEAkb9rA | webhook:wf4-email-gen |
-| wf5-seznam-verify.json | 7JzGHAG24ra3977B | webhook:wf5-seznam |
-| wf6-qev-verify.json | EbKgRSRr2Poe34vH | webhook:wf6-qev |
+| wf5-seznam-verify.json (SMTP Verification) | 7JzGHAG24ra3977B | webhook:wf5-seznam |
+| wf6-qev-verify.json (**DEACTIVATED**) | EbKgRSRr2Poe34vH | webhook:wf6-qev |
 | wf7-wave-schedule.json | TVNOzjSnaWrmTlqw | webhook:wf7-wave-schedule |
 | wf8-send-cron.json | wJLD5sFxddNNxR7p | cron:every-5min |
 | wf9-reply-detection.json | AaHXknYh9egPDxcG | cron:every-1min |
 | wf10-daily-reset.json | 50Odnt5vzIMfSBZE | cron:midnight |
-| wf11-website-fallback | E5QzxzZe4JbSv5lU | webhook:wf11-website-fallback |
+| wf11-website-fallback (Website Email Scraper) | E5QzxzZe4JbSv5lU | webhook:wf11-website-fallback |
 | wf12-ico-scrape.json | LGEe4MTELj5lmOFX | webhook:wf12-ico-scrape |
 | wf13-gsheet-proxy.json | ENcE8iMWLNwIPc5a | webhook:gsheet-proxy |
 | email-verification sub-wf | Aov5PfwmBDv51L0e | executeWorkflowTrigger |
@@ -93,7 +93,7 @@ An automated Czech B2B cold email outreach system built on n8n + Supabase. It en
 - **`leads`** = Email outreach layer, linked to companies via `company_id`. Shown at `/leady`.
 - **`contacts`** = Contact people linked to companies (replaces jednatels). Columns: id, company_id, full_name, first_name, last_name, salutation, role, phone, linkedin, other_contact, **notes** (free text for "jednatel", "employee", etc.), created_at, updated_at. Same UUIDs as jednatels for backward compat.
 
-`config` table (key/value) for runtime secrets — `seznam_from_email`, `qev_api_key_1/2/3` (3 rotating QEV keys).
+`config` table (key/value) for runtime secrets — `seznam_from_email`. QEV keys (`qev_api_key_1/2/3`) are deprecated — WF6 is deactivated.
 
 DB functions: `reset_daily_sends()` (resets `teams.sends_today`), `handle_lead_reply()` trigger, `get_dashboard_stats()`, `claim_queued_emails()`, `ingest_lead()` (now creates/finds company first, then lead), `get_jednatels_for_lead()` (wrapper — reads from contacts via leads.company_id), **`get_contacts_for_lead()`**, **`get_contacts_for_company()`**, `check_email_cache()`, `mark_jednatels_email_status()`, **`mark_contacts_email_status()`**, `check_max_salesmen()`, `increment_and_check_sends(p_team_id)` (increments `teams.sends_today`), `parse_full_name()`, `generate_salutation()`, `backfill_salutations()` (now iterates contacts + jednatels), `check_and_mark_reply_processed()`, `auto_complete_waves()`, `reorder_template_sequences()`.
 
@@ -114,8 +114,9 @@ DB trigger: `trg_refresh_salutations_on_wave_add` on `wave_leads` — AFTER INSE
 - **Daily send limits tracked on teams** (`teams.daily_send_limit`, `teams.sends_today`)
 - **Threading**: smtp-proxy uses nodemailer's dedicated `messageId`, `inReplyTo`, `references` mail options (NOT headers object)
 - **Reply-To**: set to `salesman_email` from `teams` table
-- **WF5** fetches `seznam_from_email` from `config` table at runtime
-- **WF6** fetches `qev_api_key` from `config` table at runtime (3 rotating keys)
+- **WF5** fetches `seznam_from_email` from `config` table at runtime. SMTP-only verification (no QEV). Always triggers WF11 after verification. Does NOT set final lead status (WF11 does).
+- **WF6** is **DEACTIVATED** — QEV verification removed. SMTP verification in WF5 produces same results. QEV had a `safe_to_send: "true"` string-vs-boolean bug.
+- **WF11** always runs (triggered by WF5). Scrapes website for additional emails. Sets final lead status based on ALL email_candidates (from both WF5 SMTP and WF11 scraping): `ready` > `staff_email` > `info_email` > `failed`.
 - **WF8** uses atomic `claim_queued_emails()` RPC + `increment_and_check_sends(p_team_id)` for daily limits (on teams table)
 - **WF8** calls `auto_complete_waves()` on loop done
 - **WF10** calls `reset_daily_sends()` RPC at midnight + deletes old `email_probe_bounces`
