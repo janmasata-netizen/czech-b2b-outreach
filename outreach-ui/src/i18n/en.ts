@@ -411,6 +411,12 @@ export default {
       find_emails: 'Find emails',
       full_pipeline: 'Full pipeline',
     },
+    viewGroup: 'View import',
+    startEnrichment: 'Start Enrichment',
+    enriching: 'Enriching',
+    enrichmentStarted: 'Enrichment started for {{count}} leads',
+    noLeadsToEnrich: 'No leads to enrich',
+    enrichmentPending: 'Leads imported. Go to group detail to start enrichment.',
   },
 
   // ── Import Chooser ──

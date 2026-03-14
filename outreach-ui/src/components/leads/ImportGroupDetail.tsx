@@ -34,6 +34,8 @@ export default function ImportGroupDetail({ group, onClose }: ImportGroupDetailP
   const [pushIds, setPushIds] = useState<string[] | null>(null);
   const [expanded, setExpanded] = useState<string | null>(null);
   const [retrying, setRetrying] = useState(false);
+  const [enriching, setEnriching] = useState(false);
+  const [enrichProgress, setEnrichProgress] = useState({ done: 0, total: 0 });
 
   const { data, isLoading } = useImportGroupLeads(group.id, page);
   const deleteGroup = useDeleteImportGroup();
@@ -56,24 +58,25 @@ export default function ImportGroupDetail({ group, onClose }: ImportGroupDetailP
     try {
       const { data: failedLeads } = await supabase
         .from('leads')
-        .select('id, company_name, ico, website, team_id, language')
+        .select('id')
         .eq('import_group_id', group.id)
         .eq('status', 'failed');
 
-      for (const lead of failedLeads ?? []) {
-        await supabase.from('leads').update({ status: 'new' }).eq('id', lead.id);
+      if (!failedLeads || failedLeads.length === 0) {
+        toast.info(t('importGroups.noLeadsToEnrich'));
+        setRetrying(false);
+        return;
+      }
+
+      const webhookPath = group.enrichment_level === 'full_pipeline' ? 'wf2-ares' : 'wf4-email-gen';
+
+      for (const lead of failedLeads) {
+        await supabase.from('leads').update({ status: 'enriching' }).eq('id', lead.id);
         try {
-          await fetch(n8nWebhookUrl('lead-ingest'), {
+          await fetch(n8nWebhookUrl(webhookPath), {
             method: 'POST',
             headers: n8nHeaders(),
-            body: JSON.stringify({
-              company_name: lead.company_name,
-              ico: lead.ico,
-              website: lead.website,
-              team_id: lead.team_id,
-              language: lead.language || 'cs',
-              import_group_id: group.id,
-            }),
+            body: JSON.stringify({ lead_id: lead.id }),
           });
           await new Promise(r => setTimeout(r, 200));
         } catch { /* ignore */ }
@@ -81,6 +84,45 @@ export default function ImportGroupDetail({ group, onClose }: ImportGroupDetailP
       toast.success(t('importGroups.retrying'));
     } finally {
       setRetrying(false);
+    }
+  }
+
+  async function handleStartEnrichment() {
+    setEnriching(true);
+    try {
+      const { data: newLeads } = await supabase
+        .from('leads')
+        .select('id')
+        .eq('import_group_id', group.id)
+        .eq('status', 'new');
+
+      if (!newLeads || newLeads.length === 0) {
+        toast.info(t('importGroups.noLeadsToEnrich'));
+        setEnriching(false);
+        return;
+      }
+
+      setEnrichProgress({ done: 0, total: newLeads.length });
+
+      const webhookPath = group.enrichment_level === 'full_pipeline' ? 'wf2-ares' : 'wf4-email-gen';
+
+      for (let i = 0; i < newLeads.length; i++) {
+        const lead = newLeads[i];
+        await supabase.from('leads').update({ status: 'enriching' }).eq('id', lead.id);
+        try {
+          await fetch(n8nWebhookUrl(webhookPath), {
+            method: 'POST',
+            headers: n8nHeaders(),
+            body: JSON.stringify({ lead_id: lead.id }),
+          });
+        } catch { /* ignore individual failures */ }
+        setEnrichProgress({ done: i + 1, total: newLeads.length });
+        if (i < newLeads.length - 1) await new Promise(r => setTimeout(r, 200));
+      }
+
+      toast.success(t('importGroups.enrichmentStarted', { count: newLeads.length }));
+    } finally {
+      setEnriching(false);
     }
   }
 
@@ -113,6 +155,13 @@ export default function ImportGroupDetail({ group, onClose }: ImportGroupDetailP
           <span style={{ fontSize: 12, color: 'var(--text-dim)' }}>{formatDate(group.created_at)}</span>
         </div>
         <div style={{ display: 'flex', gap: 8 }}>
+          {group.enrichment_level !== 'import_only' && (
+            <GlassButton variant="primary" onClick={handleStartEnrichment} disabled={enriching}>
+              {enriching
+                ? `${t('importGroups.enriching')} ${enrichProgress.done}/${enrichProgress.total}`
+                : t('importGroups.startEnrichment')}
+            </GlassButton>
+          )}
           {group.failed_count > 0 && (
             <GlassButton variant="secondary" onClick={handleRetryFailed} disabled={retrying}>
               {t('importGroups.retryFailed', { count: group.failed_count })}

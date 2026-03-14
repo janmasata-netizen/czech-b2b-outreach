@@ -424,6 +424,12 @@ export default {
       find_emails: 'Hledani emailu',
       full_pipeline: 'Kompletni pipeline',
     },
+    viewGroup: 'Zobrazit import',
+    startEnrichment: 'Spustit obohaceni',
+    enriching: 'Obohacuji',
+    enrichmentStarted: 'Obohaceni spusteno pro {{count}} leadu',
+    noLeadsToEnrich: 'Zadne leady k obohaceni',
+    enrichmentPending: 'Leady importovany. Prejdete na detail skupiny a spustte obohaceni.',
   },
 
   // ── Import Chooser ──

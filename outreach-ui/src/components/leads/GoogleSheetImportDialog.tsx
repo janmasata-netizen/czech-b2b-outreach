@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
+import { useNavigate } from 'react-router-dom';
 import { useQueryClient } from '@tanstack/react-query';
 import GlassModal from '@/components/glass/GlassModal';
 import GlassButton from '@/components/glass/GlassButton';
@@ -35,6 +36,7 @@ interface Progress {
 
 export default function GoogleSheetImportDialog({ open, onClose }: GoogleSheetImportDialogProps) {
   const { t } = useTranslation();
+  const navigate = useNavigate();
   const { data: teams } = useTeams();
   const qc = useQueryClient();
 
@@ -52,6 +54,7 @@ export default function GoogleSheetImportDialog({ open, onClose }: GoogleSheetIm
   const [mapError, setMapError] = useState('');
   const [dedupResult, setDedupResult] = useState<DedupResult | null>(null);
   const [dedupChecking, setDedupChecking] = useState(false);
+  const [createdGroupId, setCreatedGroupId] = useState<string | null>(null);
 
   function resetState() {
     setStep('url');
@@ -68,6 +71,7 @@ export default function GoogleSheetImportDialog({ open, onClose }: GoogleSheetIm
     setMapError('');
     setDedupResult(null);
     setDedupChecking(false);
+    setCreatedGroupId(null);
   }
 
   function handleClose() {
@@ -204,10 +208,14 @@ export default function GoogleSheetImportDialog({ open, onClose }: GoogleSheetIm
       .insert({ name: importName || 'Google Sheet import', source: 'gsheet' as const, enrichment_level: enrichmentLevel, team_id: primaryTeamId })
       .select()
       .single();
-    if (groupErr) {
+    if (groupErr || !group) {
       console.error('Failed to create import group:', groupErr);
+      toast.error('Failed to create import group');
+      setStep('url');
+      return;
     }
-    const groupId = group?.id;
+    const groupId = group.id;
+    setCreatedGroupId(groupId);
 
     // Count non-skipped rows for team distribution
     const activeCount = rows.filter((_, i) => !skipIndices.has(i)).length;
@@ -284,81 +292,50 @@ export default function GoogleSheetImportDialog({ open, onClose }: GoogleSheetIm
         continue;
       }
 
+      const validEmail = email && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email) ? email : '';
+
       try {
-        if (enrichmentLevel === 'import_only') {
-          // Use ingest_lead RPC to create/find company + lead
-          const { data: rpcResult, error: rpcErr } = await supabase.rpc('ingest_lead', {
-            p_company_name: company_name || contact_name || null,
-            p_ico: ico || null,
-            p_website: website || null,
-            p_domain: extractDomain(website) || null,
-            p_team_id: rowTeamId || null,
-            p_language: language,
-            p_lead_type: 'company',
-          });
+        const { data: rpcResult, error: rpcErr } = await supabase.rpc('ingest_lead', {
+          p_company_name: company_name || contact_name || null,
+          p_ico: ico || null,
+          p_website: website || null,
+          p_domain: extractDomain(website) || null,
+          p_team_id: rowTeamId || null,
+          p_status: validEmail ? 'ready' : 'new',
+          p_lead_type: 'company',
+          p_language: language,
+          p_custom_fields: Object.keys(custom_fields).length > 0 ? custom_fields : {},
+          p_import_group_id: groupId,
+        });
 
-          if (rpcErr) {
-            errors++;
-          } else {
-            const leadId = rpcResult?.lead_id;
-            const companyId = rpcResult?.company_id;
-
-            // Update lead with custom_fields, status, and import_group_id
-            if (leadId) {
-              await supabase
-                .from('leads')
-                .update({
-                  status: email ? 'ready' : 'new',
-                  custom_fields: Object.keys(custom_fields).length > 0 ? custom_fields : {},
-                  ...(groupId ? { import_group_id: groupId } : {}),
-                })
-                .eq('id', leadId);
-            }
-
-            if (email && companyId) {
-              const { data: contact, error: ce } = await supabase
-                .from('contacts')
-                .insert({ company_id: companyId, full_name: contact_name || null })
-                .select()
-                .single();
-              if (ce) { errors++; }
-              else {
-                const { error: ee } = await supabase
-                  .from('email_candidates')
-                  .insert({
-                    contact_id: contact.id,
-                    email_address: email,
-                    is_verified: true,
-                    qev_status: 'manually_verified',
-                    seznam_status: 'likely_valid',
-                  });
-                if (ee) errors++;
-              }
-            }
-          }
+        if (rpcErr) {
+          errors++;
         } else {
-          // find_emails or full_pipeline → call lead-ingest webhook
-          const payload: Record<string, string | null | Record<string, string>> = {
-            company_name: company_name || contact_name || null,
-            ico: ico || null,
-            website: website || null,
-            team_id: rowTeamId || null,
-            language,
-          };
-          if (contact_name) payload.contact_name = contact_name;
-          if (Object.keys(custom_fields).length > 0) payload.custom_fields = custom_fields;
-          if (groupId) payload.import_group_id = groupId;
+          const companyId = rpcResult?.company_id;
 
-          const res = await fetch(n8nWebhookUrl('lead-ingest'), {
-            method: 'POST',
-            headers: n8nHeaders(),
-            body: JSON.stringify(payload),
-          });
-
-          if (res.status === 409) {
-            duplicates++;
-          } else if (!res.ok) {
-            errors++;
+          if (validEmail && companyId) {
+            const { data: contact, error: ce } = await supabase
+              .from('contacts')
+              .insert({ company_id: companyId, full_name: contact_name || null })
+              .select()
+              .single();
+            if (ce) { errors++; }
+            else {
+              const { error: ee } = await supabase
+                .from('email_candidates')
+                .insert({
+                  contact_id: contact.id,
+                  email_address: validEmail,
+                  is_verified: true,
+                  qev_status: 'manually_verified',
+                  seznam_status: 'likely_valid',
+                });
+              if (ee) errors++;
+            }
+          } else if (contact_name && companyId) {
+            await supabase
+              .from('contacts')
+              .insert({ company_id: companyId, full_name: contact_name });
           }
         }
       } catch {
@@ -375,33 +352,6 @@ export default function GoogleSheetImportDialog({ open, onClose }: GoogleSheetIm
       }));
 
       if (i < rows.length - 1) await delay(200);
-    }
-
-    // Retry sweep for stuck leads (enrichment modes only)
-    if (enrichmentLevel !== 'import_only' && groupId) {
-      await delay(3000);
-      const { data: stuck } = await supabase
-        .from('leads')
-        .select('id, company_name, ico, website, team_id, language')
-        .eq('import_group_id', groupId)
-        .eq('status', 'new');
-      for (const lead of stuck ?? []) {
-        try {
-          await fetch(n8nWebhookUrl('lead-ingest'), {
-            method: 'POST',
-            headers: n8nHeaders(),
-            body: JSON.stringify({
-              company_name: lead.company_name,
-              ico: lead.ico,
-              website: lead.website,
-              team_id: lead.team_id,
-              language: lead.language || 'cs',
-              import_group_id: groupId,
-            }),
-          });
-          await delay(200);
-        } catch { /* ignore retry failures */ }
-      }
     }
 
     setProgress({ done, errors, duplicates, total, icosFound, phase: '' });
@@ -666,7 +616,7 @@ export default function GoogleSheetImportDialog({ open, onClose }: GoogleSheetIm
       </div>
       {enrichmentLevel !== 'import_only' && (
         <div style={{ fontSize: 12, color: 'var(--text-dim)', padding: '8px 12px', background: 'rgba(255,255,255,0.03)', border: '1px solid var(--border)', borderRadius: 6 }}>
-          {t('csvImport.pipelineRunning')}
+          {t('importGroups.enrichmentPending')}
         </div>
       )}
     </div>
@@ -703,7 +653,14 @@ export default function GoogleSheetImportDialog({ open, onClose }: GoogleSheetIm
         </>
       )}
       {step === 'done' && (
-        <GlassButton variant="primary" onClick={handleClose}>{t('common.close')}</GlassButton>
+        <>
+          <GlassButton variant="secondary" onClick={handleClose}>{t('common.close')}</GlassButton>
+          {createdGroupId && (
+            <GlassButton variant="primary" onClick={() => { handleClose(); navigate(`/leady/skupiny/${createdGroupId}`); }}>
+              {t('importGroups.viewGroup')}
+            </GlassButton>
+          )}
+        </>
       )}
     </>
   );

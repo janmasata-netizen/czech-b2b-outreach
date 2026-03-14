@@ -8,7 +8,7 @@ import GlassInput from '@/components/glass/GlassInput';
 import GlassProgress from '@/components/glass/GlassProgress';
 import { useTeams } from '@/hooks/useLeads';
 import { supabase } from '@/lib/supabase';
-import { n8nWebhookUrl, n8nHeaders } from '@/lib/n8n';
+
 import { parseCsv, autoDetect } from '@/lib/csv-utils';
 import { toast } from 'sonner';
 import { checkDuplicates, extractDomain, type DedupResult, type DuplicateMatch } from '@/lib/dedup';
@@ -247,30 +247,8 @@ export default function CsvImportDialog({ open, onClose }: CsvImportDialogProps)
               if (ee) errors++;
             }
           }
-        } else if (enrichmentLevel !== 'import_only' && (website || ico)) {
-          // Enrichment mode: call WF1 webhook for leads without email
-          const payload: Record<string, string | null | Record<string, string>> = {
-            company_name: company_name || contact_name || null,
-            ico: ico || null,
-            website: website || null,
-            team_id: rowTeamId || null,
-            language,
-          };
-          if (contact_name) payload.contact_name = contact_name;
-          if (Object.keys(custom_fields).length > 0) payload.custom_fields = custom_fields;
-          if (groupId) payload.import_group_id = groupId;
-
-          try {
-            const res = await fetch(n8nWebhookUrl('lead-ingest'), {
-              method: 'POST',
-              headers: n8nHeaders(),
-              body: JSON.stringify(payload),
-            });
-            if (res.status === 409) duplicates++;
-            else if (!res.ok) errors++;
-          } catch { errors++; }
         } else {
-          // Import only: ingest_lead RPC, status='new'
+          // No valid email: ingest_lead RPC, status='new'
           const { data: rpcResult, error: le } = await supabase
             .rpc('ingest_lead', {
               p_company_name: company_name || null,
@@ -286,6 +264,13 @@ export default function CsvImportDialog({ open, onClose }: CsvImportDialogProps)
             });
           if (le) {
             errors++;
+          } else if (contact_name) {
+            const companyId = rpcResult?.company_id ?? rpcResult?.[0]?.company_id;
+            if (companyId) {
+              await supabase
+                .from('contacts')
+                .insert({ company_id: companyId, full_name: contact_name });
+            }
           }
         }
       } catch {
@@ -299,9 +284,6 @@ export default function CsvImportDialog({ open, onClose }: CsvImportDialogProps)
     qc.invalidateQueries({ queryKey: ['leads'] });
     qc.invalidateQueries({ queryKey: ['import-groups'] });
     setStep('done');
-    if (enrichmentLevel !== 'import_only') {
-      toast.info(t('csvImport.pipelineRunning'));
-    }
   }
 
   // ---- STEP: review (dedup) ----
@@ -595,7 +577,7 @@ export default function CsvImportDialog({ open, onClose }: CsvImportDialogProps)
       </div>
       {enrichmentLevel !== 'import_only' && (
         <div style={{ fontSize: 12, color: 'var(--text-dim)', padding: '8px 12px', background: 'rgba(255,255,255,0.03)', border: '1px solid var(--border)', borderRadius: 6 }}>
-          {t('csvImport.pipelineRunning')}
+          {t('importGroups.enrichmentPending')}
         </div>
       )}
     </div>

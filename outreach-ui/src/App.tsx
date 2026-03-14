@@ -23,6 +23,7 @@ import UsersSettings from '@/components/settings/UsersSettings';
 import SystemHealthPage from '@/pages/SystemHealthPage';
 import BugReportDetailPage from '@/pages/BugReportDetailPage';
 import AddLeadsToWavePage from '@/pages/AddLeadsToWavePage';
+import ImportGroupDetailPage from '@/pages/ImportGroupDetailPage';
 
 export default function App() {
   return (
@@ -41,6 +42,7 @@ export default function App() {
           <Route path="/databaze" element={<DatabasePage />} />
           <Route path="/databaze/:id" element={<CompanyDetailPage />} />
           <Route path="/leady" element={<LeadsPage />} />
+          <Route path="/leady/skupiny/:id" element={<ImportGroupDetailPage />} />
           <Route path="/leady/:id" element={<LeadDetailPage />} />
           <Route path="/vlny" element={<WavesPage />} />
           <Route path="/vlny/:id" element={<WaveDetailPage />} />

@@ -7,19 +7,38 @@ export const ALIASES: Record<string, string[]> = {
 };
 
 export function parseCsv(text: string): string[][] {
-  const lines = text.replace(/\r\n/g, '\n').replace(/\r/g, '\n').split('\n').filter(l => l.trim());
-  return lines.map(line => {
-    const result: string[] = [];
-    let cur = '', inQuote = false;
-    for (let i = 0; i < line.length; i++) {
-      const ch = line[i];
-      if (ch === '"') { inQuote = !inQuote; continue; }
-      if (ch === ',' && !inQuote) { result.push(cur.trim()); cur = ''; continue; }
+  const normalized = text.replace(/\r\n/g, '\n').replace(/\r/g, '\n');
+  const rows: string[][] = [];
+  let cur = '';
+  let inQuote = false;
+  let row: string[] = [];
+
+  for (let i = 0; i < normalized.length; i++) {
+    const ch = normalized[i];
+    if (ch === '"') {
+      if (inQuote && normalized[i + 1] === '"') {
+        cur += '"';
+        i++;
+      } else {
+        inQuote = !inQuote;
+      }
+    } else if (ch === ',' && !inQuote) {
+      row.push(cur.trim());
+      cur = '';
+    } else if (ch === '\n' && !inQuote) {
+      row.push(cur.trim());
+      if (row.some(cell => cell !== '')) rows.push(row);
+      row = [];
+      cur = '';
+    } else {
       cur += ch;
     }
-    result.push(cur.trim());
-    return result;
-  });
+  }
+  // Last row (no trailing newline)
+  row.push(cur.trim());
+  if (row.some(cell => cell !== '')) rows.push(row);
+
+  return rows;
 }
 
 export function autoDetect(headers: string[]): { company_name: string; ico: string; website: string; contact_name: string; email: string } {

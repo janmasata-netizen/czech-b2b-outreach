@@ -41,6 +41,20 @@ export function useImportGroupLeads(groupId: string | null, page = 1) {
   });
 }
 
+export function useImportGroup(id: string | undefined) {
+  return useQuery<ImportGroupStats | null>({
+    queryKey: ['import-group', id],
+    enabled: !!id,
+    refetchInterval: 15_000,
+    queryFn: async () => {
+      const { data, error } = await supabase.rpc('get_import_group_stats');
+      if (error) throw error;
+      const all = (data ?? []) as ImportGroupStats[];
+      return all.find(g => g.id === id) ?? null;
+    },
+  });
+}
+
 export function useDeleteImportGroup() {
   const qc = useQueryClient();
   return useMutation({
