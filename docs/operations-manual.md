@@ -637,7 +637,7 @@ Zobrazované metriky:
 | **Outreach ucet** | E-mailovy ucet pouzivany k odesilani (1 na tym). |
 | **Obchodnik (Salesman)** | Osoba, jejiz email se pouziva jako Reply-To. Ma vlastni IMAP schranku. |
 | **Enrichment** | Proces obohaceni leadu — ARES lookup, kurzy scraping, generovani emailu, overeni. |
-| **Enrichment pipeline** | Retez workflowu WF1 → WF2 → WF3 → WF4 → WF5 → WF11 pro kompletni obohaceni. WF6 (QEV) je deaktivovany. |
+| **Enrichment pipeline** | Retez workflowu WF1 → WF2 → WF3 → WF4 → WF5 → WF11 pro kompletni obohaceni. WF6 (QEV) je deaktivovany. Leady bez ICO ale s domenou preskoci WF3 a jdou primo na WF4. |
 | **Email discovery** | Proces hledani emailove adresy — generovani kandidatu + SMTP overeni. |
 | **QEV** | QuickEmailVerification — externi sluzba pro overovani emailu. **Deaktivovana** — SMTP overeni v WF5 dava stejne vysledky. |
 | **Seznam verify** | Overeni emailu pres Seznam.cz SMTP servery. |

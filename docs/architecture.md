@@ -232,9 +232,11 @@ CSV import / AddLead dialog (s volbou enrichment level)
    WF2: ARES Lookup (webhook:wf2-ares)
    - ICO → nazev firmy, adresa, pravni forma
    - Vola BE i VR endpoint (merge kontaktu do contacts tabulky)
+   - Pokud neni ICO ale lead ma domenu → preskoci WF3, spusti WF4 primo
         |
-        v
-   WF3: Kurzy Scrape (webhook:wf3-kurzy)
+        v (s ICO)              v (bez ICO, s domenou)
+   WF3: Kurzy Scrape           WF4: Email Gen (primo)
+   (webhook:wf3-kurzy)
    - Scraping kontaktnich osob z kurzy.cz
    - Uklada do contacts tabulky (pres company_id)
         |
@@ -325,7 +327,7 @@ Kompletni seznam vsech n8n workflow s identifikatory:
 | Workflow | n8n ID | Trigger | Popis |
 |---|---|---|---|
 | wf1-lead-ingest | beB84wDnEG2soY1m | webhook:lead-ingest | Prijem a vytvoreni leadu (ingest_lead RPC), vlozeni kontaktu do contacts |
-| wf2-ares-lookup | 2i6zvyAy3j7BjaZE | webhook:wf2-ares | ARES ICO lookup (BE + VR endpoint), uklada kontakty do contacts pres company_id |
+| wf2-ares-lookup | 2i6zvyAy3j7BjaZE | webhook:wf2-ares | ARES ICO lookup (BE + VR endpoint), uklada kontakty do contacts pres company_id. Bez ICO ale s domenou → preskoci WF3 a spusti WF4 primo |
 | wf3-kurzy-scrape | nPbr15LJxGaZUqo7 | webhook:wf3-kurzy | Scraping kontaktnich osob z kurzy.cz do contacts tabulky |
 | wf4-email-gen | RNuSFAtwoEAkb9rA | webhook:wf4-email-gen | Generovani emailovych adres (get_contacts_for_lead RPC) |
 | wf5-seznam-verify | 7JzGHAG24ra3977B | webhook:wf5-seznam | SMTP overeni emailu, mark_jednatels_email_status, vzdy spousti WF11 |

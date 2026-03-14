@@ -463,6 +463,166 @@
     },
     {
       "parameters": {
+        "mode": "runOnceForEachItem",
+        "jsCode": "// Check if lead has a domain and contacts — if so, we can skip ARES/Kurzy and go to WF4\nconst lead = $('Extract Lead').first().json;\nconst hasDomain = !!(lead.domain && lead.domain.trim());\nreturn { json: { lead_id: lead.lead_id, company_id: lead.company_id, company_name: lead.company_name, domain: lead.domain, has_domain: hasDomain } };"
+      },
+      "id": "wf02-chd",
+      "name": "Check Has Domain",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1920,
+        480
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {},
+          "conditions": [
+            {
+              "id": "has-domain",
+              "leftValue": "={{ $json.has_domain }}",
+              "rightValue": true,
+              "operator": {
+                "type": "boolean",
+                "operation": "equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        }
+      },
+      "id": "wf02-skip",
+      "name": "IF Can Skip to WF4",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [
+        2160,
+        480
+      ]
+    },
+    {
+      "parameters": {
+        "method": "PATCH",
+        "url": "https://cycapkswtucbucyegdsn.supabase.co/rest/v1/leads",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "apikey",
+              "value": "SUPABASE_SERVICE_ROLE_KEY_PLACEHOLDER"
+            },
+            {
+              "name": "Authorization",
+              "value": "Bearer SUPABASE_SERVICE_ROLE_KEY_PLACEHOLDER"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            {
+              "name": "id",
+              "value": "={{ 'eq.' + $json.lead_id }}"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ status: 'enriched', enrichment_error: null }) }}",
+        "options": {
+          "timeout": 30000,
+          "neverError": true
+        }
+      },
+      "id": "wf02-ses",
+      "name": "Set Enriched Skip",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        2400,
+        420
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://cycapkswtucbucyegdsn.supabase.co/rest/v1/enrichment_log",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "apikey",
+              "value": "SUPABASE_SERVICE_ROLE_KEY_PLACEHOLDER"
+            },
+            {
+              "name": "Authorization",
+              "value": "Bearer SUPABASE_SERVICE_ROLE_KEY_PLACEHOLDER"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ lead_id: $('Check Has Domain').first().json.lead_id, step: 'ares_lookup', status: 'skipped', completed_at: new Date().toISOString(), details: 'No IČO found, skipping to WF4 (has domain + contact)' }) }}",
+        "options": {
+          "timeout": 30000,
+          "neverError": true
+        }
+      },
+      "id": "wf02-lsa",
+      "name": "Log Skip ARES",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        2640,
+        420
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "http://72.62.53.244:32770/webhook/wf4-email-gen",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            },
+            {
+              "name": "X-Webhook-Secret",
+              "value": "reWDUmcjSRPTv3k-0CKdoASO_KY7Z3ux"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ lead_id: $('Check Has Domain').first().json.lead_id }) }}",
+        "options": {
+          "timeout": 30000,
+          "neverError": true
+        }
+      },
+      "id": "wf02-tw4",
+      "name": "Trigger WF4 Direct",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        2880,
+        420
+      ]
+    },
+    {
+      "parameters": {
         "method": "PATCH",
         "url": "https://cycapkswtucbucyegdsn.supabase.co/rest/v1/leads",
         "sendHeaders": true,
@@ -504,8 +664,8 @@
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
       "position": [
-        1920,
-        420
+        2400,
+        660
       ]
     },
     {
@@ -531,7 +691,7 @@
         },
         "sendBody": true,
         "specifyBody": "json",
-        "jsonBody": "={{ JSON.stringify({ lead_id: $json.lead_id, step: 'ares_lookup', status: 'failed', error_message: 'IČO not found in ARES results', completed_at: new Date().toISOString() }) }}",
+        "jsonBody": "={{ JSON.stringify({ lead_id: $json.lead_id, step: 'ares_lookup', status: 'failed', error_message: 'IČO not found in ARES results and no domain available', completed_at: new Date().toISOString() }) }}",
         "options": {
           "timeout": 30000,
           "neverError": true
@@ -542,8 +702,8 @@
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
       "position": [
-        2160,
-        420
+        2640,
+        660
       ]
     }
   ],
@@ -636,7 +796,7 @@
         ],
         [
           {
-            "node": "Set Failed No ICO",
+            "node": "Check Has Domain",
             "type": "main",
             "index": 0
           }
@@ -703,6 +863,57 @@
         [
           {
             "node": "Trigger WF3",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Check Has Domain": {
+      "main": [
+        [
+          {
+            "node": "IF Can Skip to WF4",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "IF Can Skip to WF4": {
+      "main": [
+        [
+          {
+            "node": "Set Enriched Skip",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Set Failed No ICO",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Set Enriched Skip": {
+      "main": [
+        [
+          {
+            "node": "Log Skip ARES",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Log Skip ARES": {
+      "main": [
+        [
+          {
+            "node": "Trigger WF4 Direct",
             "type": "main",
             "index": 0
           }
