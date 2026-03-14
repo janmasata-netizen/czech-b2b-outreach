@@ -458,6 +458,7 @@ export default function GoogleSheetImportDialog({ open, onClose }: GoogleSheetIm
           teams={teams}
           allocations={teamAllocations}
           onChange={setTeamAllocations}
+          totalCount={rows.length}
         />
       )}
 
