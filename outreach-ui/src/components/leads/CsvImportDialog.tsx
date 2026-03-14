@@ -1,5 +1,6 @@
 import { useState, useRef } from 'react';
 import { useTranslation } from 'react-i18next';
+import { useNavigate } from 'react-router-dom';
 import { useQueryClient } from '@tanstack/react-query';
 import GlassModal from '@/components/glass/GlassModal';
 import GlassButton from '@/components/glass/GlassButton';
@@ -33,6 +34,7 @@ interface Progress {
 
 export default function CsvImportDialog({ open, onClose }: CsvImportDialogProps) {
   const { t } = useTranslation();
+  const navigate = useNavigate();
   const { data: teams } = useTeams();
   const qc = useQueryClient();
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -50,6 +52,7 @@ export default function CsvImportDialog({ open, onClose }: CsvImportDialogProps)
   const [importName, setImportName] = useState('');
   const [dedupResult, setDedupResult] = useState<DedupResult | null>(null);
   const [dedupChecking, setDedupChecking] = useState(false);
+  const [createdGroupId, setCreatedGroupId] = useState<string | null>(null);
 
   function resetState() {
     setStep('upload');
@@ -65,6 +68,7 @@ export default function CsvImportDialog({ open, onClose }: CsvImportDialogProps)
     setImportName('');
     setDedupResult(null);
     setDedupChecking(false);
+    setCreatedGroupId(null);
   }
 
   function handleClose() {
@@ -150,11 +154,14 @@ export default function CsvImportDialog({ open, onClose }: CsvImportDialogProps)
       .insert({ name: importName || fileName, source: 'csv' as const, enrichment_level: enrichmentLevel, team_id: primaryTeamId })
       .select()
       .single();
-    if (groupErr) {
+    if (groupErr || !group) {
       console.error('Failed to create import group:', groupErr);
       toast.error('Failed to create import group');
+      setStep('upload');
+      return;
     }
-    const groupId = group?.id;
+    const groupId = group.id;
+    setCreatedGroupId(groupId);
 
     // Count non-skipped rows for team distribution
     const activeCount = rows.filter((_, i) => !skipIndices.has(i)).length;
@@ -214,15 +221,12 @@ export default function CsvImportDialog({ open, onClose }: CsvImportDialogProps)
               p_lead_type: 'company',
               p_language: language,
               p_custom_fields: Object.keys(custom_fields).length > 0 ? custom_fields : {},
+              p_import_group_id: groupId,
             });
 
           if (le) {
             errors++;
           } else {
-            const leadId = rpcData?.lead_id ?? rpcData?.[0]?.lead_id;
-            if (groupId && leadId) {
-              await supabase.from('leads').update({ import_group_id: groupId }).eq('id', leadId);
-            }
             const companyId = rpcData?.company_id ?? rpcData?.[0]?.company_id;
             const { data: contact, error: ce } = await supabase
               .from('contacts')
@@ -278,14 +282,10 @@ export default function CsvImportDialog({ open, onClose }: CsvImportDialogProps)
               p_lead_type: 'company',
               p_language: language,
               p_custom_fields: Object.keys(custom_fields).length > 0 ? custom_fields : {},
+              p_import_group_id: groupId,
             });
           if (le) {
             errors++;
-          } else {
-            const leadId = rpcResult?.lead_id ?? rpcResult?.[0]?.lead_id;
-            if (groupId && leadId) {
-              await supabase.from('leads').update({ import_group_id: groupId }).eq('id', leadId);
-            }
           }
         }
       } catch {
@@ -294,33 +294,6 @@ export default function CsvImportDialog({ open, onClose }: CsvImportDialogProps)
 
       done++;
       setProgress({ done, errors, duplicates, total });
-    }
-
-    // Retry sweep for stuck leads (enrichment modes only)
-    if (enrichmentLevel !== 'import_only' && groupId) {
-      await new Promise(r => setTimeout(r, 3000));
-      const { data: stuck } = await supabase
-        .from('leads')
-        .select('id, company_name, ico, website, team_id, language')
-        .eq('import_group_id', groupId)
-        .eq('status', 'new');
-      for (const lead of stuck ?? []) {
-        try {
-          await fetch(n8nWebhookUrl('lead-ingest'), {
-            method: 'POST',
-            headers: n8nHeaders(),
-            body: JSON.stringify({
-              company_name: lead.company_name,
-              ico: lead.ico,
-              website: lead.website,
-              team_id: lead.team_id,
-              language: lead.language || 'cs',
-              import_group_id: groupId,
-            }),
-          });
-          await new Promise(r => setTimeout(r, 200));
-        } catch { /* ignore retry failures */ }
-      }
     }
 
     qc.invalidateQueries({ queryKey: ['leads'] });
@@ -620,6 +593,11 @@ export default function CsvImportDialog({ open, onClose }: CsvImportDialogProps)
         <div style={{ fontSize: 13, color: '#fb923c' }}>⚠ {t('csvImport.duplicatesSkipped', { count: progress.duplicates })}</div>
         <div style={{ fontSize: 13, color: '#f87171' }}>✗ {t('csvImport.errorsCount', { count: progress.errors })}</div>
       </div>
+      {enrichmentLevel !== 'import_only' && (
+        <div style={{ fontSize: 12, color: 'var(--text-dim)', padding: '8px 12px', background: 'rgba(255,255,255,0.03)', border: '1px solid var(--border)', borderRadius: 6 }}>
+          {t('csvImport.pipelineRunning')}
+        </div>
+      )}
     </div>
   );
 
@@ -652,7 +630,14 @@ export default function CsvImportDialog({ open, onClose }: CsvImportDialogProps)
         </>
       )}
       {step === 'done' && (
-        <GlassButton variant="primary" onClick={handleClose}>{t('common.close')}</GlassButton>
+        <>
+          <GlassButton variant="secondary" onClick={handleClose}>{t('common.close')}</GlassButton>
+          {createdGroupId && (
+            <GlassButton variant="primary" onClick={() => { handleClose(); navigate(`/leady/skupiny/${createdGroupId}`); }}>
+              {t('importGroups.viewGroup')}
+            </GlassButton>
+          )}
+        </>
       )}
     </>
   );
