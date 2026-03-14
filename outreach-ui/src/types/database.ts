@@ -20,7 +20,13 @@ export type LeadStatus =
   | 'staff_email';
 
 export type WaveStatus = 'draft' | 'verifying' | 'verified' | 'scheduled' | 'sending' | 'done' | 'completed' | 'paused';
-export type WaveLeadStatus = 'pending' | 'seq1_sent' | 'seq2_sent' | 'seq3_sent' | 'completed' | 'replied' | 'failed';
+export type WaveLeadStatus = 'pending' | 'seq1_sent' | 'seq2_sent' | 'seq3_sent' | 'completed' | 'replied' | 'failed' | `seq${number}_sent`;
+
+export interface SequenceScheduleEntry {
+  seq: number;
+  send_date: string | null;
+  send_time: string | null;
+}
 export type EmailQueueStatus = 'queued' | 'sending' | 'sent' | 'failed' | 'cancelled' | 'pending_prev';
 export type EnrichmentStepStatus = 'started' | 'success' | 'failed';
 export type SeznamStatus = 'pending' | 'sent' | 'bounced' | 'likely_valid';
@@ -242,6 +248,7 @@ export interface Wave {
   send_time_seq1?: string;
   send_time_seq2?: string;
   send_time_seq3?: string;
+  sequence_schedule?: SequenceScheduleEntry[] | null;
   source_wave_id?: string | null;
   completed_at?: string | null;
   created_at?: string;
@@ -340,6 +347,7 @@ export interface WaveAnalytics {
   delay_seq2_to_seq3_days?: number;
   send_window_start?: string;
   send_window_end?: string;
+  sequence_schedule?: SequenceScheduleEntry[] | null;
   created_at: string;
   updated_at?: string;
   lead_count: number;

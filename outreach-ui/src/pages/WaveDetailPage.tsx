@@ -7,7 +7,7 @@ import { useWave, useTemplateSets, useDeleteWave, useUpdateWave, useCreateWave, 
 import { useForceSendSequence } from '@/hooks/useForceSend';
 import { supabase } from '@/lib/supabase';
 import { n8nWebhookUrl, n8nHeaders } from '@/lib/n8n';
-import type { WaveLeadRow, EmailQueue, EmailTemplate, Wave } from '@/types/database';
+import type { WaveLeadRow, EmailQueue, EmailTemplate, Wave, SequenceScheduleEntry } from '@/types/database';
 import PageHeader from '@/components/layout/PageHeader';
 import GlassButton from '@/components/glass/GlassButton';
 import GlassCard from '@/components/glass/GlassCard';
@@ -50,37 +50,46 @@ export default function WaveDetailPage() {
   const { data: templateSets } = useTemplateSets();
   const deleteWave = useDeleteWave();
   const updateWave = useUpdateWave();
-  const [seqDates, setSeqDates] = useState<Record<number, string>>({
-    1: data?.wave?.send_date_seq1?.slice(0, 10) ?? '',
-    2: data?.wave?.send_date_seq2?.slice(0, 10) ?? '',
-    3: data?.wave?.send_date_seq3?.slice(0, 10) ?? '',
-  });
-  const [seqTimes, setSeqTimes] = useState<Record<number, string>>({
-    1: data?.wave?.send_time_seq1?.slice(0, 5) ?? '08:00',
-    2: data?.wave?.send_time_seq2?.slice(0, 5) ?? '08:00',
-    3: data?.wave?.send_time_seq3?.slice(0, 5) ?? '08:00',
-  });
+  const [seqDates, setSeqDates] = useState<Record<number, string>>({});
+  const [seqTimes, setSeqTimes] = useState<Record<number, string>>({});
   // Hydrate dates/times when wave data loads (useState init runs before useWave resolves)
   useEffect(() => {
     if (!data?.wave) return;
     const w = data.wave;
-    setSeqDates(prev => ({
-      1: prev[1] || w.send_date_seq1?.slice(0, 10) || '',
-      2: prev[2] || w.send_date_seq2?.slice(0, 10) || '',
-      3: prev[3] || w.send_date_seq3?.slice(0, 10) || '',
-    }));
-    setSeqTimes(prev => ({
-      1: prev[1] !== '08:00' ? prev[1] : (w.send_time_seq1?.slice(0, 5) || '08:00'),
-      2: prev[2] !== '08:00' ? prev[2] : (w.send_time_seq2?.slice(0, 5) || '08:00'),
-      3: prev[3] !== '08:00' ? prev[3] : (w.send_time_seq3?.slice(0, 5) || '08:00'),
-    }));
+    const dates: Record<number, string> = {};
+    const times: Record<number, string> = {};
+    if (w.sequence_schedule?.length) {
+      for (const e of w.sequence_schedule) {
+        dates[e.seq] = e.send_date?.slice(0, 10) ?? '';
+        times[e.seq] = e.send_time?.slice(0, 5) ?? '08:00';
+      }
+    } else {
+      // Legacy fallback for seq 1-3
+      dates[1] = w.send_date_seq1?.slice(0, 10) || '';
+      dates[2] = w.send_date_seq2?.slice(0, 10) || '';
+      dates[3] = w.send_date_seq3?.slice(0, 10) || '';
+      times[1] = w.send_time_seq1?.slice(0, 5) || '08:00';
+      times[2] = w.send_time_seq2?.slice(0, 5) || '08:00';
+      times[3] = w.send_time_seq3?.slice(0, 5) || '08:00';
+    }
+    setSeqDates(prev => {
+      const next = { ...dates };
+      // Keep user edits if already set
+      for (const k of Object.keys(prev)) { if (prev[+k]) next[+k] = prev[+k]; }
+      return next;
+    });
+    setSeqTimes(prev => {
+      const next = { ...times };
+      for (const k of Object.keys(prev)) { if (prev[+k] && prev[+k] !== '08:00') next[+k] = prev[+k]; }
+      return next;
+    });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [data?.wave?.id]);
 
   const [scheduling, setScheduling] = useState(false);
   const [stopping, setStopping] = useState(false);
-  const [rerunSeqDates, setRerunSeqDates] = useState<Record<number, string>>({ 1: '', 2: '', 3: '' });
-  const [rerunSeqTimes, setRerunSeqTimes] = useState<Record<number, string>>({ 1: '08:00', 2: '08:00', 3: '08:00' });
+  const [rerunSeqDates, setRerunSeqDates] = useState<Record<number, string>>({});
+  const [rerunSeqTimes, setRerunSeqTimes] = useState<Record<number, string>>({});
   const [rerunning, setRerunning] = useState(false);
   const [sendingNow, setSendingNow] = useState(false);
 
@@ -126,7 +135,7 @@ export default function WaveDetailPage() {
 
   // Gap button options and defaults
   const GAP_OPTIONS = [1, 2, 3, 5, 7];
-  const DEFAULT_GAPS: Record<string, number> = { '1-2': 2, '2-3': 3 };
+  const DEFAULT_GAP = 3;
 
   function addDays(dateStr: string, days: number): string {
     const d = new Date(dateStr + 'T12:00:00');
@@ -153,19 +162,16 @@ export default function WaveDetailPage() {
     setDates(prev => {
       const next = { ...prev, [seq]: value };
       // Auto-fill subsequent empty seqs with default gaps
-      if (seq === 1 && value) {
-        if (!dates[2] && availableSeqs.includes(2)) {
-          next[2] = addDays(value, DEFAULT_GAPS['1-2']);
-          setTimes(t => ({ ...t, 2: times[1] }));
+      const seqIdx = availableSeqs.indexOf(seq);
+      if (value && seqIdx >= 0) {
+        let prevDate = value;
+        for (let i = seqIdx + 1; i < availableSeqs.length; i++) {
+          const target = availableSeqs[i];
+          if (dates[target]) break; // stop at first manually-set date
+          prevDate = addDays(prevDate, DEFAULT_GAP);
+          next[target] = prevDate;
+          setTimes(t => ({ ...t, [target]: times[seq] }));
         }
-        if (!dates[3] && availableSeqs.includes(3)) {
-          const seq2Date = next[2] || addDays(value, DEFAULT_GAPS['1-2']);
-          next[3] = addDays(seq2Date, DEFAULT_GAPS['2-3']);
-          setTimes(t => ({ ...t, 3: times[1] }));
-        }
-      } else if (seq === 2 && value && !dates[3] && availableSeqs.includes(3)) {
-        next[3] = addDays(value, DEFAULT_GAPS['2-3']);
-        setTimes(t => ({ ...t, 3: times[2] }));
       }
       return next;
     });
@@ -220,16 +226,18 @@ export default function WaveDetailPage() {
     if (!canLaunch) return;
     setScheduling(true);
     try {
+      const schedule: SequenceScheduleEntry[] = availableSeqs.map(seq => ({
+        seq, send_date: seqDates[seq] || null, send_time: seqTimes[seq] || '08:00',
+      }));
       await updateWave.mutateAsync({
         id: wave.id,
         updates: {
-          send_date_seq1: seqDates[1] || null,
-          send_date_seq2: seqDates[2] || null,
-          send_date_seq3: seqDates[3] || null,
-          send_time_seq1: seqTimes[1] || '08:00',
-          send_time_seq2: seqTimes[2] || '08:00',
-          send_time_seq3: seqTimes[3] || '08:00',
-          send_window_start: seqTimes[1] || '08:00',
+          sequence_schedule: schedule,
+          // Legacy compat: first 3 seqs
+          ...(schedule[0] ? { send_date_seq1: schedule[0].send_date, send_time_seq1: schedule[0].send_time } : {}),
+          ...(schedule[1] ? { send_date_seq2: schedule[1].send_date, send_time_seq2: schedule[1].send_time } : {}),
+          ...(schedule[2] ? { send_date_seq3: schedule[2].send_date, send_time_seq3: schedule[2].send_time } : {}),
+          send_window_start: seqTimes[availableSeqs[0]] || '08:00',
         } as Partial<Wave>,
       });
       const res = await fetch(n8nWebhookUrl('wf7-wave-schedule'), {
@@ -246,7 +254,8 @@ export default function WaveDetailPage() {
           reportMsg = t('waves.scheduledSkipped', { count: wf7Data.scheduling_report.skipped });
         }
       } catch { /* response may not be JSON */ }
-      toast.success(t('waves.scheduled', { date: fmtDate(seqDates[1]), time: seqTimes[1], report: reportMsg }));
+      const firstSeq = availableSeqs[0];
+      toast.success(t('waves.scheduled', { date: fmtDate(seqDates[firstSeq] || ''), time: seqTimes[firstSeq] || '08:00', report: reportMsg }));
       qc.invalidateQueries({ queryKey: ['waves', id] });
       qc.invalidateQueries({ queryKey: ['waves'] });
     } catch (e: unknown) {
@@ -286,16 +295,17 @@ export default function WaveDetailPage() {
     if (!hasAnyDate) { toast.warning(t('waves.setRerunDate')); return; }
     setRerunning(true);
     try {
+      const rerunSchedule: SequenceScheduleEntry[] = availableSeqs.map(seq => ({
+        seq, send_date: rerunSeqDates[seq] || null, send_time: rerunSeqTimes[seq] || '08:00',
+      }));
       await updateWave.mutateAsync({
         id: wave.id,
         updates: {
-          send_date_seq1: rerunSeqDates[1] || null,
-          send_date_seq2: rerunSeqDates[2] || null,
-          send_date_seq3: rerunSeqDates[3] || null,
-          send_time_seq1: rerunSeqTimes[1] || '08:00',
-          send_time_seq2: rerunSeqTimes[2] || '08:00',
-          send_time_seq3: rerunSeqTimes[3] || '08:00',
-          send_window_start: rerunSeqTimes[1] || '08:00',
+          sequence_schedule: rerunSchedule,
+          ...(rerunSchedule[0] ? { send_date_seq1: rerunSchedule[0].send_date, send_time_seq1: rerunSchedule[0].send_time } : {}),
+          ...(rerunSchedule[1] ? { send_date_seq2: rerunSchedule[1].send_date, send_time_seq2: rerunSchedule[1].send_time } : {}),
+          ...(rerunSchedule[2] ? { send_date_seq3: rerunSchedule[2].send_date, send_time_seq3: rerunSchedule[2].send_time } : {}),
+          send_window_start: rerunSeqTimes[availableSeqs[0]] || '08:00',
           status: 'scheduled',
         } as Partial<Wave>,
       });
@@ -340,15 +350,16 @@ export default function WaveDetailPage() {
       const todayStr = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
       const nowTime = `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
 
+      const nowSchedule: SequenceScheduleEntry[] = availableSeqs.map(seq => ({
+        seq, send_date: todayStr, send_time: nowTime,
+      }));
       await updateWave.mutateAsync({
         id: wave.id,
         updates: {
-          send_date_seq1: todayStr,
-          send_date_seq2: todayStr,
-          send_date_seq3: todayStr,
-          send_time_seq1: nowTime,
-          send_time_seq2: nowTime,
-          send_time_seq3: nowTime,
+          sequence_schedule: nowSchedule,
+          ...(nowSchedule[0] ? { send_date_seq1: nowSchedule[0].send_date, send_time_seq1: nowSchedule[0].send_time } : {}),
+          ...(nowSchedule[1] ? { send_date_seq2: nowSchedule[1].send_date, send_time_seq2: nowSchedule[1].send_time } : {}),
+          ...(nowSchedule[2] ? { send_date_seq3: nowSchedule[2].send_date, send_time_seq3: nowSchedule[2].send_time } : {}),
           send_window_start: nowTime,
         } as Partial<Wave>,
       });
@@ -477,20 +488,22 @@ export default function WaveDetailPage() {
     if (waveLeads.length > 0) {
       buttons.push(
         <GlassButton key="export" variant="secondary" onClick={() => {
+          const seqCols = availableSeqs.map(seq => `seq${seq}_sent`);
           const rows = waveLeads.map((wl: WaveLeadRow) => {
             const lead = wl.leads ?? wl.lead;
             const sent = wl.sent_emails ?? [];
-            return {
+            const row: Record<string, string> = {
               company_name: lead?.company_name ?? '',
               ico: lead?.ico ?? '',
               email: (wl as WaveLeadRow & { email_address?: string }).email_address ?? '',
               status: wl.status ?? '',
-              seq1_sent: sent.find((s: { sequence_number: number }) => s.sequence_number === 1) ? 'ano' : 'ne',
-              seq2_sent: sent.find((s: { sequence_number: number }) => s.sequence_number === 2) ? 'ano' : 'ne',
-              seq3_sent: sent.find((s: { sequence_number: number }) => s.sequence_number === 3) ? 'ano' : 'ne',
             };
+            for (const seq of availableSeqs) {
+              row[`seq${seq}_sent`] = sent.find((s: { sequence_number: number }) => s.sequence_number === seq) ? 'ano' : 'ne';
+            }
+            return row;
           });
-          exportCsv(`vlna-${wave.name ?? wave.id}.csv`, ['company_name', 'ico', 'email', 'status', 'seq1_sent', 'seq2_sent', 'seq3_sent'], rows);
+          exportCsv(`vlna-${wave.name ?? wave.id}.csv`, ['company_name', 'ico', 'email', 'status', ...seqCols], rows);
         }}>
           Export CSV
         </GlassButton>
@@ -648,8 +661,7 @@ export default function WaveDetailPage() {
                 {idx < availableSeqs.length - 1 && (() => {
                   const fromSeq = seq;
                   const toSeq = availableSeqs[idx + 1];
-                  const gapKey = `${fromSeq}-${toSeq}`;
-                  const defaultGap = DEFAULT_GAPS[gapKey] ?? 3;
+                  const defaultGap = DEFAULT_GAP;
                   return (
                     <div style={{
                       display: 'flex', alignItems: 'center', gap: 6, padding: '4px 0 4px 56px',
@@ -784,8 +796,7 @@ export default function WaveDetailPage() {
                 {idx < availableSeqs.length - 1 && (() => {
                   const fromSeq = seq;
                   const toSeq = availableSeqs[idx + 1];
-                  const gapKey = `${fromSeq}-${toSeq}`;
-                  const defaultGap = DEFAULT_GAPS[gapKey] ?? 3;
+                  const defaultGap = DEFAULT_GAP;
                   return (
                     <div style={{
                       display: 'flex', alignItems: 'center', gap: 6, padding: '4px 0 4px 56px',

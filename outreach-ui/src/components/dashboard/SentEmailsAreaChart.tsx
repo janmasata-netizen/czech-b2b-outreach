@@ -1,4 +1,4 @@
-import { useState, useId } from 'react';
+import { useState, useId, useMemo } from 'react';
 import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
 import { useEmailVolumeChart } from '@/hooks/useDashboard';
 import { Skeleton } from '@/components/shared/LoadingSkeleton';
@@ -11,14 +11,20 @@ const RANGES = [
   { label: 'Vše', days: 0 },
 ] as const;
 
+const CHART_COLORS = ['#3ECF8E', '#a78bfa', '#22d3ee', '#fb923c', '#f472b6'];
+
 export default function SentEmailsAreaChart({ teamId }: { teamId?: string }) {
   const [days, setDays] = useState(14);
   const { data, isLoading } = useEmailVolumeChart(days, teamId);
 
   const rawId = useId().replace(/:/g, '_');
-  const gSeq1 = `grad_seq1_${rawId}`;
-  const gSeq2 = `grad_seq2_${rawId}`;
-  const gSeq3 = `grad_seq3_${rawId}`;
+
+  const seqKeys = useMemo(() => {
+    if (!data?.length) return ['seq1', 'seq2', 'seq3'];
+    const keys = new Set<string>();
+    data.forEach((d: Record<string, unknown>) => Object.keys(d).filter(k => k.startsWith('seq')).forEach(k => keys.add(k)));
+    return Array.from(keys).sort();
+  }, [data]);
 
   return (
     <div style={{ padding: '20px 20px 12px', background: 'var(--bg-surface)', border: '1px solid var(--border)', borderRadius: 8 }}>
@@ -57,18 +63,15 @@ export default function SentEmailsAreaChart({ teamId }: { teamId?: string }) {
         <ResponsiveContainer width="100%" height={320}>
           <AreaChart data={data} margin={{ top: 0, right: 0, left: -20, bottom: 0 }}>
             <defs>
-              <linearGradient id={gSeq1} x1="0" y1="0" x2="0" y2="1">
-                <stop offset="0%" stopColor="#3ECF8E" stopOpacity={0.2} />
-                <stop offset="100%" stopColor="#3ECF8E" stopOpacity={0} />
-              </linearGradient>
-              <linearGradient id={gSeq2} x1="0" y1="0" x2="0" y2="1">
-                <stop offset="0%" stopColor="#a78bfa" stopOpacity={0.2} />
-                <stop offset="100%" stopColor="#a78bfa" stopOpacity={0} />
-              </linearGradient>
-              <linearGradient id={gSeq3} x1="0" y1="0" x2="0" y2="1">
-                <stop offset="0%" stopColor="#22d3ee" stopOpacity={0.2} />
-                <stop offset="100%" stopColor="#22d3ee" stopOpacity={0} />
-              </linearGradient>
+              {seqKeys.map((key, i) => {
+                const color = CHART_COLORS[i % CHART_COLORS.length];
+                return (
+                  <linearGradient key={key} id={`grad_${key}_${rawId}`} x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="0%" stopColor={color} stopOpacity={0.2} />
+                    <stop offset="100%" stopColor={color} stopOpacity={0} />
+                  </linearGradient>
+                );
+              })}
             </defs>
             <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" />
             <XAxis
@@ -87,9 +90,21 @@ export default function SentEmailsAreaChart({ teamId }: { teamId?: string }) {
               contentStyle={{ background: 'var(--bg-surface)', border: '1px solid var(--border-strong)', borderRadius: 8, color: 'var(--text)', fontSize: 12 }}
               cursor={{ stroke: 'var(--text-muted)', strokeDasharray: '4 4' }}
             />
-            <Area type="monotone" dataKey="seq1" name="Sekvence 1" stackId="1" stroke="#3ECF8E" fill={`url(#${gSeq1})`} />
-            <Area type="monotone" dataKey="seq2" name="Sekvence 2" stackId="1" stroke="#a78bfa" fill={`url(#${gSeq2})`} />
-            <Area type="monotone" dataKey="seq3" name="Sekvence 3" stackId="1" stroke="#22d3ee" fill={`url(#${gSeq3})`} />
+            {seqKeys.map((key, i) => {
+              const color = CHART_COLORS[i % CHART_COLORS.length];
+              const seqNum = key.replace('seq', '');
+              return (
+                <Area
+                  key={key}
+                  type="monotone"
+                  dataKey={key}
+                  name={`Sekvence ${seqNum}`}
+                  stackId="1"
+                  stroke={color}
+                  fill={`url(#grad_${key}_${rawId})`}
+                />
+              );
+            })}
           </AreaChart>
         </ResponsiveContainer>
       )}

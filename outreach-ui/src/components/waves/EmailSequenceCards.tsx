@@ -2,11 +2,16 @@ import { QUEUE_STATUS_MAP, STATUS_COLOR_MAP } from '@/lib/constants';
 import { renderTemplate, buildTemplateContext } from '@/lib/templateRenderer';
 import type { EmailTemplate, EmailQueue, WaveLeadRow, Contact, EmailCandidate } from '@/types/database';
 
-const SEQ_COLORS: Record<number, { accent: string; bg: string; border: string }> = {
-  1: { accent: '#3ECF8E', bg: 'rgba(62,207,142,0.06)', border: 'rgba(62,207,142,0.2)' },
-  2: { accent: '#a78bfa', bg: 'rgba(167,139,250,0.06)', border: 'rgba(167,139,250,0.2)' },
-  3: { accent: '#22d3ee', bg: 'rgba(34,211,238,0.06)', border: 'rgba(34,211,238,0.2)' },
-};
+const SEQ_COLOR_PALETTE = [
+  { accent: '#3ECF8E', bg: 'rgba(62,207,142,0.06)', border: 'rgba(62,207,142,0.2)' },
+  { accent: '#a78bfa', bg: 'rgba(167,139,250,0.06)', border: 'rgba(167,139,250,0.2)' },
+  { accent: '#22d3ee', bg: 'rgba(34,211,238,0.06)', border: 'rgba(34,211,238,0.2)' },
+  { accent: '#fb923c', bg: 'rgba(251,146,60,0.06)', border: 'rgba(251,146,60,0.2)' },
+  { accent: '#f472b6', bg: 'rgba(244,114,182,0.06)', border: 'rgba(244,114,182,0.2)' },
+];
+function getSeqColor(seq: number) {
+  return SEQ_COLOR_PALETTE[(seq - 1) % SEQ_COLOR_PALETTE.length];
+}
 
 function QueueStatusBadge({ status }: { status: string }) {
   const entry = (QUEUE_STATUS_MAP as Record<string, { label: string; color: string }>)[status];
@@ -81,7 +86,7 @@ export default function EmailSequenceCards({ waveStatus, waveLead, templates, on
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 10, padding: '8px 0' }}>
       {seqs.map(seq => {
-        const sc = SEQ_COLORS[seq] ?? SEQ_COLORS[1];
+        const sc = getSeqColor(seq);
 
         if (isDraft) {
           // Draft mode — render templates client-side
