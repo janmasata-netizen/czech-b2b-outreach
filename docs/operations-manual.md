@@ -637,10 +637,10 @@ Zobrazované metriky:
 | **Outreach ucet** | E-mailovy ucet pouzivany k odesilani (1 na tym). |
 | **Obchodnik (Salesman)** | Osoba, jejiz email se pouziva jako Reply-To. Ma vlastni IMAP schranku. |
 | **Enrichment** | Proces obohaceni leadu — ARES lookup, kurzy scraping, generovani emailu, overeni. |
-| **Enrichment pipeline** | Retez workflowu WF1 → WF2 → WF3 → WF4 → WF5 → WF11 pro kompletni obohaceni. WF6 (QEV) je deaktivovany. Leady bez ICO ale s domenou preskoci WF3 a jdou primo na WF4. WF4, WF5 i WF11 pouzivaji get_contacts_for_lead() RPC pro nacitani kontaktu. |
+| **Enrichment pipeline** | Retez workflowu WF1 → WF2 → WF3 → WF4 → WF5 → WF11 pro kompletni obohaceni. WF6 (QEV) je deaktivovany. Leady bez ICO ale s domenou preskoci WF3 a jdou primo na WF4. WF4, WF5 i WF11 pouzivaji get_contacts_for_lead() RPC pro nacitani kontaktu. WF5 nastavuje seznam_status='verified' (drive 'likely_valid') a is_verified=true pro SMTP-overene emaily. WF11 rozpoznava oba statusy. |
 | **Email discovery** | Proces hledani emailove adresy — generovani kandidatu + SMTP overeni. |
 | **QEV** | QuickEmailVerification — externi sluzba pro overovani emailu. **Deaktivovana** — SMTP overeni v WF5 dava stejne vysledky. |
-| **Seznam verify** | Overeni emailu pres Seznam.cz SMTP servery. |
+| **Seznam verify** | Overeni emailu pres Seznam.cz SMTP servery. Uspesne overene emaily dostanou seznam_status='verified' a is_verified=true. |
 | **SMTP probe** | Pokus o doruceni testovacıho emailu pro overeni existence adresy. |
 | **Catch-all domena** | Domena, ktera prijima emaily na libovolnou adresu — SMTP overeni neni prukazne. Email Finder v3 automaticky detekuje catch-all a pouzije probe test. |
 | **Email Finder v3** | Novy firemni orchestrator (wf-email-finder-v3) — nahrazuje stare zakladky ICO/Name/Probe/Bulk jednim company-centric hledanim. |
@@ -661,4 +661,4 @@ Zobrazované metriky:
 
 ---
 
-> **Posledni aktualizace:** 2026-03-14
+> **Posledni aktualizace:** 2026-03-15

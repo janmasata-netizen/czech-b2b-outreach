@@ -184,7 +184,7 @@
     {
       "parameters": {
         "mode": "runOnceForEachItem",
-        "jsCode": "const verify = $input.item.json;\nconst cand   = $('Add Config').item.json;\nconst valid  = verify.is_valid && !verify.is_disposable;\nreturn { json: {\n  id:             cand.id,\n  email_address:  cand.email_address,\n  lead_id:        cand.lead_id,\n  seznam_status:  valid ? 'likely_valid' : 'bounced',\n  confidence_score: verify.confidence_score,\n  is_catch_all:   verify.is_catch_all\n}};"
+        "jsCode": "const verify = $input.item.json;\nconst cand   = $('Add Config').item.json;\nconst valid  = verify.is_valid && !verify.is_disposable;\nreturn { json: {\n  id:             cand.id,\n  email_address:  cand.email_address,\n  lead_id:        cand.lead_id,\n  seznam_status:  valid ? 'verified' : 'bounced',\n  is_verified:    valid,\n  confidence_score: verify.confidence_score,\n  is_catch_all:   verify.is_catch_all\n}};"
       },
       "id": "wf05c-nB",
       "name": "Classify Candidates",
@@ -212,7 +212,7 @@
         },
         "sendBody": true,
         "specifyBody": "json",
-        "jsonBody": "={{ JSON.stringify({ seznam_status: $json.seznam_status, is_verified: $json.seznam_status === 'likely_valid', is_catch_all: $json.is_catch_all || false, verified_at: new Date().toISOString() }) }}",
+        "jsonBody": "={{ JSON.stringify({ seznam_status: $json.seznam_status, is_verified: $json.is_verified, is_catch_all: $json.is_catch_all || false, verified_at: new Date().toISOString() }) }}",
         "options": { "timeout": 30000, "neverError": true }
       },
       "id": "wf05c-nC",

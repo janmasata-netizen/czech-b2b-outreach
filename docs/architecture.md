@@ -250,7 +250,7 @@ CSV import / AddLead dialog (s volbou enrichment level)
    WF5: SMTP Verification (webhook:wf5-seznam)
    - Nacita kontakty pres get_contacts_for_lead() RPC (pres leads.company_id)
    - SMTP overeni pres Seznam (zda email existuje)
-   - Nastavuje is_verified a is_catch_all na email_candidates
+   - Nastavuje seznam_status='verified' (drive 'likely_valid'), is_verified=true, is_catch_all na email_candidates
    - Oznacuje vysledky pres mark_jednatels_email_status() RPC
    - Vzdy spousti WF11 (nenastavuje finalni lead status)
         |
@@ -330,13 +330,13 @@ Kompletni seznam vsech n8n workflow s identifikatory:
 | wf2-ares-lookup | 2i6zvyAy3j7BjaZE | webhook:wf2-ares | ARES ICO lookup (BE + VR endpoint), uklada kontakty do contacts pres company_id. Bez ICO ale s domenou → preskoci WF3 a spusti WF4 primo |
 | wf3-kurzy-scrape | nPbr15LJxGaZUqo7 | webhook:wf3-kurzy | Scraping kontaktnich osob z kurzy.cz do contacts tabulky |
 | wf4-email-gen | RNuSFAtwoEAkb9rA | webhook:wf4-email-gen | Generovani emailovych adres (get_contacts_for_lead RPC) |
-| wf5-seznam-verify | 7JzGHAG24ra3977B | webhook:wf5-seznam | SMTP overeni emailu (get_contacts_for_lead RPC), mark_jednatels_email_status, vzdy spousti WF11 |
+| wf5-seznam-verify | 7JzGHAG24ra3977B | webhook:wf5-seznam | SMTP overeni emailu (get_contacts_for_lead RPC), seznam_status='verified' + is_verified=true, mark_jednatels_email_status, vzdy spousti WF11 |
 | wf6-qev-verify | EbKgRSRr2Poe34vH | webhook:wf6-qev | **DEAKTIVOVANY** — QEV overeni odstraneno, SMTP staci |
 | wf7-wave-schedule | TVNOzjSnaWrmTlqw | webhook:wf7-wave-schedule | Planovani vlny + scheduling_report (contacts nested select) |
 | wf8-send-cron | wJLD5sFxddNNxR7p | cron:every-5min | Odesilani emailu z fronty |
 | wf9-reply-detection | AaHXknYh9egPDxcG | cron:every-1min | Detekce odpovedi pres IMAP proxy |
 | wf10-daily-reset | 50Odnt5vzIMfSBZE | cron:midnight | Reset dennich pocitadel + cisteni |
-| wf11-website-fallback | E5QzxzZe4JbSv5lU | webhook:wf11-website-fallback | Website email scraper + finalni lead status (vzdy spousten z WF5) |
+| wf11-website-fallback | E5QzxzZe4JbSv5lU | webhook:wf11-website-fallback | Website email scraper + finalni lead status (vzdy spousten z WF5). Fetch nody bez fullResponse:true (fix 0-items bug). Rozpoznava seznam_status 'verified' i 'likely_valid'. |
 | wf12-ico-scrape | LGEe4MTELj5lmOFX | webhook:wf12-ico-scrape | Scraping ICO z webovych stranek |
 | wf13-gsheet-proxy | ENcE8iMWLNwIPc5a | webhook:gsheet-proxy | Google Sheets proxy |
 | email-verification sub-wf | Aov5PfwmBDv51L0e | executeWorkflowTrigger | Sdileny sub-workflow pro overeni emailu |
@@ -563,4 +563,4 @@ Vsechna muzska jmena se sklonovani — zadna vyjimka pro cizi jmena.
 
 ---
 
-> Posledni aktualizace: 2026-03-14
+> Posledni aktualizace: 2026-03-15
