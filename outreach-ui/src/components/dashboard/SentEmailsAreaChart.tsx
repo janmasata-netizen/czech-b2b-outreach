@@ -1,5 +1,4 @@
 import { useState, useId } from 'react';
-import { useTranslation } from 'react-i18next';
 import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
 import { useEmailVolumeChart } from '@/hooks/useDashboard';
 import { Skeleton } from '@/components/shared/LoadingSkeleton';

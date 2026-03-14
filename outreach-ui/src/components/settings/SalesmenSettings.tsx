@@ -1,5 +1,4 @@
 import { useState } from 'react';
-import { useTranslation } from 'react-i18next';
 import GlassCard from '@/components/glass/GlassCard';
 import PageHeader from '@/components/layout/PageHeader';
 import GlassButton from '@/components/glass/GlassButton';

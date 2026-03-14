@@ -1,4 +1,3 @@
-import { useTranslation } from 'react-i18next';
 import { QUEUE_STATUS_MAP, STATUS_COLOR_MAP } from '@/lib/constants';
 import { renderTemplate, buildTemplateContext } from '@/lib/templateRenderer';
 import type { EmailTemplate, EmailQueue, WaveLeadRow, Contact, EmailCandidate } from '@/types/database';

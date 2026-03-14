@@ -3,7 +3,7 @@ import { useTranslation } from 'react-i18next';
 import type { Lead, WaveLead } from '@/types/database';
 import StatusBadge from '@/components/shared/StatusBadge';
 import { formatDate, extractDomain, truncate } from '@/lib/utils';
-import { EMAIL_STATUS_STYLES, LEAD_LANGUAGE_MAP } from '@/lib/constants';
+import { EMAIL_STATUS_STYLES } from '@/lib/constants';
 import { TableSkeleton } from '@/components/shared/LoadingSkeleton';
 import EmptyState from '@/components/shared/EmptyState';
 import { useRemoveLeadFromWave } from '@/hooks/useLeads';

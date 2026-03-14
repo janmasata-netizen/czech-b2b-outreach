@@ -1,5 +1,4 @@
 import { Fragment, useState } from 'react';
-import { useTranslation } from 'react-i18next';
 import { useNavigate } from 'react-router-dom';
 import GlassCard from '@/components/glass/GlassCard';
 import GlassButton from '@/components/glass/GlassButton';
@@ -58,7 +57,7 @@ const TH: React.CSSProperties = {
   borderBottom: '1px solid var(--border)', whiteSpace: 'nowrap' as const,
 };
 
-export default function WaveLeadsManager({ waveId, waveLeads, waveStatus, teamId, templates, variables, onForceSend, forceSending }: WaveLeadsManagerProps) {
+export default function WaveLeadsManager({ waveId, waveLeads, waveStatus, templates, variables, onForceSend, forceSending }: WaveLeadsManagerProps) {
   const navigate = useNavigate();
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const [editingQueue, setEditingQueue] = useState<EmailQueue | null>(null);

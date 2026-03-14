@@ -20,7 +20,7 @@ export function useCreateContact() {
 export function useUpdateContact() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: async ({ id, companyId, updates }: { id: string; companyId: string; updates: Partial<Contact> }) => {
+    mutationFn: async ({ id, updates }: { id: string; companyId: string; updates: Partial<Contact> }) => {
       const { error } = await supabase.from('contacts').update(updates).eq('id', id);
       if (error) throw error;
     },
@@ -36,7 +36,7 @@ export function useUpdateContact() {
 export function useDeleteContact() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: async ({ id, companyId }: { id: string; companyId: string }) => {
+    mutationFn: async ({ id }: { id: string; companyId: string }) => {
       const { error } = await supabase.from('contacts').delete().eq('id', id);
       if (error) throw error;
     },

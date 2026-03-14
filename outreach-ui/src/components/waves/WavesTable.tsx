@@ -1,5 +1,4 @@
 import { useNavigate } from 'react-router-dom';
-import { useTranslation } from 'react-i18next';
 import type { WaveAnalytics } from '@/types/database';
 import StatusBadge from '@/components/shared/StatusBadge';
 import { formatDate, formatPercent } from '@/lib/utils';

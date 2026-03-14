@@ -13,7 +13,7 @@ import { toast } from 'sonner';
 import { n8nWebhookUrl, n8nHeaders } from '@/lib/n8n';
 import { checkDuplicates, extractDomain, type DedupResult, type DuplicateMatch } from '@/lib/dedup';
 import { LEAD_LANGUAGE_MAP } from '@/lib/constants';
-import { assignTeamToRows, distributeEvenly, type TeamAllocation } from '@/lib/team-distribution';
+import { assignTeamToRows, type TeamAllocation } from '@/lib/team-distribution';
 import TeamDistributionSelector from '@/components/shared/TeamDistributionSelector';
 import type { LeadLanguage } from '@/types/database';
 

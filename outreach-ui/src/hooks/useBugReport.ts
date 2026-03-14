@@ -1,6 +1,6 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/lib/supabase';
-import type { BugReport, BugReportNote, BugReportTag, BugReportSeverity, BugReportCategory, BugReportStatus, Tag } from '@/types/database';
+import type { BugReport, BugReportSeverity, BugReportCategory, BugReportStatus, Tag } from '@/types/database';
 
 interface SubmitBugReport {
   title: string;
@@ -125,7 +125,7 @@ export function useAddBugReportNote() {
 export function useDeleteBugReportNote() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: async ({ noteId, bugReportId }: { noteId: string; bugReportId: string }) => {
+    mutationFn: async ({ noteId }: { noteId: string; bugReportId: string }) => {
       const { error } = await supabase
         .from('bug_report_notes')
         .delete()
@@ -145,7 +145,7 @@ export function useAddBugReportTag() {
   return useMutation({
     mutationFn: async ({ bugReportId, tagName }: { bugReportId: string; tagName: string }) => {
       const normalizedName = tagName.trim().toLowerCase();
-      let { data: existingTag } = await supabase
+      const { data: existingTag } = await supabase
         .from('tags')
         .select('id')
         .eq('name', normalizedName)
@@ -181,7 +181,7 @@ export function useAddBugReportTag() {
 export function useRemoveBugReportTag() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: async ({ junctionId, bugReportId }: { junctionId: string; bugReportId: string }) => {
+    mutationFn: async ({ junctionId }: { junctionId: string; bugReportId: string }) => {
       const { error } = await supabase
         .from('bug_report_tags')
         .delete()

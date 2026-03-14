@@ -1,4 +1,3 @@
-import { useTranslation } from 'react-i18next';
 import GlassCard from '@/components/glass/GlassCard';
 import PageHeader from '@/components/layout/PageHeader';
 import ConfirmDialog from '@/components/glass/ConfirmDialog';

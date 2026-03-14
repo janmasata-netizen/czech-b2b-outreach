@@ -22,7 +22,7 @@ function useSystemHealth() {
     queryKey: ['system-health'],
     refetchInterval: 15_000,
     queryFn: async () => {
-      const [queueRes, failedRes, lastSentRes, teamsRes] = await Promise.all([
+      const [, failedRes, lastSentRes, teamsRes] = await Promise.all([
         supabase
           .from('email_queue')
           .select('status', { count: 'exact', head: true })
@@ -90,7 +90,7 @@ function formatAgo(iso: string | null): string {
 
 function OverviewTab() {
   const { data, isLoading, refetch } = useSystemHealth();
-  const [, setNow] = useState(Date.now());
+  const [now, setNow] = useState(() => Date.now());
 
   useEffect(() => {
     const id = setInterval(() => setNow(Date.now()), 10_000);
@@ -133,7 +133,7 @@ function OverviewTab() {
             <MetricCard
               label="Poslední odeslání"
               value={formatAgo(data.lastSentAt)}
-              color={data.lastSentAt && (Date.now() - new Date(data.lastSentAt).getTime() < 600_000) ? 'var(--green)' : '#fbbf24'}
+              color={data.lastSentAt && (now - new Date(data.lastSentAt).getTime() < 600_000) ? 'var(--green)' : '#fbbf24'}
               sub={data.lastSentAt ? new Date(data.lastSentAt).toLocaleString('cs-CZ') : ''}
             />
           </div>
@@ -177,7 +177,7 @@ function OverviewTab() {
               {[
                 {
                   label: 'WF8 (Send Cron)',
-                  ok: data.lastSentAt ? (Date.now() - new Date(data.lastSentAt).getTime() < 600_000) : false,
+                  ok: data.lastSentAt ? (now - new Date(data.lastSentAt).getTime() < 600_000) : false,
                   detail: `Poslední odeslání: ${formatAgo(data.lastSentAt)}`,
                 },
                 {

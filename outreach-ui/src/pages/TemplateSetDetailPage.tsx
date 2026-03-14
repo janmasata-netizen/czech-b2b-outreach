@@ -1,4 +1,4 @@
-import { useState, useRef, useCallback } from 'react';
+import { useState, useRef, useCallback, useMemo } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import PageHeader from '@/components/layout/PageHeader';
@@ -282,7 +282,7 @@ export default function TemplateSetDetailPage() {
   const [varsExpanded, setVarsExpanded] = useState(false);
 
   const selectedSet = sets?.find(s => s.id === id);
-  const templates: EmailTemplate[] = selectedSet?.email_templates ?? [];
+  const templates: EmailTemplate[] = useMemo(() => selectedSet?.email_templates ?? [], [selectedSet]);
 
   const seqNumbers = Array.from(new Set(templates.map((t: EmailTemplate) => t.sequence_number))).sort((a, b) => a - b);
 

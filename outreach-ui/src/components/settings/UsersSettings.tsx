@@ -1,5 +1,4 @@
-import { useState, useEffect } from 'react';
-import { useTranslation } from 'react-i18next';
+import { useState } from 'react';
 import GlassCard from '@/components/glass/GlassCard';
 import PageHeader from '@/components/layout/PageHeader';
 import GlassButton from '@/components/glass/GlassButton';
@@ -186,17 +185,17 @@ function UserDetailModal({ user, open, onClose, isAdmin, isSelf, teamOptions }: 
   const updateProfile = useUpdateProfile();
   const canEdit = isSelf || isAdmin;
 
+  const [prevUserId, setPrevUserId] = useState<string | null>(null);
   const [fullName, setFullName] = useState('');
   const [teamId, setTeamId] = useState<string | null>(null);
   const [admin, setAdmin] = useState(false);
 
-  useEffect(() => {
-    if (user) {
-      setFullName(user.profile.full_name ?? '');
-      setTeamId(user.profile.team_id);
-      setAdmin(user.profile.is_admin);
-    }
-  }, [user]);
+  if (user && user.id !== prevUserId) {
+    setPrevUserId(user.id);
+    setFullName(user.profile.full_name ?? '');
+    setTeamId(user.profile.team_id);
+    setAdmin(user.profile.is_admin);
+  }
 
   async function handleSave() {
     if (!user) return;

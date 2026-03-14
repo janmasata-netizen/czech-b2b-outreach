@@ -1,4 +1,3 @@
-import { useTranslation } from 'react-i18next';
 import GlassCard from '@/components/glass/GlassCard';
 import StatCard from '@/components/shared/StatCard';
 import type { WaveAnalytics, WaveLeadRow, SentEmail } from '@/types/database';
