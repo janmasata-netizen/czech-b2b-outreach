@@ -55,7 +55,7 @@
         },
         "sendBody": true,
         "specifyBody": "json",
-        "jsonBody": "={{ JSON.stringify({\n  p_company_name: $json.body?.company_name || $json.body?.contact_name\n                  || $json.company_name || $json.contact_name || null,\n  p_ico:          $json.body?.ico || $json.ico || null,\n  p_website:      $json.body?.website || $json.website || null,\n  p_team_id: $json.body?.team_id || $json.team_id || null\n}) }}",
+        "jsonBody": "={{ JSON.stringify({\n  p_company_name: $json.body?.company_name || $json.body?.contact_name\n                  || $json.company_name || $json.contact_name || null,\n  p_ico:          $json.body?.ico || $json.ico || null,\n  p_website:      $json.body?.website || $json.website || null,\n  p_domain: (() => { const w = $json.body?.website || $json.website || ''; if (!w) return null; try { let s = w.trim().toLowerCase(); if (!s.startsWith('http')) s = 'https://'+s; return new URL(s).hostname.replace(/^www\\\\./, ''); } catch { return null; } })(),\n  p_team_id:        $json.body?.team_id || $json.team_id || null,\n  p_language:       $json.body?.language || $json.language || 'cs',\n  p_custom_fields:  $json.body?.custom_fields || $json.custom_fields || {},\n  p_import_group_id: $json.body?.import_group_id || $json.import_group_id || null\n}) }}",
         "options": {
           "timeout": 30000,
           "neverError": true
@@ -321,7 +321,7 @@
         "sendBody": true,
         "contentType": "raw",
         "rawContentType": "application/json",
-        "body": "={{ JSON.stringify({ lead_id: $('Parse Contact Name').first().json.lead_id, full_name: $('Parse Contact Name').first().json.full_name, first_name: $('Parse Contact Name').first().json.first_name, last_name: $('Parse Contact Name').first().json.last_name }) }}",
+        "body": "={{ JSON.stringify({ company_id: $('Ingest Lead RPC').first().json.company_id, full_name: $('Parse Contact Name').first().json.full_name, first_name: $('Parse Contact Name').first().json.first_name, last_name: $('Parse Contact Name').first().json.last_name }) }}",
         "options": {
           "timeout": 10000,
           "neverError": true
