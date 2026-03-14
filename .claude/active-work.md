@@ -18,4 +18,5 @@
 
 | Branch | Agent | Files (exact paths) | Started | Last Updated | PR |
 |---|---|---|---|---|---|
+| claude/import-groups | Claude Opus | `n8n-workflows/migrate-import-groups.mjs`, `outreach-ui/src/types/database.ts`, `outreach-ui/src/hooks/useImportGroups.ts`, `outreach-ui/src/components/leads/ImportGroupDetail.tsx`, `outreach-ui/src/components/leads/EmailDiscoveryTab.tsx`, `outreach-ui/src/components/leads/CsvImportDialog.tsx`, `outreach-ui/src/components/leads/GoogleSheetImportDialog.tsx`, `outreach-ui/src/i18n/cs.ts`, `outreach-ui/src/i18n/en.ts` | 2026-03-14 | 2026-03-14 | — |
 
