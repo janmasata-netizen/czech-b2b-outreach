@@ -55,7 +55,7 @@
         },
         "sendBody": true,
         "specifyBody": "json",
-        "jsonBody": "={{ JSON.stringify({\n  p_company_name: $json.body?.company_name || $json.body?.contact_name\n                  || $json.company_name || $json.contact_name || null,\n  p_ico:          $json.body?.ico || $json.ico || null,\n  p_website:      $json.body?.website || $json.website || null,\n  p_team_id_hint: $json.body?.team_id || $json.team_id || null\n}) }}",
+        "jsonBody": "={{ JSON.stringify({\n  p_company_name: $json.body?.company_name || $json.body?.contact_name\n                  || $json.company_name || $json.contact_name || null,\n  p_ico:          $json.body?.ico || $json.ico || null,\n  p_website:      $json.body?.website || $json.website || null,\n  p_team_id: $json.body?.team_id || $json.team_id || null\n}) }}",
         "options": {
           "timeout": 30000,
           "neverError": true
@@ -81,10 +81,10 @@
           "conditions": [
             {
               "id": "dup-check",
-              "leftValue": "={{ $json.duplicate }}",
-              "rightValue": true,
+              "leftValue": "={{ $json.is_new }}",
+              "rightValue": "false",
               "operator": {
-                "type": "boolean",
+                "type": "string",
                 "operation": "equals"
               }
             }
@@ -124,12 +124,86 @@
       }
     },
     {
+      "id": "wf01-node-ifgroup",
+      "name": "IF Has Group ID",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [
+        1080,
+        400
+      ],
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict"
+          },
+          "conditions": [
+            {
+              "id": "group-check",
+              "leftValue": "={{ $('Webhook Trigger').first().json.body?.import_group_id || $('Webhook Trigger').first().json.import_group_id || '' }}",
+              "rightValue": "",
+              "operator": {
+                "type": "string",
+                "operation": "notEmpty"
+              }
+            }
+          ],
+          "combinator": "and"
+        }
+      }
+    },
+    {
+      "id": "wf01-node-setgroup",
+      "name": "Set Import Group",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4,
+      "position": [
+        1300,
+        300
+      ],
+      "parameters": {
+        "method": "PATCH",
+        "url": "=https://cycapkswtucbucyegdsn.supabase.co/rest/v1/leads?id=eq.{{ $('Ingest Lead RPC').first().json.lead_id }}",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "apikey",
+              "value": "SUPABASE_SERVICE_ROLE_KEY_PLACEHOLDER"
+            },
+            {
+              "name": "Authorization",
+              "value": "Bearer SUPABASE_SERVICE_ROLE_KEY_PLACEHOLDER"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            },
+            {
+              "name": "Prefer",
+              "value": "return=minimal"
+            }
+          ]
+        },
+        "sendBody": true,
+        "contentType": "raw",
+        "rawContentType": "application/json",
+        "body": "={{ JSON.stringify({ import_group_id: $('Webhook Trigger').first().json.body?.import_group_id || $('Webhook Trigger').first().json.import_group_id, language: $('Webhook Trigger').first().json.body?.language || $('Webhook Trigger').first().json.language || null }) }}",
+        "options": {
+          "timeout": 10000,
+          "neverError": true
+        }
+      }
+    },
+    {
       "id": "wf01-node-ifcontact",
       "name": "IF Contact Lead",
       "type": "n8n-nodes-base.if",
       "typeVersion": 2,
       "position": [
-        1200,
+        1540,
         400
       ],
       "parameters": {
@@ -160,7 +234,7 @@
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        1440,
+        1780,
         300
       ],
       "parameters": {
@@ -174,7 +248,7 @@
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4,
       "position": [
-        1680,
+        2020,
         300
       ],
       "parameters": {
@@ -217,7 +291,7 @@
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4,
       "position": [
-        1920,
+        2260,
         300
       ],
       "parameters": {
@@ -260,7 +334,7 @@
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4,
       "position": [
-        2160,
+        2500,
         300
       ],
       "parameters": {
@@ -295,7 +369,7 @@
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4,
       "position": [
-        1440,
+        1780,
         500
       ],
       "parameters": {
@@ -366,6 +440,35 @@
       ]
     },
     "Respond 200": {
+      "main": [
+        [
+          {
+            "node": "IF Has Group ID",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "IF Has Group ID": {
+      "main": [
+        [
+          {
+            "node": "Set Import Group",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "IF Contact Lead",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Set Import Group": {
       "main": [
         [
           {
