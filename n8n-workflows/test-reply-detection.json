@@ -396,7 +396,7 @@
       "type": "n8n-nodes-base.respondToWebhook",
       "typeVersion": 1,
       "position": [2640, 900]
-    },
+    }
   ],
   "connections": {
     "Webhook": {
