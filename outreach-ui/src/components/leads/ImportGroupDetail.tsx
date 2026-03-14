@@ -6,7 +6,8 @@ import StatusBadge from '@/components/shared/StatusBadge';
 import Pagination from '@/components/shared/Pagination';
 import GlassButton from '@/components/glass/GlassButton';
 import PushToWaveDialog from '@/components/leads/PushToWaveDialog';
-import { TableSkeleton } from '@/components/shared/LoadingSkeleton';
+import MoveToReadyDialog from '@/components/leads/MoveToReadyDialog';
+import { TableSkeleton, Skeleton } from '@/components/shared/LoadingSkeleton';
 import { PAGE_SIZE } from '@/lib/constants';
 import { supabase } from '@/lib/supabase';
 import { n8nWebhookUrl, n8nHeaders } from '@/lib/n8n';
@@ -36,6 +37,7 @@ export default function ImportGroupDetail({ group, onClose }: ImportGroupDetailP
   const [retrying, setRetrying] = useState(false);
   const [enriching, setEnriching] = useState(false);
   const [enrichProgress, setEnrichProgress] = useState({ done: 0, total: 0 });
+  const [showMoveDialog, setShowMoveDialog] = useState(false);
 
   const { data, isLoading } = useImportGroupLeads(group.id, page);
   const deleteGroup = useDeleteImportGroup();
@@ -44,6 +46,12 @@ export default function ImportGroupDetail({ group, onClose }: ImportGroupDetailP
   const totalPages = Math.ceil(total / PAGE_SIZE);
 
   const enrichmentBadgeLabel = t(`importGroups.enrichmentBadge.${group.enrichment_level}`);
+
+  const enrichmentDone = group.in_progress_count === 0
+    && group.enrichment_level !== 'import_only'
+    && (group.ready_count > 0 || group.failed_count > 0);
+
+  const buttonLocked = enriching || group.in_progress_count > 0;
 
   function toggleAll(e: React.ChangeEvent<HTMLInputElement>) {
     setSelected(e.target.checked ? leads.map((l: { id: string }) => l.id) : []);
@@ -69,19 +77,29 @@ export default function ImportGroupDetail({ group, onClose }: ImportGroupDetailP
       }
 
       const webhookPath = group.enrichment_level === 'full_pipeline' ? 'wf2-ares' : 'wf4-email-gen';
+      let failedCount = 0;
 
       for (const lead of failedLeads) {
         await supabase.from('leads').update({ status: 'enriching' }).eq('id', lead.id);
         try {
-          await fetch(n8nWebhookUrl(webhookPath), {
+          console.log('Enrichment webhook:', n8nWebhookUrl(webhookPath));
+          const response = await fetch(n8nWebhookUrl(webhookPath), {
             method: 'POST',
             headers: n8nHeaders(),
             body: JSON.stringify({ lead_id: lead.id }),
           });
+          if (!response.ok) failedCount++;
           await new Promise(r => setTimeout(r, 200));
-        } catch { /* ignore */ }
+        } catch {
+          failedCount++;
+        }
       }
-      toast.success(t('importGroups.retrying'));
+
+      if (failedCount > 0) {
+        toast.warning(t('importGroups.webhooksFailed', { count: failedCount, total: failedLeads.length }));
+      } else {
+        toast.success(t('importGroups.retrying'));
+      }
     } finally {
       setRetrying(false);
     }
@@ -105,22 +123,31 @@ export default function ImportGroupDetail({ group, onClose }: ImportGroupDetailP
       setEnrichProgress({ done: 0, total: newLeads.length });
 
       const webhookPath = group.enrichment_level === 'full_pipeline' ? 'wf2-ares' : 'wf4-email-gen';
+      let failedCount = 0;
 
       for (let i = 0; i < newLeads.length; i++) {
         const lead = newLeads[i];
         await supabase.from('leads').update({ status: 'enriching' }).eq('id', lead.id);
         try {
-          await fetch(n8nWebhookUrl(webhookPath), {
+          console.log('Enrichment webhook:', n8nWebhookUrl(webhookPath));
+          const response = await fetch(n8nWebhookUrl(webhookPath), {
             method: 'POST',
             headers: n8nHeaders(),
             body: JSON.stringify({ lead_id: lead.id }),
           });
-        } catch { /* ignore individual failures */ }
+          if (!response.ok) failedCount++;
+        } catch {
+          failedCount++;
+        }
         setEnrichProgress({ done: i + 1, total: newLeads.length });
         if (i < newLeads.length - 1) await new Promise(r => setTimeout(r, 200));
       }
 
-      toast.success(t('importGroups.enrichmentStarted', { count: newLeads.length }));
+      if (failedCount > 0) {
+        toast.warning(t('importGroups.webhooksFailed', { count: failedCount, total: newLeads.length }));
+      } else {
+        toast.success(t('importGroups.enrichmentStarted', { count: newLeads.length }));
+      }
     } finally {
       setEnriching(false);
     }
@@ -156,10 +183,17 @@ export default function ImportGroupDetail({ group, onClose }: ImportGroupDetailP
         </div>
         <div style={{ display: 'flex', gap: 8 }}>
           {group.enrichment_level !== 'import_only' && (
-            <GlassButton variant="primary" onClick={handleStartEnrichment} disabled={enriching}>
+            <GlassButton variant="primary" onClick={handleStartEnrichment} disabled={buttonLocked}>
               {enriching
                 ? `${t('importGroups.enriching')} ${enrichProgress.done}/${enrichProgress.total}`
-                : t('importGroups.startEnrichment')}
+                : group.in_progress_count > 0
+                  ? t('importGroups.enrichmentInProgress')
+                  : t('importGroups.startEnrichment')}
+            </GlassButton>
+          )}
+          {enrichmentDone && (
+            <GlassButton variant="secondary" onClick={() => setShowMoveDialog(true)}>
+              {t('importGroups.moveToReady')}
             </GlassButton>
           )}
           {group.failed_count > 0 && (
@@ -200,9 +234,10 @@ export default function ImportGroupDetail({ group, onClose }: ImportGroupDetailP
                 const primaryEmail = emails.find(e => e.is_verified)?.email_address ?? emails[0]?.email_address ?? '—';
                 const primaryContact = contacts[0]?.full_name ?? '—';
                 const isExpanded = expanded === lead.id;
+                const isEnriching = lead.status === 'enriching';
 
                 return (
-                  <tr key={lead.id}>
+                  <tr key={lead.id} style={isEnriching ? { borderLeft: '3px solid #fb923c' } : undefined}>
                     <td style={{ padding: '11px 14px' }} onClick={e => e.stopPropagation()}>
                       <input type="checkbox" checked={selected.includes(lead.id)} onChange={() => toggle(lead.id)} />
                     </td>
@@ -221,7 +256,7 @@ export default function ImportGroupDetail({ group, onClose }: ImportGroupDetailP
                       <StatusBadge status={lead.status} />
                     </td>
                     <td style={{ padding: '11px 14px', fontSize: 12, color: 'var(--text-dim)', fontFamily: 'JetBrains Mono, monospace' }}>
-                      {primaryEmail}
+                      {isEnriching ? <Skeleton width={120} height={14} /> : primaryEmail}
                     </td>
                     <td style={{ padding: '11px 14px', fontSize: 12, color: 'var(--text-dim)' }}>
                       {primaryContact}
@@ -241,6 +276,15 @@ export default function ImportGroupDetail({ group, onClose }: ImportGroupDetailP
           leadIds={pushIds}
           open={!!pushIds}
           onClose={() => { setPushIds(null); setSelected([]); }}
+        />
+      )}
+
+      {showMoveDialog && (
+        <MoveToReadyDialog
+          open={showMoveDialog}
+          onClose={() => setShowMoveDialog(false)}
+          groupId={group.id}
+          groupName={group.name}
         />
       )}
     </div>
