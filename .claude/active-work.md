@@ -18,4 +18,5 @@
 
 | Branch | Agent | Files (exact paths) | Started | Last Updated | PR |
 |---|---|---|---|---|---|
+| claude/fix-bulk-import-bugs | Claude Opus | n8n-workflows/wf1-lead-ingest.json | 2026-03-14 | 2026-03-14 | — |
 
