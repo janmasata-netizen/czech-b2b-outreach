@@ -9,7 +9,7 @@ import DatabaseFilters from '@/components/database/DatabaseFilters';
 import DatabaseTable from '@/components/database/DatabaseTable';
 import DatabaseBulkActions from '@/components/database/DatabaseBulkActions';
 import Pagination from '@/components/shared/Pagination';
-import AddLeadDialog from '@/components/leads/AddLeadDialog';
+import AddCompanyDialog from '@/components/database/AddCompanyDialog';
 import GlassButton from '@/components/glass/GlassButton';
 import { PAGE_SIZE } from '@/lib/constants';
 import { exportCsv } from '@/lib/export';
@@ -116,7 +116,7 @@ export default function DatabasePage() {
         pageSize={PAGE_SIZE}
       />
 
-      <AddLeadDialog open={showAdd} onClose={() => setShowAdd(false)} />
+      <AddCompanyDialog open={showAdd} onClose={() => setShowAdd(false)} />
     </div>
   );
 }

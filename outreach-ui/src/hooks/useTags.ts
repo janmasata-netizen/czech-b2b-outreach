@@ -119,6 +119,34 @@ export function useRemoveTagFromLead() {
 }
 
 // ============================================================
+// Company-relevant tags (only tags actually used on companies + system tags)
+// ============================================================
+
+export function useCompanyRelevantTags(teamId?: string) {
+  return useQuery<Tag[]>({
+    queryKey: ['company-relevant-tags', teamId],
+    queryFn: async () => {
+      // Get tag IDs actually used on companies
+      const { data: usedRows } = await supabase
+        .from('company_tags')
+        .select('tag_id');
+      const usedTagIds = new Set((usedRows ?? []).map(r => r.tag_id));
+
+      // Get all tags (team-scoped)
+      let q = supabase.from('tags').select('*').order('name');
+      if (teamId) {
+        q = q.or(`team_id.eq.${teamId},team_id.is.null`);
+      }
+      const { data, error } = await q;
+      if (error) throw error;
+
+      // Keep only tags used on companies OR system tags
+      return (data ?? []).filter(t => usedTagIds.has(t.id) || isSystemTag(t.name));
+    },
+  });
+}
+
+// ============================================================
 // Company Tags
 // ============================================================
 

@@ -147,18 +147,23 @@ export default function SubPanel() {
 
   function isActive(item: SubItem): boolean {
     const tabVal = sp.get('tab');
+    // Sub-routes (e.g. /leady/skupiny/:id) belong to a specific tab
+    const isSubRoute = location.pathname.startsWith(item.to + '/');
+    if (isSubRoute && item.tabParam === 'discovery' && location.pathname.startsWith(item.to + '/skupiny/')) {
+      return true;
+    }
     if (item.tabParam) {
       return location.pathname === item.to && tabVal === item.tabParam;
     }
     if (item.defaultTab) {
-      if (location.pathname !== item.to && !location.pathname.startsWith(item.to + '/')) return false;
+      if (location.pathname !== item.to && !isSubRoute) return false;
       if (location.pathname === item.to) {
         const siblings = allItems.filter(x => x.tabParam);
         return !siblings.some(s => sp.get('tab') === s.tabParam);
       }
       return false;
     }
-    return location.pathname === item.to || location.pathname.startsWith(item.to + '/');
+    return location.pathname === item.to || isSubRoute;
   }
 
   function itemHref(item: SubItem) {

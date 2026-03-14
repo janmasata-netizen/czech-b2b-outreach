@@ -275,6 +275,9 @@ export default {
       domain: 'Doména',
     },
     contact: 'Kontakt',
+    readyGroupTitle: '{{name}} ({{count}} leadů)',
+    noGroup: 'Bez skupiny',
+    addGroupToWave: 'Přidat skupinu do vlny',
   },
 
   // ── Add Lead Dialog ──
@@ -430,6 +433,13 @@ export default {
     enrichmentStarted: 'Obohaceni spusteno pro {{count}} leadu',
     noLeadsToEnrich: 'Zadne leady k obohaceni',
     enrichmentPending: 'Leady importovany. Prejdete na detail skupiny a spustte obohaceni.',
+    moveToReady: 'Přesunout do Připraveni',
+    moveToReadyTitle: 'Přesunout leady do Připraveni',
+    moveToReadySummary: '{{ready}} leadů připraveno, {{problem}} bez emailu',
+    markProblematic: 'Označit jako problematický',
+    moveConfirm: 'Přesunout',
+    enrichmentInProgress: 'Obohacování probíhá...',
+    webhooksFailed: '{{count}} z {{total}} webhooků selhalo',
   },
 
   // ── Import Chooser ──

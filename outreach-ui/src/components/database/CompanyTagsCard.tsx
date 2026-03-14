@@ -1,12 +1,12 @@
 import { useState } from 'react';
 import GlassCard from '@/components/glass/GlassCard';
 import TagBadge from './TagBadge';
-import { useTags, useCompanyTags, useAddTagToCompany, useRemoveTagFromCompany } from '@/hooks/useTags';
+import { useCompanyRelevantTags, useCompanyTags, useAddTagToCompany, useRemoveTagFromCompany } from '@/hooks/useTags';
 import { isSystemTag } from '@/lib/constants';
 import { toast } from 'sonner';
 
 export default function CompanyTagsCard({ companyId }: { companyId: string }) {
-  const { data: allTags = [] } = useTags();
+  const { data: allTags = [] } = useCompanyRelevantTags();
   const { data: companyTags = [] } = useCompanyTags(companyId);
   const addTag = useAddTagToCompany();
   const removeTag = useRemoveTagFromCompany();

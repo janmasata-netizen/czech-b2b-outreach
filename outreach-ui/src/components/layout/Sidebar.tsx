@@ -132,9 +132,14 @@ export default function Sidebar() {
   function isSubActive(item: SubItem): boolean {
     const tabVal = sp.get('tab');
     const allItems = onLeads ? LEAD_SUBS : onWaves ? WAVE_SUBS : onFinder ? FINDER_SUBS : DB_SUBS;
+    const isSubRoute = location.pathname.startsWith(item.to + '/');
+    // Sub-routes (e.g. /leady/skupiny/:id) belong to discovery tab
+    if (isSubRoute && item.tabParam === 'discovery' && location.pathname.startsWith(item.to + '/skupiny/')) {
+      return true;
+    }
     if (item.tabParam) return location.pathname === item.to && tabVal === item.tabParam;
     if (item.defaultTab) {
-      if (location.pathname !== item.to && !location.pathname.startsWith(item.to + '/')) return false;
+      if (location.pathname !== item.to && !isSubRoute) return false;
       if (location.pathname === item.to) {
         const siblings = allItems.filter(x => x.tabParam);
         return !siblings.some(s => sp.get('tab') === s.tabParam);

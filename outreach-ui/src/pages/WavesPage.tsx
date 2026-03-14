@@ -13,7 +13,7 @@ type TabDef = { id: Tab; statuses: string[]; titleKey: string; emptyTitleKey: st
 const TABS: TabDef[] = [
   {
     id: 'manager',
-    statuses: ['draft'],
+    statuses: ['draft', 'verifying', 'verified'],
     titleKey: 'sub.manager',
     emptyTitleKey: 'waves.noDrafts',
     emptyDescKey: 'waves.noDraftsDesc',

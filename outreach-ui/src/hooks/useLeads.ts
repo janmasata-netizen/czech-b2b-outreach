@@ -206,6 +206,59 @@ export function useUpdateLead() {
   });
 }
 
+export interface ReadyLeadGroup {
+  groupId: string | null;
+  groupName: string;
+  source: string | null;
+  createdAt: string | null;
+  leads: Lead[];
+}
+
+export function useReadyLeadsByGroup() {
+  return useQuery<ReadyLeadGroup[]>({
+    queryKey: ['ready-leads-by-group'],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('leads')
+        .select(`
+          *,
+          import_groups:import_group_id(id, name, source, created_at),
+          company_id,
+          companies:companies!company_id(contacts(full_name, email_candidates:email_candidates!contact_id(email_address, is_verified)))
+        `)
+        .eq('status', 'ready')
+        .order('created_at', { ascending: false });
+      if (error) throw error;
+
+      const grouped = new Map<string | null, ReadyLeadGroup>();
+      for (const row of data ?? []) {
+        const ig = (row as unknown as { import_groups: { id: string; name: string; source: string; created_at: string } | null }).import_groups;
+        const gid = ig?.id ?? null;
+        if (!grouped.has(gid)) {
+          grouped.set(gid, {
+            groupId: gid,
+            groupName: ig?.name ?? 'Bez skupiny',
+            source: ig?.source ?? null,
+            createdAt: ig?.created_at ?? null,
+            leads: [],
+          });
+        }
+        grouped.get(gid)!.leads.push(row as Lead);
+      }
+
+      const result = Array.from(grouped.values());
+      // "Bez skupiny" last
+      result.sort((a, b) => {
+        if (a.groupId === null) return 1;
+        if (b.groupId === null) return -1;
+        return (b.createdAt ?? '').localeCompare(a.createdAt ?? '');
+      });
+      return result;
+    },
+    refetchInterval: 15000,
+  });
+}
+
 export function useLeadsNotInWave(teamId: string | undefined, search?: string, language?: string) {
   return useQuery({
     queryKey: ['leads-for-wave', teamId, search, language],
