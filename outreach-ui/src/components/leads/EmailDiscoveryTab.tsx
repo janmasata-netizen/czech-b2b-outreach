@@ -1,139 +1,151 @@
 import { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
-import { useLeads } from '@/hooks/useLeads';
-import { formatDate, formatRelative } from '@/lib/utils';
-import StatusBadge from '@/components/shared/StatusBadge';
-import Pagination from '@/components/shared/Pagination';
+import { useTranslation } from 'react-i18next';
+import { useImportGroups } from '@/hooks/useImportGroups';
+import ImportGroupDetail from '@/components/leads/ImportGroupDetail';
 import { TableSkeleton } from '@/components/shared/LoadingSkeleton';
 import EmptyState from '@/components/shared/EmptyState';
-import type { Lead, LeadStatus } from '@/types/database';
-import { PAGE_SIZE } from '@/lib/constants';
+import { formatDate } from '@/lib/utils';
+import type { ImportGroupStats } from '@/types/database';
 
-const DISCOVERY_STATUSES: LeadStatus[] = [
-  'new', 'enriching', 'enriched', 'email_discovery', 'email_verified', 'needs_review', 'failed',
-];
-
-const STALL_THRESHOLD_MS = 30 * 60 * 1000; // 30 minutes
-
-function isStalled(lead: Lead): boolean {
-  if (lead.status !== 'email_discovery') return false;
-  const updated = lead.updated_at ?? lead.created_at;
-  if (!updated) return false;
-  return Date.now() - new Date(updated).getTime() > STALL_THRESHOLD_MS;
-}
-
-const TH: React.CSSProperties = {
-  padding: '9px 14px', textAlign: 'left', fontSize: 11, fontWeight: 600,
-  letterSpacing: '0.05em', textTransform: 'uppercase' as const,
-  color: 'var(--text-muted)', background: 'var(--bg-subtle)',
-  borderBottom: '1px solid var(--border)', whiteSpace: 'nowrap' as const,
+const COLORS = {
+  ready:      '#3ecf8e',
+  backup:     '#22d3ee',
+  failed:     '#f87171',
+  inProgress: '#a78bfa',
 };
 
+function SegmentedBar({ group }: { group: ImportGroupStats }) {
+  const total = group.total_leads;
+  if (total === 0) return null;
+  const segments = [
+    { count: group.ready_count, color: COLORS.ready },
+    { count: group.backup_count, color: COLORS.backup },
+    { count: group.failed_count, color: COLORS.failed },
+    { count: group.in_progress_count, color: COLORS.inProgress },
+  ].filter(s => s.count > 0);
+
+  return (
+    <div style={{ display: 'flex', height: 8, borderRadius: 4, overflow: 'hidden', background: 'rgba(255,255,255,0.06)', width: '100%' }}>
+      {segments.map((seg, i) => (
+        <div
+          key={i}
+          style={{
+            width: `${(seg.count / total) * 100}%`,
+            background: seg.color,
+            transition: 'width 0.5s ease',
+          }}
+        />
+      ))}
+    </div>
+  );
+}
+
+function GroupCard({ group, isExpanded, onClick }: { group: ImportGroupStats; isExpanded: boolean; onClick: () => void }) {
+  const { t } = useTranslation();
+
+  return (
+    <div
+      onClick={onClick}
+      style={{
+        background: isExpanded ? 'rgba(99,102,241,0.04)' : 'var(--bg-surface)',
+        border: `1px solid ${isExpanded ? 'rgba(99,102,241,0.25)' : 'var(--border)'}`,
+        borderRadius: 10,
+        padding: '16px 20px',
+        cursor: 'pointer',
+        transition: 'border-color 0.15s, background 0.15s',
+      }}
+    >
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+          <span style={{ fontSize: 14, fontWeight: 600, color: 'var(--text)' }}>{group.name}</span>
+          <span style={{
+            fontSize: 11, padding: '1px 7px', borderRadius: 4,
+            background: 'rgba(99,102,241,0.1)', color: '#818cf8', fontWeight: 500,
+          }}>
+            {group.source === 'gsheet' ? 'GSheet' : 'CSV'}
+          </span>
+        </div>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+          <span style={{ fontSize: 12, color: 'var(--text-dim)', fontFamily: 'JetBrains Mono, monospace' }}>
+            {formatDate(group.created_at)}
+          </span>
+          <span style={{
+            fontSize: 12, color: 'var(--text-dim)',
+            transform: isExpanded ? 'rotate(90deg)' : 'none',
+            display: 'inline-block', transition: 'transform 0.15s',
+          }}>
+            ▶
+          </span>
+        </div>
+      </div>
+
+      <SegmentedBar group={group} />
+
+      <div style={{ display: 'flex', gap: 16, marginTop: 8, fontSize: 12, flexWrap: 'wrap' }}>
+        <span style={{ color: 'var(--text-dim)' }}>
+          {group.total_leads} {t('importGroups.leads')}
+        </span>
+        {group.ready_count > 0 && (
+          <span style={{ color: COLORS.ready }}>
+            ■ {group.ready_count} {t('importGroups.found')}
+          </span>
+        )}
+        {group.backup_count > 0 && (
+          <span style={{ color: COLORS.backup }}>
+            ■ {group.backup_count} {t('importGroups.info')}
+          </span>
+        )}
+        {group.failed_count > 0 && (
+          <span style={{ color: COLORS.failed }}>
+            ■ {group.failed_count} {t('importGroups.notFound')}
+          </span>
+        )}
+        {group.in_progress_count > 0 && (
+          <span style={{ color: COLORS.inProgress }}>
+            ■ {group.in_progress_count} {t('importGroups.inProgress')}
+          </span>
+        )}
+      </div>
+    </div>
+  );
+}
+
 export default function EmailDiscoveryTab() {
-  const [page, setPage] = useState(1);
-  const navigate = useNavigate();
+  const { t } = useTranslation();
+  const { data: groups, isLoading } = useImportGroups();
+  const [expandedGroupId, setExpandedGroupId] = useState<string | null>(null);
 
-  const { data, isLoading } = useLeads({ statuses: DISCOVERY_STATUSES }, page);
-  const leads = data?.data ?? [];
-  const total = data?.count ?? 0;
-  const totalPages = Math.ceil(total / PAGE_SIZE);
+  if (isLoading) return <TableSkeleton rows={4} />;
 
-  if (isLoading) return <TableSkeleton rows={8} />;
-
-  if (!leads.length) {
+  if (!groups || groups.length === 0) {
     return (
       <EmptyState
-        icon="✉"
-        title="Žádné leady ve zpracování"
-        description="Leady procházející obohacením a hledáním e-mailu se zobrazí zde."
+        icon="📦"
+        title={t('importGroups.noImports')}
+        description={t('importGroups.noImportsDesc')}
       />
     );
   }
 
+  const expandedGroup = groups.find(g => g.id === expandedGroupId);
+
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
-      <div style={{ fontSize: 13, color: 'var(--text-muted)' }}>
-        {total.toLocaleString('cs-CZ')} leadů ve zpracování
-      </div>
-
-      <div style={{ background: 'var(--bg-surface)', border: '1px solid var(--border)', borderRadius: 8, overflow: 'hidden' }}>
-        <div style={{ overflowX: 'auto' }}>
-          <table style={{ width: '100%', borderCollapse: 'collapse' }}>
-            <thead>
-              <tr>
-                {['Firma', 'IČO', 'Stav', 'Přidáno', 'Čas ve stavu', ''].map(h => (
-                  <th key={h} style={TH}>{h}</th>
-                ))}
-              </tr>
-            </thead>
-            <tbody>
-              {leads.map((lead: Lead) => {
-                const stalled = isStalled(lead);
-                const actionNeeded = lead.status === 'needs_review' || lead.status === 'failed';
-
-                return (
-                  <tr
-                    key={lead.id}
-                    className="glass-table-row"
-                    style={{
-                      borderBottom: '1px solid var(--border)',
-                      background: stalled ? 'rgba(251,146,60,0.04)' : undefined,
-                      cursor: 'pointer',
-                    }}
-                    onClick={() => navigate(`/leady/${lead.id}`)}
-                  >
-                    <td style={{ padding: '11px 14px' }}>
-                      <div style={{ fontWeight: 600, fontSize: 13, color: 'var(--text)' }}>
-                        {lead.company_name ?? '—'}
-                      </div>
-                    </td>
-                    <td style={{ padding: '11px 14px', fontSize: 12, fontFamily: 'JetBrains Mono, monospace', color: 'var(--text-dim)' }}>
-                      {lead.ico ?? '—'}
-                    </td>
-                    <td style={{ padding: '11px 14px' }}>
-                      <StatusBadge status={lead.status} />
-                      {stalled && (
-                        <span style={{ marginLeft: 6, fontSize: 11, color: '#fb923c', fontWeight: 600 }}>
-                          ⚠ Zastaveno
-                        </span>
-                      )}
-                    </td>
-                    <td style={{ padding: '11px 14px', fontSize: 12, color: 'var(--text-muted)', fontFamily: 'JetBrains Mono, monospace', whiteSpace: 'nowrap' }}>
-                      {formatDate(lead.created_at)}
-                    </td>
-                    <td style={{ padding: '11px 14px', fontSize: 12, color: stalled ? '#fb923c' : 'var(--text-muted)', fontFamily: 'JetBrains Mono, monospace', whiteSpace: 'nowrap' }}>
-                      {formatRelative(lead.updated_at ?? lead.created_at)}
-                    </td>
-                    <td style={{ padding: '11px 14px' }} onClick={e => e.stopPropagation()}>
-                      {actionNeeded && (
-                        <button
-                          onClick={() => navigate(`/leady/${lead.id}`)}
-                          style={{
-                            fontSize: 12, padding: '3px 10px', borderRadius: 4,
-                            border: '1px solid rgba(251,146,60,0.35)',
-                            background: 'rgba(251,146,60,0.08)',
-                            color: '#fb923c', cursor: 'pointer', fontWeight: 500,
-                          }}
-                        >
-                          {lead.status === 'needs_review' ? 'Zkontrolovat' : 'Zobrazit'}
-                        </button>
-                      )}
-                    </td>
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+      {groups.map((group: ImportGroupStats) => (
+        <div key={group.id}>
+          <GroupCard
+            group={group}
+            isExpanded={expandedGroupId === group.id}
+            onClick={() => setExpandedGroupId(expandedGroupId === group.id ? null : group.id)}
+          />
+          {expandedGroupId === group.id && expandedGroup && (
+            <ImportGroupDetail
+              group={expandedGroup}
+              onClose={() => setExpandedGroupId(null)}
+            />
+          )}
         </div>
-      </div>
-
-      <Pagination
-        page={page}
-        totalPages={totalPages}
-        onPage={setPage}
-        totalItems={total}
-        pageSize={PAGE_SIZE}
-      />
+      ))}
     </div>
   );
 }

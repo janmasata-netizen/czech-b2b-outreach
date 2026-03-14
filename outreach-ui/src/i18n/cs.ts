@@ -402,6 +402,30 @@ export default {
     icosFoundOnWeb: '{{count}} IČO nalezeno na webech',
   },
 
+  // ── Import Groups ──
+  importGroups: {
+    noImports: 'Zatim zadne importy',
+    noImportsDesc: 'Importujte leady pres CSV nebo Google Sheets.',
+    leads: 'leadu',
+    found: 'nalezeno',
+    info: 'info',
+    notFound: 'nenalezeno',
+    inProgress: 'zpracovava se',
+    retryFailed: 'Retry neuspesne ({{count}})',
+    addToWave: 'Pridat do vlny',
+    deleteGroup: 'Smazat skupinu',
+    deleteConfirm: 'Opravdu chcete smazat tuto skupinu importu? Leady zustanou v databazi.',
+    groupDeleted: 'Skupina smazana',
+    retrying: 'Opakovani odeslano',
+    importName: 'Nazev importu',
+    importNamePlaceholder: 'napr. Brno firmy brezen 2026',
+    enrichmentBadge: {
+      import_only: 'Pouze import',
+      find_emails: 'Hledani emailu',
+      full_pipeline: 'Kompletni pipeline',
+    },
+  },
+
   // ── Import Chooser ──
   importChooser: {
     title: 'Importovat leady',

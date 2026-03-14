@@ -88,6 +88,24 @@ export interface CompanyFilters {
   team_id?: string;
 }
 
+export interface ImportGroup {
+  id: string;
+  name: string;
+  source: 'csv' | 'gsheet';
+  enrichment_level: 'import_only' | 'find_emails' | 'full_pipeline';
+  team_id: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface ImportGroupStats extends ImportGroup {
+  total_leads: number;
+  ready_count: number;
+  backup_count: number;
+  failed_count: number;
+  in_progress_count: number;
+}
+
 export interface Lead {
   id: string;
   company_name: string | null;
@@ -96,6 +114,7 @@ export interface Lead {
   ico: string | null;
   team_id: string | null;
   company_id?: string | null;
+  import_group_id?: string | null;
   status: LeadStatus;
   lead_type?: 'company' | 'contact';
   contact_name?: string | null;

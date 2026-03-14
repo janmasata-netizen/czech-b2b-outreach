@@ -3,6 +3,7 @@ import { useTranslation } from 'react-i18next';
 import { useQueryClient } from '@tanstack/react-query';
 import GlassModal from '@/components/glass/GlassModal';
 import GlassButton from '@/components/glass/GlassButton';
+import GlassInput from '@/components/glass/GlassInput';
 import GlassProgress from '@/components/glass/GlassProgress';
 import { useTeams } from '@/hooks/useLeads';
 import { supabase } from '@/lib/supabase';
@@ -46,6 +47,7 @@ export default function CsvImportDialog({ open, onClose }: CsvImportDialogProps)
   const [mapError, setMapError] = useState('');
   const [language, setLanguage] = useState<LeadLanguage>('cs');
   const [enrichmentLevel, setEnrichmentLevel] = useState<EnrichmentLevel>('import_only');
+  const [importName, setImportName] = useState('');
   const [dedupResult, setDedupResult] = useState<DedupResult | null>(null);
   const [dedupChecking, setDedupChecking] = useState(false);
 
@@ -60,6 +62,7 @@ export default function CsvImportDialog({ open, onClose }: CsvImportDialogProps)
     setMapError('');
     setLanguage('cs');
     setEnrichmentLevel('import_only');
+    setImportName('');
     setDedupResult(null);
     setDedupChecking(false);
   }
@@ -140,6 +143,19 @@ export default function CsvImportDialog({ open, onClose }: CsvImportDialogProps)
         ? [{ teamId: teams[0].id, teamName: teams[0].name, percentage: 100 }]
         : [];
 
+    // Create import group
+    const primaryTeamId = effectiveAllocations[0]?.teamId || null;
+    const { data: group, error: groupErr } = await supabase
+      .from('import_groups')
+      .insert({ name: importName || fileName, source: 'csv' as const, enrichment_level: enrichmentLevel, team_id: primaryTeamId })
+      .select()
+      .single();
+    if (groupErr) {
+      console.error('Failed to create import group:', groupErr);
+      toast.error('Failed to create import group');
+    }
+    const groupId = group?.id;
+
     // Count non-skipped rows for team distribution
     const activeCount = rows.filter((_, i) => !skipIndices.has(i)).length;
     const teamForRow = assignTeamToRows(activeCount, effectiveAllocations);
@@ -203,6 +219,10 @@ export default function CsvImportDialog({ open, onClose }: CsvImportDialogProps)
           if (le) {
             errors++;
           } else {
+            const leadId = rpcData?.lead_id ?? rpcData?.[0]?.lead_id;
+            if (groupId && leadId) {
+              await supabase.from('leads').update({ import_group_id: groupId }).eq('id', leadId);
+            }
             const companyId = rpcData?.company_id ?? rpcData?.[0]?.company_id;
             const { data: contact, error: ce } = await supabase
               .from('contacts')
@@ -234,6 +254,7 @@ export default function CsvImportDialog({ open, onClose }: CsvImportDialogProps)
           };
           if (contact_name) payload.contact_name = contact_name;
           if (Object.keys(custom_fields).length > 0) payload.custom_fields = custom_fields;
+          if (groupId) payload.import_group_id = groupId;
 
           try {
             const res = await fetch(n8nWebhookUrl('lead-ingest'), {
@@ -246,7 +267,7 @@ export default function CsvImportDialog({ open, onClose }: CsvImportDialogProps)
           } catch { errors++; }
         } else {
           // Import only: ingest_lead RPC, status='new'
-          const { error: le } = await supabase
+          const { data: rpcResult, error: le } = await supabase
             .rpc('ingest_lead', {
               p_company_name: company_name || null,
               p_ico: ico || null,
@@ -258,7 +279,14 @@ export default function CsvImportDialog({ open, onClose }: CsvImportDialogProps)
               p_language: language,
               p_custom_fields: Object.keys(custom_fields).length > 0 ? custom_fields : {},
             });
-          if (le) errors++;
+          if (le) {
+            errors++;
+          } else {
+            const leadId = rpcResult?.lead_id ?? rpcResult?.[0]?.lead_id;
+            if (groupId && leadId) {
+              await supabase.from('leads').update({ import_group_id: groupId }).eq('id', leadId);
+            }
+          }
         }
       } catch {
         errors++;
@@ -268,7 +296,35 @@ export default function CsvImportDialog({ open, onClose }: CsvImportDialogProps)
       setProgress({ done, errors, duplicates, total });
     }
 
+    // Retry sweep for stuck leads (enrichment modes only)
+    if (enrichmentLevel !== 'import_only' && groupId) {
+      await new Promise(r => setTimeout(r, 3000));
+      const { data: stuck } = await supabase
+        .from('leads')
+        .select('id, company_name, ico, website, team_id, language')
+        .eq('import_group_id', groupId)
+        .eq('status', 'new');
+      for (const lead of stuck ?? []) {
+        try {
+          await fetch(n8nWebhookUrl('lead-ingest'), {
+            method: 'POST',
+            headers: n8nHeaders(),
+            body: JSON.stringify({
+              company_name: lead.company_name,
+              ico: lead.ico,
+              website: lead.website,
+              team_id: lead.team_id,
+              language: lead.language || 'cs',
+              import_group_id: groupId,
+            }),
+          });
+          await new Promise(r => setTimeout(r, 200));
+        } catch { /* ignore retry failures */ }
+      }
+    }
+
     qc.invalidateQueries({ queryKey: ['leads'] });
+    qc.invalidateQueries({ queryKey: ['import-groups'] });
     setStep('done');
     if (enrichmentLevel !== 'import_only') {
       toast.info(t('csvImport.pipelineRunning'));
@@ -420,6 +476,14 @@ export default function CsvImportDialog({ open, onClose }: CsvImportDialogProps)
           ))}
         </select>
       </div>
+
+      {/* Import name */}
+      <GlassInput
+        label={t('importGroups.importName')}
+        placeholder={t('importGroups.importNamePlaceholder')}
+        value={importName}
+        onChange={e => setImportName(e.target.value)}
+      />
 
       {/* Enrichment level */}
       <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginTop: 4 }}>
@@ -574,7 +638,7 @@ export default function CsvImportDialog({ open, onClose }: CsvImportDialogProps)
       {step === 'map' && (
         <>
           <GlassButton variant="secondary" onClick={() => setStep('upload')}>{t('common.back')}</GlassButton>
-          <GlassButton variant="primary" onClick={handleMapNext} disabled={dedupChecking}>
+          <GlassButton variant="primary" onClick={handleMapNext} disabled={dedupChecking || !importName.trim()}>
             {dedupChecking ? t('csvImport.checkingDuplicates') : t('csvImport.startImport', { count: rows.length })}
           </GlassButton>
         </>
