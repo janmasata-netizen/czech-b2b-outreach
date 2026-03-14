@@ -1,0 +1,539 @@
+{
+  "name": "Test Reply Detection",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "test-reply-detection",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "id": "trd-0000-0000-0000-000000000001",
+      "name": "Webhook",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 1.1,
+      "webhookId": "test-reply-detection",
+      "position": [0, 300]
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForEachItem",
+        "jsCode": "const body = $input.item.json.body || $input.item.json;\nconst mode = (body.mode || '').toLowerCase();\nif (!['smtp', 'imap', 'e2e', 'verify'].includes(mode)) {\n  return { json: { error: true, message: 'Invalid mode. Use: smtp, imap, e2e, verify', mode } };\n}\nreturn { json: { ...body, mode, error: false } };"
+      },
+      "id": "trd-0000-0000-0000-000000000002",
+      "name": "Parse Input",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [240, 300]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {},
+          "conditions": [
+            {
+              "id": "is-error",
+              "leftValue": "={{ $json.error }}",
+              "rightValue": true,
+              "operator": { "type": "boolean", "operation": "equals" }
+            }
+          ],
+          "combinator": "and"
+        }
+      },
+      "id": "trd-0000-0000-0000-000000000003",
+      "name": "IF Error",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [480, 300]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ JSON.stringify({ success: false, error: $json.message }) }}",
+        "options": { "responseCode": 400 }
+      },
+      "id": "trd-0000-0000-0000-000000000004",
+      "name": "Error Response",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1,
+      "position": [720, 180]
+    },
+    {
+      "parameters": {
+        "rules": {
+          "values": [
+            {
+              "conditions": {
+                "options": {},
+                "conditions": [
+                  {
+                    "leftValue": "={{ $json.mode }}",
+                    "rightValue": "smtp",
+                    "operator": { "type": "string", "operation": "equals" }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": false
+            },
+            {
+              "conditions": {
+                "options": {},
+                "conditions": [
+                  {
+                    "leftValue": "={{ $json.mode }}",
+                    "rightValue": "imap",
+                    "operator": { "type": "string", "operation": "equals" }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": false
+            },
+            {
+              "conditions": {
+                "options": {},
+                "conditions": [
+                  {
+                    "leftValue": "={{ $json.mode }}",
+                    "rightValue": "e2e",
+                    "operator": { "type": "string", "operation": "equals" }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": false
+            },
+            {
+              "conditions": {
+                "options": {},
+                "conditions": [
+                  {
+                    "leftValue": "={{ $json.mode }}",
+                    "rightValue": "verify",
+                    "operator": { "type": "string", "operation": "equals" }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": false
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "trd-0000-0000-0000-000000000005",
+      "name": "Switch Mode",
+      "type": "n8n-nodes-base.switch",
+      "typeVersion": 3,
+      "position": [720, 420]
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForEachItem",
+        "jsCode": "const input = $input.item.json;\nconst testEmail = input.test_email;\nconst credName = input.credential_name || input.smtp_credential_name;\nif (!testEmail || !credName) {\n  return { json: { error: true, message: 'smtp mode requires test_email and credential_name (SMTP)' } };\n}\nconst ts = Date.now();\nconst domain = credName.replace(/[^a-z0-9]/gi, '').toLowerCase() + '.test';\nconst msgId1 = `<test-seq1-${ts}@${domain}>`;\nconst msgId2 = `<test-seq2-${ts}@${domain}>`;\nreturn { json: {\n  test_email: testEmail,\n  credential_name: credName,\n  from_email: input.from_email || testEmail,\n  msgId1,\n  msgId2,\n  subject: `[SMTP-TEST-${ts}] Reply Detection Test`,\n  ts,\n  error: false\n}};"
+      },
+      "id": "trd-0000-0000-0000-000000000010",
+      "name": "Prepare SMTP Test",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [960, 180]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "http://smtp-proxy:3002/send-email",
+        "sendBody": true,
+        "specifyBody": "raw",
+        "contentType": "raw",
+        "rawContentType": "application/json",
+        "body": "={{ JSON.stringify({ credential_name: $json.credential_name, from: $json.from_email, to: $json.test_email, subject: $json.subject + ' (seq1)', html: '<p>Test email seq1 — reply detection threading test.</p>', messageId: $json.msgId1 }) }}",
+        "options": { "timeout": 30000, "neverError": true }
+      },
+      "id": "trd-0000-0000-0000-000000000011",
+      "name": "Send Seq1",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [1200, 180]
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForEachItem",
+        "jsCode": "const seq1Result = $input.item.json;\nconst prev = $('Prepare SMTP Test').first().json;\nreturn { json: { ...prev, seq1_success: seq1Result.success === true, seq1_messageId: seq1Result.messageId || '' } };"
+      },
+      "id": "trd-0000-0000-0000-000000000012",
+      "name": "Parse Seq1 Result",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1440, 180]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "http://smtp-proxy:3002/send-email",
+        "sendBody": true,
+        "specifyBody": "raw",
+        "contentType": "raw",
+        "rawContentType": "application/json",
+        "body": "={{ JSON.stringify({ credential_name: $json.credential_name, from: $json.from_email, to: $json.test_email, subject: 'Re: ' + $json.subject + ' (seq2)', html: '<p>Test email seq2 — threaded reply.</p>', messageId: $json.msgId2, inReplyTo: $json.seq1_messageId, references: $json.seq1_messageId }) }}",
+        "options": { "timeout": 30000, "neverError": true }
+      },
+      "id": "trd-0000-0000-0000-000000000013",
+      "name": "Send Seq2",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [1680, 180]
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForEachItem",
+        "jsCode": "const seq2Result = $input.item.json;\nconst prev = $('Parse Seq1 Result').first().json;\nreturn { json: {\n  success: true,\n  mode: 'smtp',\n  seq1: { messageId: prev.seq1_messageId, success: prev.seq1_success },\n  seq2: { messageId: seq2Result.messageId || '', success: seq2Result.success === true },\n  subject: prev.subject,\n  test_email: prev.test_email\n}};"
+      },
+      "id": "trd-0000-0000-0000-000000000014",
+      "name": "SMTP Result",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1920, 180]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ JSON.stringify($json) }}",
+        "options": { "responseCode": 200 }
+      },
+      "id": "trd-0000-0000-0000-000000000015",
+      "name": "SMTP Response",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1,
+      "position": [2160, 180]
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForEachItem",
+        "jsCode": "const input = $input.item.json;\nconst credName = input.credential_name || input.imap_credential_name;\nif (!credName) {\n  return { json: { error: true, message: 'imap mode requires credential_name (IMAP)' } };\n}\nreturn { json: { credential_name: credName, error: false } };"
+      },
+      "id": "trd-0000-0000-0000-000000000020",
+      "name": "Prepare IMAP Test",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [960, 420]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "http://imap-proxy:3001/check-inbox",
+        "sendBody": true,
+        "specifyBody": "raw",
+        "contentType": "raw",
+        "rawContentType": "application/json",
+        "body": "={{ JSON.stringify({ credential_name: $json.credential_name }) }}",
+        "options": { "timeout": 60000, "neverError": true }
+      },
+      "id": "trd-0000-0000-0000-000000000021",
+      "name": "Fetch IMAP",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [1200, 420]
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForEachItem",
+        "jsCode": "const resp = $input.item.json;\nif (!resp.success) {\n  return { json: { success: false, mode: 'imap', error: resp.error || 'IMAP fetch failed', email_count: 0 } };\n}\nconst emails = resp.emails || [];\nconst summary = emails.slice(0, 3).map(e => ({\n  from: e.from || '',\n  subject: e.subject || '',\n  date: e.date || '',\n  has_in_reply_to: !!(e.headers && e.headers['in-reply-to']),\n  has_references: !!(e.headers && e.headers['references']),\n  has_message_id: !!(e.messageId || (e.headers && e.headers['message-id']))\n}));\nreturn { json: {\n  success: true,\n  mode: 'imap',\n  email_count: emails.length,\n  sample_emails: summary,\n  headers_present: {\n    in_reply_to: emails.filter(e => e.headers && e.headers['in-reply-to']).length,\n    references: emails.filter(e => e.headers && e.headers['references']).length,\n    message_id: emails.filter(e => e.messageId || (e.headers && e.headers['message-id'])).length\n  }\n}};"
+      },
+      "id": "trd-0000-0000-0000-000000000022",
+      "name": "IMAP Result",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1440, 420]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ JSON.stringify($json) }}",
+        "options": { "responseCode": 200 }
+      },
+      "id": "trd-0000-0000-0000-000000000023",
+      "name": "IMAP Response",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1,
+      "position": [1680, 420]
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForEachItem",
+        "jsCode": "const input = $input.item.json;\nconst testEmail = input.test_email;\nconst smtpCred = input.smtp_credential_name || input.credential_name;\nif (!testEmail || !smtpCred) {\n  return { json: { error: true, message: 'e2e mode requires test_email and smtp_credential_name' } };\n}\nconst ts = Date.now();\nconst marker = `REPLY-TEST-${ts}`;\nconst domain = smtpCred.replace(/[^a-z0-9]/gi, '').toLowerCase() + '.test';\nconst msgId = `<e2e-${ts}@${domain}>`;\nreturn { json: {\n  test_email: testEmail,\n  smtp_credential_name: smtpCred,\n  from_email: input.from_email || testEmail,\n  msgId,\n  marker,\n  subject: `[${marker}] E2E Reply Detection Test`,\n  error: false\n}};"
+      },
+      "id": "trd-0000-0000-0000-000000000030",
+      "name": "Prepare E2E Test",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [960, 660]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "http://smtp-proxy:3002/send-email",
+        "sendBody": true,
+        "specifyBody": "raw",
+        "contentType": "raw",
+        "rawContentType": "application/json",
+        "body": "={{ JSON.stringify({ credential_name: $json.smtp_credential_name, from: $json.from_email, to: $json.test_email, subject: $json.subject, html: '<p>This is an E2E reply detection test. Please reply to this email to test reply detection.</p><p>Marker: ' + $json.marker + '</p>', messageId: $json.msgId }) }}",
+        "options": { "timeout": 30000, "neverError": true }
+      },
+      "id": "trd-0000-0000-0000-000000000031",
+      "name": "Send E2E Email",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [1200, 660]
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForEachItem",
+        "jsCode": "const sendResult = $input.item.json;\nconst prev = $('Prepare E2E Test').first().json;\nreturn { json: {\n  success: sendResult.success === true,\n  mode: 'e2e',\n  marker: prev.marker,\n  messageId: sendResult.messageId || prev.msgId,\n  test_email: prev.test_email,\n  instructions: sendResult.success ? `Email sent! Reply to it, wait 2 min, then call verify mode with: { \"mode\": \"verify\", \"credential_name\": \"<IMAP_CREDENTIAL>\", \"marker\": \"${prev.marker}\" }` : 'Send failed — check smtp-proxy logs'\n}};"
+      },
+      "id": "trd-0000-0000-0000-000000000032",
+      "name": "E2E Result",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1440, 660]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ JSON.stringify($json) }}",
+        "options": { "responseCode": 200 }
+      },
+      "id": "trd-0000-0000-0000-000000000033",
+      "name": "E2E Response",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1,
+      "position": [1680, 660]
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForEachItem",
+        "jsCode": "const input = $input.item.json;\nconst credName = input.credential_name || input.imap_credential_name;\nconst marker = input.marker;\nif (!credName || !marker) {\n  return { json: { error: true, message: 'verify mode requires credential_name (IMAP) and marker' } };\n}\nreturn { json: { credential_name: credName, marker, error: false } };"
+      },
+      "id": "trd-0000-0000-0000-000000000040",
+      "name": "Prepare Verify",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [960, 900]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "http://imap-proxy:3001/check-inbox",
+        "sendBody": true,
+        "specifyBody": "raw",
+        "contentType": "raw",
+        "rawContentType": "application/json",
+        "body": "={{ JSON.stringify({ credential_name: $json.credential_name }) }}",
+        "options": { "timeout": 60000, "neverError": true }
+      },
+      "id": "trd-0000-0000-0000-000000000041",
+      "name": "Fetch IMAP (Verify)",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [1200, 900]
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForEachItem",
+        "jsCode": "const resp = $input.item.json;\nconst prev = $('Prepare Verify').first().json;\nconst marker = prev.marker;\n\nif (!resp.success || !resp.emails) {\n  return { json: { success: false, mode: 'verify', error: 'IMAP fetch failed', marker } };\n}\n\nconst emails = resp.emails || [];\nconst reply = emails.find(e => {\n  const subj = (e.subject || '').toString();\n  return subj.includes(marker);\n});\n\nif (!reply) {\n  return { json: {\n    success: true,\n    mode: 'verify',\n    found: false,\n    marker,\n    total_unseen: emails.length,\n    message: 'Reply not found in unseen emails. It may have been marked as seen or not yet arrived.'\n  }};\n}\n\nconst fromStr = (reply.from || '').toString();\nconst emailMatch = fromStr.match(/<?([a-zA-Z0-9._%+\\-]+@[a-zA-Z0-9.\\-]+\\.[a-zA-Z]{2,})>?/);\nconst fromEmail = emailMatch ? emailMatch[1].toLowerCase() : fromStr;\nconst domainMatch = fromStr.match(/@([a-zA-Z0-9.\\-]+\\.[a-zA-Z]{2,})/);\nconst senderDomain = domainMatch ? domainMatch[1].toLowerCase() : '';\nconst inReplyTo = (reply.headers && reply.headers['in-reply-to']) || '';\nconst references = (reply.headers && reply.headers['references']) || '';\n\nreturn { json: {\n  success: true,\n  mode: 'verify',\n  found: true,\n  marker,\n  reply_details: {\n    from: reply.from,\n    from_email: fromEmail,\n    sender_domain: senderDomain,\n    subject: reply.subject,\n    date: reply.date,\n    in_reply_to: inReplyTo,\n    references: references,\n    message_id: reply.messageId || (reply.headers && reply.headers['message-id']) || ''\n  },\n  matching_preview: {\n    has_in_reply_to: !!inReplyTo,\n    tier0_would_try: !!inReplyTo,\n    from_email_for_tier1: fromEmail,\n    domain_for_tier2: senderDomain\n  }\n}};"
+      },
+      "id": "trd-0000-0000-0000-000000000042",
+      "name": "Find Reply",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1440, 900]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {},
+          "conditions": [
+            {
+              "id": "has-in-reply-to",
+              "leftValue": "={{ $json.found }}",
+              "rightValue": true,
+              "operator": { "type": "boolean", "operation": "equals" }
+            },
+            {
+              "id": "has-header",
+              "leftValue": "={{ $json.reply_details ? ($json.reply_details.in_reply_to || '') : '' }}",
+              "rightValue": "",
+              "operator": { "type": "string", "operation": "notEquals" }
+            }
+          ],
+          "combinator": "and"
+        }
+      },
+      "id": "trd-0000-0000-0000-000000000043",
+      "name": "IF Can Test Tier 0",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [1680, 900]
+    },
+    {
+      "parameters": {
+        "method": "GET",
+        "url": "https://cycapkswtucbucyegdsn.supabase.co/rest/v1/sent_emails",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            { "name": "apikey", "value": "SUPABASE_SERVICE_ROLE_KEY_PLACEHOLDER" },
+            { "name": "Authorization", "value": "Bearer SUPABASE_SERVICE_ROLE_KEY_PLACEHOLDER" }
+          ]
+        },
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            { "name": "select", "value": "id,wave_lead_id,smtp_message_id" },
+            { "name": "smtp_message_id", "value": "={{ 'eq.' + $json.reply_details.in_reply_to }}" },
+            { "name": "limit", "value": "1" }
+          ]
+        },
+        "options": { "timeout": 30000, "neverError": true }
+      },
+      "id": "trd-0000-0000-0000-000000000044",
+      "name": "Test Tier 0 Query",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [1920, 840]
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForEachItem",
+        "jsCode": "const tier0Result = $input.item.json;\nconst prev = $('Find Reply').first().json;\nconst tier0Match = tier0Result && tier0Result.id ? true : false;\nreturn { json: {\n  ...prev,\n  tier0_test: {\n    tested: true,\n    matched: tier0Match,\n    sent_email_id: tier0Result.id || null,\n    wave_lead_id: tier0Result.wave_lead_id || null\n  }\n}};"
+      },
+      "id": "trd-0000-0000-0000-000000000045",
+      "name": "Tier 0 Result",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [2160, 840]
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForEachItem",
+        "jsCode": "const prev = $input.item.json;\nreturn { json: { ...prev, tier0_test: { tested: false, reason: prev.found ? 'no in-reply-to header' : 'reply not found' } } };"
+      },
+      "id": "trd-0000-0000-0000-000000000046",
+      "name": "Skip Tier 0",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1920, 1020]
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForEachItem",
+        "jsCode": "return { json: $input.item.json };"
+      },
+      "id": "trd-0000-0000-0000-000000000047",
+      "name": "Merge Verify",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [2400, 900]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ JSON.stringify($json) }}",
+        "options": { "responseCode": 200 }
+      },
+      "id": "trd-0000-0000-0000-000000000048",
+      "name": "Verify Response",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1,
+      "position": [2640, 900]
+    }
+  ],
+  "connections": {
+    "Webhook": {
+      "main": [[{ "node": "Parse Input", "type": "main", "index": 0 }]]
+    },
+    "Parse Input": {
+      "main": [[{ "node": "IF Error", "type": "main", "index": 0 }]]
+    },
+    "IF Error": {
+      "main": [
+        [{ "node": "Error Response", "type": "main", "index": 0 }],
+        [{ "node": "Switch Mode", "type": "main", "index": 0 }]
+      ]
+    },
+    "Switch Mode": {
+      "main": [
+        [{ "node": "Prepare SMTP Test", "type": "main", "index": 0 }],
+        [{ "node": "Prepare IMAP Test", "type": "main", "index": 0 }],
+        [{ "node": "Prepare E2E Test", "type": "main", "index": 0 }],
+        [{ "node": "Prepare Verify", "type": "main", "index": 0 }]
+      ]
+    },
+    "Prepare SMTP Test": {
+      "main": [[{ "node": "Send Seq1", "type": "main", "index": 0 }]]
+    },
+    "Send Seq1": {
+      "main": [[{ "node": "Parse Seq1 Result", "type": "main", "index": 0 }]]
+    },
+    "Parse Seq1 Result": {
+      "main": [[{ "node": "Send Seq2", "type": "main", "index": 0 }]]
+    },
+    "Send Seq2": {
+      "main": [[{ "node": "SMTP Result", "type": "main", "index": 0 }]]
+    },
+    "SMTP Result": {
+      "main": [[{ "node": "SMTP Response", "type": "main", "index": 0 }]]
+    },
+    "Prepare IMAP Test": {
+      "main": [[{ "node": "Fetch IMAP", "type": "main", "index": 0 }]]
+    },
+    "Fetch IMAP": {
+      "main": [[{ "node": "IMAP Result", "type": "main", "index": 0 }]]
+    },
+    "IMAP Result": {
+      "main": [[{ "node": "IMAP Response", "type": "main", "index": 0 }]]
+    },
+    "Prepare E2E Test": {
+      "main": [[{ "node": "Send E2E Email", "type": "main", "index": 0 }]]
+    },
+    "Send E2E Email": {
+      "main": [[{ "node": "E2E Result", "type": "main", "index": 0 }]]
+    },
+    "E2E Result": {
+      "main": [[{ "node": "E2E Response", "type": "main", "index": 0 }]]
+    },
+    "Prepare Verify": {
+      "main": [[{ "node": "Fetch IMAP (Verify)", "type": "main", "index": 0 }]]
+    },
+    "Fetch IMAP (Verify)": {
+      "main": [[{ "node": "Find Reply", "type": "main", "index": 0 }]]
+    },
+    "Find Reply": {
+      "main": [[{ "node": "IF Can Test Tier 0", "type": "main", "index": 0 }]]
+    },
+    "IF Can Test Tier 0": {
+      "main": [
+        [{ "node": "Test Tier 0 Query", "type": "main", "index": 0 }],
+        [{ "node": "Skip Tier 0", "type": "main", "index": 0 }]
+      ]
+    },
+    "Test Tier 0 Query": {
+      "main": [[{ "node": "Tier 0 Result", "type": "main", "index": 0 }]]
+    },
+    "Tier 0 Result": {
+      "main": [[{ "node": "Merge Verify", "type": "main", "index": 0 }]]
+    },
+    "Skip Tier 0": {
+      "main": [[{ "node": "Merge Verify", "type": "main", "index": 0 }]]
+    },
+    "Merge Verify": {
+      "main": [[{ "node": "Verify Response", "type": "main", "index": 0 }]]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "pinData": {}
+}
