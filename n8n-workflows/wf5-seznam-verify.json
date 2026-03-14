@@ -98,36 +98,31 @@
     },
     {
       "parameters": {
-        "resource": "row",
-        "operation": "getAll",
-        "tableId": "contacts",
-        "returnAll": true,
-        "filters": {
-          "conditions": [
-            {
-              "condition": "eq",
-              "keyName": "lead_id",
-              "keyValue": "={{ $('Extract Lead ID').first().json.lead_id }}"
-            }
+        "method": "POST",
+        "url": "https://cycapkswtucbucyegdsn.supabase.co/rest/v1/rpc/get_contacts_for_lead",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            { "name": "apikey", "value": "SUPABASE_SERVICE_ROLE_KEY_PLACEHOLDER" },
+            { "name": "Authorization", "value": "Bearer SUPABASE_SERVICE_ROLE_KEY_PLACEHOLDER" },
+            { "name": "Content-Type", "value": "application/json" }
           ]
-        }
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ p_lead_id: $('Extract Lead ID').first().json.lead_id }) }}",
+        "options": { "timeout": 30000, "neverError": true }
       },
       "id": "wf05c-n05",
       "name": "Get Contacts",
-      "type": "n8n-nodes-base.supabase",
-      "typeVersion": 1,
-      "position": [1200, 300],
-      "credentials": {
-        "supabaseApi": {
-          "id": "8fUZtVEFmt5y101f",
-          "name": "Supabase"
-        }
-      }
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [1200, 300]
     },
     {
       "parameters": {
         "mode": "runOnceForAllItems",
-        "jsCode": "const ids = $input.all().map(i => i.json.id).filter(Boolean);\nconst cfg = $('Extract Config').first().json;\nreturn [{ json: { contact_ids: ids, seznam_from_email: cfg.seznam_from_email, lead_id: cfg.lead_id } }];"
+        "jsCode": "const rpcResult = $input.first().json;\nconst contacts = rpcResult.contacts ?? [];\nconst ids = contacts.map(c => c.id).filter(Boolean);\nconst cfg = $('Extract Config').first().json;\nreturn [{ json: { contact_ids: ids, seznam_from_email: cfg.seznam_from_email, lead_id: cfg.lead_id } }];"
       },
       "id": "wf05c-n06",
       "name": "Build Contact IDs",
