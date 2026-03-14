@@ -584,9 +584,8 @@ Zobrazované metriky:
 
 | Mozna pricina | Jak overit | Reseni |
 |---------------|------------|--------|
-| WF1-WF6 neni aktivni | Zkontrolujte v n8n admin | Aktivujte prislusny workflow |
+| WF1-WF5, WF11 neni aktivni | Zkontrolujte v n8n admin | Aktivujte prislusny workflow |
 | ARES API neni dostupne | Zkuste rucne `https://ares.gov.cz/` | Pocejte a zkuste znovu |
-| QEV klice vycerpany | Supabase `config` tabulka → `qev_api_key_1/2/3` | Doplnte kredit nebo vymente klice |
 | Lead se zasekl ve stavu `enriching` | `/leady` → filtr `enriching` | Rucne prepnte stav na `new` a spustte znovu |
 
 ### Vlna se nedokoncuje
@@ -638,9 +637,9 @@ Zobrazované metriky:
 | **Outreach ucet** | E-mailovy ucet pouzivany k odesilani (1 na tym). |
 | **Obchodnik (Salesman)** | Osoba, jejiz email se pouziva jako Reply-To. Ma vlastni IMAP schranku. |
 | **Enrichment** | Proces obohaceni leadu — ARES lookup, kurzy scraping, generovani emailu, overeni. |
-| **Enrichment pipeline** | Retez workflowu WF1 → WF2 → WF3 → WF4 → WF5 → WF6 pro kompletni obohaceni. |
+| **Enrichment pipeline** | Retez workflowu WF1 → WF2 → WF3 → WF4 → WF5 → WF11 pro kompletni obohaceni. WF6 (QEV) je deaktivovany. |
 | **Email discovery** | Proces hledani emailove adresy — generovani kandidatu + SMTP overeni. |
-| **QEV** | QuickEmailVerification — externi sluzba pro overovani emailu. |
+| **QEV** | QuickEmailVerification — externi sluzba pro overovani emailu. **Deaktivovana** — SMTP overeni v WF5 dava stejne vysledky. |
 | **Seznam verify** | Overeni emailu pres Seznam.cz SMTP servery. |
 | **SMTP probe** | Pokus o doruceni testovacıho emailu pro overeni existence adresy. |
 | **Catch-all domena** | Domena, ktera prijima emaily na libovolnou adresu — SMTP overeni neni prukazne. Email Finder v3 automaticky detekuje catch-all a pouzije probe test. |

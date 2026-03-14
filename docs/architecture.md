@@ -96,7 +96,7 @@ Self-hosted na Hostinger VPS. Vsechny workflow jsou ulozeny jako JSON v `n8n-wor
 - Autentizace pres Supabase Auth (JWT tokeny)
 - Row Level Security (RLS) na vsech tabulkach
 - Realtime subscriptions pro live aktualizace v UI
-- `config` tabulka pro runtime secrets (seznam_from_email, qev_api_key_1/2/3)
+- `config` tabulka pro runtime secrets (seznam_from_email). QEV klice deprecated.
 
 ### React UI
 
@@ -245,25 +245,29 @@ CSV import / AddLead dialog (s volbou enrichment level)
    - Uklada do email_candidates
         |
         v
-   WF5: Seznam Verify (webhook:wf5-seznam)
+   WF5: SMTP Verification (webhook:wf5-seznam)
    - Nacita kontakty z contacts tabulky (pres company_id)
-   - Overeni pres Seznam (zda email existuje)
-   - Oznacuje vysledky pres mark_contacts_email_status() RPC
-   - Nacita seznam_from_email z config tabulky
+   - SMTP overeni pres Seznam (zda email existuje)
+   - Nastavuje is_verified a is_catch_all na email_candidates
+   - Oznacuje vysledky pres mark_jednatels_email_status() RPC
+   - Vzdy spousti WF11 (nenastavuje finalni lead status)
         |
         v
-   WF6: QEV Verify (webhook:wf6-qev)
-   - Nacita kandidaty s join na contacts tabulku
-   - Quick Email Verification API
-   - Oznacuje vysledky pres mark_contacts_email_status() RPC
-   - 3 rotujici API klice z config tabulky
+   WF11: Website Email Scraper (webhook:wf11-website-fallback)
+   - Scrapuje firemni web pro dalsi emaily
+   - Generuje kombinace emailu pro kontakty
+   - SMTP overeni nalezenych kandidatu
+   - Nastavuje FINALNI lead status na zaklade VSECH email_candidates:
+     ready (jednatel verified) > staff_email > info_email > failed
         |
         v
-   Lead je pripraven k odesilani (status: ready)
+   Lead je pripraven k odesilani (status: ready/staff_email/info_email/failed)
 ```
 
+**Pozn:** WF6 (QEV Verify) je **deaktivovany** — SMTP overeni v WF5 poskytuje stejne vysledky. QEV mel bug s `safe_to_send: "true"` (string vs boolean).
+
 **Doplnkove enrichment workflow:**
-- **WF11: Website Fallback** — kdyz ARES nenajde domain, pokusi se ji ziskat z webu
+- **WF11: Website Email Scraper** — vzdy se spousti po WF5, scrapuje firemni web pro dalsi emaily, nastavuje finalni lead status
 - **WF12: ICO Scrape** — scraping ICO z webovych stranek
 - **wf-email-finder / v2** — starsi verze Email Finderu (v2 pouziva se pro overeni jednotliveho emailu z UI)
 - **wf-email-finder-v3** — novy firemni orchestrator pro hledani emailu (pouziva se z UI zakladky "Najit emaily"). Resolves company (domain lookup, ARES, firmy.cz fallback), fetches contacts, generates email patterns, SMTP checks, catch-all probe, website scraping pro backup emaily, upsert do email_candidates.
@@ -324,13 +328,13 @@ Kompletni seznam vsech n8n workflow s identifikatory:
 | wf2-ares-lookup | 2i6zvyAy3j7BjaZE | webhook:wf2-ares | ARES ICO lookup (BE + VR endpoint), uklada kontakty do contacts pres company_id |
 | wf3-kurzy-scrape | nPbr15LJxGaZUqo7 | webhook:wf3-kurzy | Scraping kontaktnich osob z kurzy.cz do contacts tabulky |
 | wf4-email-gen | RNuSFAtwoEAkb9rA | webhook:wf4-email-gen | Generovani emailovych adres (get_contacts_for_lead RPC) |
-| wf5-seznam-verify | 7JzGHAG24ra3977B | webhook:wf5-seznam | Overeni emailu pres Seznam (contacts + mark_contacts_email_status) |
-| wf6-qev-verify | EbKgRSRr2Poe34vH | webhook:wf6-qev | Overeni emailu pres QEV API (contacts join + mark_contacts_email_status) |
+| wf5-seznam-verify | 7JzGHAG24ra3977B | webhook:wf5-seznam | SMTP overeni emailu, mark_jednatels_email_status, vzdy spousti WF11 |
+| wf6-qev-verify | EbKgRSRr2Poe34vH | webhook:wf6-qev | **DEAKTIVOVANY** — QEV overeni odstraneno, SMTP staci |
 | wf7-wave-schedule | TVNOzjSnaWrmTlqw | webhook:wf7-wave-schedule | Planovani vlny + scheduling_report (contacts nested select) |
 | wf8-send-cron | wJLD5sFxddNNxR7p | cron:every-5min | Odesilani emailu z fronty |
 | wf9-reply-detection | AaHXknYh9egPDxcG | cron:every-1min | Detekce odpovedi pres IMAP proxy |
 | wf10-daily-reset | 50Odnt5vzIMfSBZE | cron:midnight | Reset dennich pocitadel + cisteni |
-| wf11-website-fallback | E5QzxzZe4JbSv5lU | webhook:wf11-website-fallback | Fallback ziskani domeny z webu (get_contacts_for_lead RPC) |
+| wf11-website-fallback | E5QzxzZe4JbSv5lU | webhook:wf11-website-fallback | Website email scraper + finalni lead status (vzdy spousten z WF5) |
 | wf12-ico-scrape | LGEe4MTELj5lmOFX | webhook:wf12-ico-scrape | Scraping ICO z webovych stranek |
 | wf13-gsheet-proxy | ENcE8iMWLNwIPc5a | webhook:gsheet-proxy | Google Sheets proxy |
 | email-verification sub-wf | Aov5PfwmBDv51L0e | executeWorkflowTrigger | Sdileny sub-workflow pro overeni emailu |
@@ -397,7 +401,7 @@ Kompletni seznam vsech n8n workflow s identifikatory:
 
 | Tabulka | Popis |
 |---|---|
-| `config` | Key/value konfigurace (seznam_from_email, qev_api_key_1/2/3) |
+| `config` | Key/value konfigurace (seznam_from_email). QEV klice deprecated. |
 | `tags` | Definice tagu |
 | `lead_tags` | Prirazeni tagu k leadum |
 | `company_tags` | Prirazeni tagu k firmam (company_id, tag_id) |
