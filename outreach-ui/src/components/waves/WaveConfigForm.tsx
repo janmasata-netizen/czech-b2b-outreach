@@ -77,11 +77,11 @@ export default function WaveConfigForm({ wave }: WaveConfigFormProps) {
         id: wave.id,
         updates: {
           name: form.name,
-          template_set_id: form.template_set_id || undefined,
-          salesman_id: form.salesman_id || undefined,
-          from_email: form.from_email || undefined,
+          template_set_id: form.template_set_id || null,
+          salesman_id: form.salesman_id || null,
+          from_email: form.from_email || null,
           is_dummy: form.is_dummy,
-          dummy_email: form.is_dummy ? (form.dummy_email || undefined) : undefined,
+          dummy_email: form.is_dummy ? (form.dummy_email || null) : null,
         } as Partial<Wave>,
       });
       savedForm.current = { ...form };

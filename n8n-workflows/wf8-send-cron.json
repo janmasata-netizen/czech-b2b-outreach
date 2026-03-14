@@ -180,16 +180,67 @@
     },
     {
       "parameters": {
+        "method": "POST",
+        "url": "https://cycapkswtucbucyegdsn.supabase.co/rest/v1/rpc/increment_and_check_sends",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "apikey",
+              "value": "SUPABASE_SERVICE_ROLE_KEY_PLACEHOLDER"
+            },
+            {
+              "name": "Authorization",
+              "value": "Bearer SUPABASE_SERVICE_ROLE_KEY_PLACEHOLDER"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ p_team_id: $json.team_id }) }}",
+        "options": {
+          "timeout": 30000
+        }
+      },
+      "id": "wf08-0000-0000-0000-000000000015",
+      "name": "Increment Sends RPC",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1680,
+        180
+      ]
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForEachItem",
+        "jsCode": "const eq = $('Parse Limit Check').first().json;\nconst rpcResult = $input.item.json;\nconst isOverLimit = rpcResult.is_over_limit === true;\nreturn { json: { ...eq, is_over_limit: isOverLimit } };"
+      },
+      "id": "wf08-0000-0000-0000-000000000031",
+      "name": "Check Limit Result",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1800,
+        180
+      ]
+    },
+    {
+      "parameters": {
         "conditions": {
           "options": {},
           "conditions": [
             {
               "id": "under-limit",
-              "leftValue": "={{ $json.fresh_sends_today }}",
-              "rightValue": "={{ $json.fresh_daily_limit }}",
+              "leftValue": "={{ $json.is_over_limit }}",
+              "rightValue": false,
               "operator": {
-                "type": "number",
-                "operation": "lt"
+                "type": "boolean",
+                "operation": "equals"
               }
             }
           ],
@@ -201,7 +252,7 @@
       "type": "n8n-nodes-base.if",
       "typeVersion": 2,
       "position": [
-        1680,
+        1920,
         180
       ]
     },
@@ -239,8 +290,7 @@
         "specifyBody": "json",
         "jsonBody": "={{ JSON.stringify({ scheduled_at: new Date(Date.now() + 15 * 60 * 1000).toISOString(), status: 'queued' }) }}",
         "options": {
-          "timeout": 30000,
-          "neverError": true
+          "timeout": 30000
         }
       },
       "id": "wf08-0000-0000-0000-000000000007",
@@ -248,21 +298,35 @@
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
       "position": [
-        1920,
+        2160,
         360
       ]
     },
     {
       "parameters": {
         "mode": "runOnceForEachItem",
-        "jsCode": "const eq = $('Parse Limit Check').first().json;\n\n// Generate a unique SMTP Message-ID for this email\nconst timestamp = Date.now();\nconst random = Math.random().toString(36).substring(2, 10);\nconst domain = eq.outreach_email ? eq.outreach_email.split('@')[1] : 'mail.local';\nconst generatedMessageId = '<' + timestamp + '.' + random + '@' + domain + '>';\n\n// Subject: seq 1 uses own subject, seq 2/3 use seq 1's subject (thread_subject) with Re: prefix\nlet subject = eq.subject_rendered || '';\nif (eq.sequence_number > 1) {\n  const baseSubject = eq.thread_subject || eq.subject_rendered || '';\n  subject = baseSubject.startsWith('Re:') ? baseSubject : 'Re: ' + baseSubject;\n}\n\n// References chain: smtp_message_id_ref stores the full ancestor chain\nconst refChain = eq.smtp_message_id_ref || '';\n\n// For smtp-proxy: only include threading headers when non-empty (seq 1 has none)\nconst proxyInReplyTo = refChain ? refChain.trim().split(' ').pop() : '';\nconst proxyReferences = refChain || '';\n\nreturn { json: {\n  ...eq,\n  generated_message_id: generatedMessageId,\n  smtp_message_id: generatedMessageId,\n  smtp_subject: subject,\n  in_reply_to: proxyInReplyTo,\n  references: proxyReferences,\n  proxy_in_reply_to: proxyInReplyTo || null,\n  proxy_references: proxyReferences || null,\n}};"
+        "jsCode": "const eq = $('Check Limit Result').first().json;\n\n// Generate a unique SMTP Message-ID for this email\nconst timestamp = Date.now();\nconst random = Math.random().toString(36).substring(2, 10);\nconst domain = eq.outreach_email ? eq.outreach_email.split('@')[1] : 'mail.local';\nconst generatedMessageId = '<' + timestamp + '.' + random + '@' + domain + '>';\n\n// Subject: seq 1 uses own subject, seq 2/3 use seq 1's subject (thread_subject) with Re: prefix\nlet subject = eq.subject_rendered || '';\nif (eq.sequence_number > 1) {\n  const baseSubject = eq.thread_subject || eq.subject_rendered || '';\n  subject = baseSubject.startsWith('Re:') ? baseSubject : 'Re: ' + baseSubject;\n}\n\n// References chain: smtp_message_id_ref stores the full ancestor chain\nconst refChain = eq.smtp_message_id_ref || '';\n\n// For smtp-proxy: only include threading headers when non-empty (seq 1 has none)\nconst proxyInReplyTo = refChain ? refChain.trim().split(' ').pop() : '';\nconst proxyReferences = refChain || '';\n\nreturn { json: {\n  ...eq,\n  generated_message_id: generatedMessageId,\n  smtp_message_id: generatedMessageId,\n  smtp_subject: subject,\n  in_reply_to: proxyInReplyTo,\n  references: proxyReferences,\n  proxy_in_reply_to: proxyInReplyTo || null,\n  proxy_references: proxyReferences || null,\n}};"
       },
       "id": "wf08-0000-0000-0000-000000000009",
       "name": "Prepare Email",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        1920,
+        2160,
+        120
+      ]
+    },
+    {
+      "parameters": {
+        "time": 1500,
+        "unit": "milliseconds"
+      },
+      "id": "wf08-0000-0000-0000-000000000032",
+      "name": "Inter-Email Delay",
+      "type": "n8n-nodes-base.wait",
+      "typeVersion": 1.1,
+      "position": [
+        2340,
         120
       ]
     },
@@ -292,7 +356,7 @@
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
       "position": [
-        2160,
+        2520,
         120
       ]
     },
@@ -306,7 +370,7 @@
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        2400,
+        2760,
         120
       ]
     },
@@ -333,7 +397,7 @@
       "type": "n8n-nodes-base.if",
       "typeVersion": 2,
       "position": [
-        2640,
+        3000,
         120
       ]
     },
@@ -362,8 +426,7 @@
         "specifyBody": "json",
         "jsonBody": "={{ JSON.stringify({ queue_id: $json.id, wave_lead_id: $json.wave_lead_id, jednatel_id: $json.jednatel_id, email_address: $json.email_address, sequence_number: $json.sequence_number, smtp_message_id: $json.smtp_message_id, subject: $json.smtp_subject, sent_at: new Date().toISOString() }) }}",
         "options": {
-          "timeout": 30000,
-          "neverError": true
+          "timeout": 30000
         }
       },
       "id": "wf08-0000-0000-0000-000000000013",
@@ -371,7 +434,7 @@
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
       "position": [
-        2880,
+        3240,
         0
       ]
     },
@@ -409,8 +472,7 @@
         "specifyBody": "json",
         "jsonBody": "={{ JSON.stringify({ status: 'sent', sent_at: new Date().toISOString() }) }}",
         "options": {
-          "timeout": 30000,
-          "neverError": true
+          "timeout": 30000
         }
       },
       "id": "wf08-0000-0000-0000-000000000014",
@@ -418,46 +480,8 @@
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
       "position": [
-        2880,
+        3240,
         120
-      ]
-    },
-    {
-      "parameters": {
-        "method": "POST",
-        "url": "https://cycapkswtucbucyegdsn.supabase.co/rest/v1/rpc/increment_and_check_sends",
-        "sendHeaders": true,
-        "headerParameters": {
-          "parameters": [
-            {
-              "name": "apikey",
-              "value": "SUPABASE_SERVICE_ROLE_KEY_PLACEHOLDER"
-            },
-            {
-              "name": "Authorization",
-              "value": "Bearer SUPABASE_SERVICE_ROLE_KEY_PLACEHOLDER"
-            },
-            {
-              "name": "Content-Type",
-              "value": "application/json"
-            }
-          ]
-        },
-        "sendBody": true,
-        "specifyBody": "json",
-        "jsonBody": "={{ JSON.stringify({ p_team_id: $('Parse Limit Check').first().json.team_id }) }}",
-        "options": {
-          "timeout": 30000,
-          "neverError": true
-        }
-      },
-      "id": "wf08-0000-0000-0000-000000000015",
-      "name": "Increment Sends RPC",
-      "type": "n8n-nodes-base.httpRequest",
-      "typeVersion": 4.2,
-      "position": [
-        2880,
-        240
       ]
     },
     {
@@ -470,7 +494,7 @@
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        3120,
+        3480,
         120
       ]
     },
@@ -497,7 +521,7 @@
       "type": "n8n-nodes-base.if",
       "typeVersion": 2,
       "position": [
-        3360,
+        3720,
         120
       ]
     },
@@ -552,7 +576,7 @@
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
       "position": [
-        3600,
+        3960,
         0
       ]
     },
@@ -599,21 +623,21 @@
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
       "position": [
-        3600,
+        3960,
         240
       ]
     },
     {
       "parameters": {
         "mode": "runOnceForEachItem",
-        "jsCode": "const eq = $('Check Send Result').first().json;\nconst retryCount = (eq.retry_count || 0) + 1;\nreturn { json: {\n  id: eq.id,\n  wave_lead_id: eq.wave_lead_id,\n  email_address: eq.email_address,\n  sequence_number: eq.sequence_number,\n  retry_count: retryCount,\n  final_fail: retryCount >= 3\n} };"
+        "jsCode": "const eq = $('Check Send Result').first().json;\nconst retryCount = (eq.retry_count || 0) + 1;\nreturn { json: {\n  id: eq.id,\n  wave_lead_id: eq.wave_lead_id,\n  email_address: eq.email_address,\n  sequence_number: eq.sequence_number,\n  retry_count: retryCount,\n  final_fail: retryCount >= 3,\n  error: eq.error || 'Unknown send error'\n} };"
       },
       "id": "wf08-0000-0000-0000-000000000020",
       "name": "Handle Send Failure",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        2880,
+        3240,
         420
       ]
     },
@@ -651,8 +675,7 @@
         "specifyBody": "json",
         "jsonBody": "={{ JSON.stringify($json.final_fail ? { status: 'failed', error_message: $json.error, retry_count: $json.retry_count } : { status: 'queued', scheduled_at: new Date(Date.now() + 15 * 60 * 1000).toISOString(), retry_count: $json.retry_count }) }}",
         "options": {
-          "timeout": 30000,
-          "neverError": true
+          "timeout": 30000
         }
       },
       "id": "wf08-0000-0000-0000-000000000021",
@@ -660,7 +683,7 @@
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
       "position": [
-        3120,
+        3480,
         420
       ]
     },
@@ -728,6 +751,44 @@
         960,
         420
       ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://cycapkswtucbucyegdsn.supabase.co/rest/v1/rpc/auto_complete_waves",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "apikey",
+              "value": "SUPABASE_SERVICE_ROLE_KEY_PLACEHOLDER"
+            },
+            {
+              "name": "Authorization",
+              "value": "Bearer SUPABASE_SERVICE_ROLE_KEY_PLACEHOLDER"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "{}",
+        "options": {
+          "timeout": 30000,
+          "neverError": true
+        }
+      },
+      "id": "wf08-0000-0000-0000-000000000033",
+      "name": "Auto-Complete Waves (No Emails)",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        960,
+        540
+      ]
     }
   ],
   "connections": {
@@ -773,7 +834,13 @@
             "index": 0
           }
         ],
-        []
+        [
+          {
+            "node": "Auto-Complete Waves (No Emails)",
+            "type": "main",
+            "index": 0
+          }
+        ]
       ]
     },
     "Loop Emails": {
@@ -821,6 +888,28 @@
       "main": [
         [
           {
+            "node": "Increment Sends RPC",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Increment Sends RPC": {
+      "main": [
+        [
+          {
+            "node": "Check Limit Result",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Check Limit Result": {
+      "main": [
+        [
+          {
             "node": "IF Under Limit",
             "type": "main",
             "index": 0
@@ -858,6 +947,17 @@
       ]
     },
     "Prepare Email": {
+      "main": [
+        [
+          {
+            "node": "Inter-Email Delay",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Inter-Email Delay": {
       "main": [
         [
           {
@@ -920,17 +1020,6 @@
       ]
     },
     "Update Queue Sent": {
-      "main": [
-        [
-          {
-            "node": "Increment Sends RPC",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
-    "Increment Sends RPC": {
       "main": [
         [
           {
