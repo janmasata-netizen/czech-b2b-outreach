@@ -388,7 +388,7 @@
     {
       "parameters": {
         "mode": "runOnceForAllItems",
-        "jsCode": "const items = $input.all().map(i => i.json);\nconst lead_id = $('Extract Lead ID').first().json.lead_id;\nconst verified = items.filter(c => c.is_verified === true || c.seznam_status === 'likely_valid');\nconst hasJednatel = verified.some(c => c.type === 'jednatel');\nconst hasStaff = verified.some(c => c.type === 'staff' || c.type === 'staff_decision_maker');\nconst hasGeneric = verified.some(c => c.type === 'generic');\nlet status;\nif (hasJednatel) status = 'ready';\nelse if (hasStaff) status = 'staff_email';\nelse if (hasGeneric) status = 'info_email';\nelse status = 'failed';\nreturn [{ json: { lead_id, status, enrichment_error: status === 'failed' ? 'No verified emails found' : null, verified_count: verified.length } }];"
+        "jsCode": "const items = $input.all().map(i => i.json);\nconst lead_id = $('Extract Lead ID').first().json.lead_id;\nconst verified = items.filter(c => c.is_verified === true || c.seznam_status === 'likely_valid');\nconst hasJednatel = verified.some(c => c.type === 'jednatel');\nconst hasStaff = verified.some(c => c.type === 'staff' || c.type === 'staff_decision_maker');\nconst hasGeneric = verified.some(c => c.type === 'generic');\nlet status;\nif (verified.length > 0) {\n  if (hasJednatel) status = 'ready';\n  else if (hasStaff) status = 'staff_email';\n  else if (hasGeneric) status = 'info_email';\n  else status = 'ready';\n} else {\n  status = 'failed';\n}\nreturn [{ json: { lead_id, status, enrichment_error: status === 'failed' ? 'No verified emails found' : null, verified_count: verified.length } }];"
       },
       "id": "wf11-ds-v",
       "name": "Determine Status V",
@@ -479,7 +479,7 @@
     {
       "parameters": {
         "mode": "runOnceForAllItems",
-        "jsCode": "const items = $input.all().map(i => i.json);\nconst lead_id = $('Extract Lead ID').first().json.lead_id;\nconst verified = items.filter(c => c.is_verified === true || c.seznam_status === 'likely_valid');\nconst hasJednatel = verified.some(c => c.type === 'jednatel');\nconst hasStaff = verified.some(c => c.type === 'staff' || c.type === 'staff_decision_maker');\nconst hasGeneric = verified.some(c => c.type === 'generic');\nlet status;\nif (hasJednatel) status = 'ready';\nelse if (hasStaff) status = 'staff_email';\nelse if (hasGeneric) status = 'info_email';\nelse status = 'failed';\nreturn [{ json: { lead_id, status, enrichment_error: status === 'failed' ? 'No verified emails found' : null, verified_count: verified.length } }];"
+        "jsCode": "const items = $input.all().map(i => i.json);\nconst lead_id = $('Extract Lead ID').first().json.lead_id;\nconst verified = items.filter(c => c.is_verified === true || c.seznam_status === 'likely_valid');\nconst hasJednatel = verified.some(c => c.type === 'jednatel');\nconst hasStaff = verified.some(c => c.type === 'staff' || c.type === 'staff_decision_maker');\nconst hasGeneric = verified.some(c => c.type === 'generic');\nlet status;\nif (verified.length > 0) {\n  if (hasJednatel) status = 'ready';\n  else if (hasStaff) status = 'staff_email';\n  else if (hasGeneric) status = 'info_email';\n  else status = 'ready';\n} else {\n  status = 'failed';\n}\nreturn [{ json: { lead_id, status, enrichment_error: status === 'failed' ? 'No verified emails found' : null, verified_count: verified.length } }];"
       },
       "id": "wf11-ds-i",
       "name": "Determine Status I",
@@ -570,7 +570,7 @@
     {
       "parameters": {
         "mode": "runOnceForAllItems",
-        "jsCode": "const items = $input.all().map(i => i.json);\nconst lead_id = $('Extract Lead ID').first().json.lead_id;\nconst verified = items.filter(c => c.is_verified === true || c.seznam_status === 'likely_valid');\nconst hasJednatel = verified.some(c => c.type === 'jednatel');\nconst hasStaff = verified.some(c => c.type === 'staff' || c.type === 'staff_decision_maker');\nconst hasGeneric = verified.some(c => c.type === 'generic');\nlet status;\nif (hasJednatel) status = 'ready';\nelse if (hasStaff) status = 'staff_email';\nelse if (hasGeneric) status = 'info_email';\nelse status = 'failed';\nreturn [{ json: { lead_id, status, enrichment_error: status === 'failed' ? 'No verified emails found on website' : null, verified_count: verified.length } }];"
+        "jsCode": "const items = $input.all().map(i => i.json);\nconst lead_id = $('Extract Lead ID').first().json.lead_id;\nconst verified = items.filter(c => c.is_verified === true || c.seznam_status === 'likely_valid');\nconst hasJednatel = verified.some(c => c.type === 'jednatel');\nconst hasStaff = verified.some(c => c.type === 'staff' || c.type === 'staff_decision_maker');\nconst hasGeneric = verified.some(c => c.type === 'generic');\nlet status;\nif (verified.length > 0) {\n  if (hasJednatel) status = 'ready';\n  else if (hasStaff) status = 'staff_email';\n  else if (hasGeneric) status = 'info_email';\n  else status = 'ready';\n} else {\n  status = 'failed';\n}\nreturn [{ json: { lead_id, status, enrichment_error: status === 'failed' ? 'No verified emails found on website' : null, verified_count: verified.length } }];"
       },
       "id": "wf11-ds-ne",
       "name": "Determine Status NE",
@@ -661,7 +661,7 @@
     {
       "parameters": {
         "mode": "runOnceForAllItems",
-        "jsCode": "const items = $input.all().map(i => i.json);\nconst lead_id = $('Extract Lead ID').first().json.lead_id;\nconst verified = items.filter(c => c.is_verified === true || c.seznam_status === 'likely_valid');\nconst hasJednatel = verified.some(c => c.type === 'jednatel');\nconst hasStaff = verified.some(c => c.type === 'staff' || c.type === 'staff_decision_maker');\nconst hasGeneric = verified.some(c => c.type === 'generic');\nlet status;\nif (hasJednatel) status = 'ready';\nelse if (hasStaff) status = 'staff_email';\nelse if (hasGeneric) status = 'info_email';\nelse status = 'failed';\nreturn [{ json: { lead_id, status, enrichment_error: status === 'failed' ? 'No website and no verified emails' : null, verified_count: verified.length } }];"
+        "jsCode": "const items = $input.all().map(i => i.json);\nconst lead_id = $('Extract Lead ID').first().json.lead_id;\nconst verified = items.filter(c => c.is_verified === true || c.seznam_status === 'likely_valid');\nconst hasJednatel = verified.some(c => c.type === 'jednatel');\nconst hasStaff = verified.some(c => c.type === 'staff' || c.type === 'staff_decision_maker');\nconst hasGeneric = verified.some(c => c.type === 'generic');\nlet status;\nif (verified.length > 0) {\n  if (hasJednatel) status = 'ready';\n  else if (hasStaff) status = 'staff_email';\n  else if (hasGeneric) status = 'info_email';\n  else status = 'ready';\n} else {\n  status = 'failed';\n}\nreturn [{ json: { lead_id, status, enrichment_error: status === 'failed' ? 'No website and no verified emails' : null, verified_count: verified.length } }];"
       },
       "id": "wf11-ds-nw",
       "name": "Determine Status NW",
