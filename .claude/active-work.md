@@ -18,4 +18,5 @@
 
 | Branch | Agent | Files (exact paths) | Started | Last Updated | PR |
 |---|---|---|---|---|---|
+| claude/fix-enrichment-flow | claude-opus | outreach-ui/src/components/leads/ImportGroupDetail.tsx, outreach-ui/src/components/leads/MoveToReadyDialog.tsx, outreach-ui/src/components/leads/ReadyLeadsTab.tsx, outreach-ui/src/hooks/useLeads.ts, outreach-ui/src/i18n/cs.ts | 2026-03-14 | 2026-03-14 | — |
 
