@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useNavigate } from 'react-router-dom';
+import { useQueryClient } from '@tanstack/react-query';
 import { useImportGroupLeads, useDeleteImportGroup } from '@/hooks/useImportGroups';
 import StatusBadge from '@/components/shared/StatusBadge';
 import Pagination from '@/components/shared/Pagination';
@@ -30,6 +31,7 @@ const TH: React.CSSProperties = {
 export default function ImportGroupDetail({ group, onClose }: ImportGroupDetailProps) {
   const { t } = useTranslation();
   const navigate = useNavigate();
+  const qc = useQueryClient();
   const [page, setPage] = useState(1);
   const [selected, setSelected] = useState<string[]>([]);
   const [pushIds, setPushIds] = useState<string[] | null>(null);
@@ -79,8 +81,15 @@ export default function ImportGroupDetail({ group, onClose }: ImportGroupDetailP
       const webhookPath = group.enrichment_level === 'full_pipeline' ? 'wf2-ares' : 'wf4-email-gen';
       let failedCount = 0;
 
+      // Update all statuses first, then invalidate once for immediate UI feedback
       for (const lead of failedLeads) {
         await supabase.from('leads').update({ status: 'enriching' }).eq('id', lead.id);
+      }
+      qc.invalidateQueries({ queryKey: ['import-group-leads'] });
+      qc.invalidateQueries({ queryKey: ['import-group'] });
+      qc.invalidateQueries({ queryKey: ['import-groups'] });
+
+      for (const lead of failedLeads) {
         try {
           console.log('Enrichment webhook:', n8nWebhookUrl(webhookPath));
           const response = await fetch(n8nWebhookUrl(webhookPath), {
@@ -125,9 +134,16 @@ export default function ImportGroupDetail({ group, onClose }: ImportGroupDetailP
       const webhookPath = group.enrichment_level === 'full_pipeline' ? 'wf2-ares' : 'wf4-email-gen';
       let failedCount = 0;
 
+      // Update all statuses first, then invalidate once for immediate UI feedback
+      for (const lead of newLeads) {
+        await supabase.from('leads').update({ status: 'enriching' }).eq('id', lead.id);
+      }
+      qc.invalidateQueries({ queryKey: ['import-group-leads'] });
+      qc.invalidateQueries({ queryKey: ['import-group'] });
+      qc.invalidateQueries({ queryKey: ['import-groups'] });
+
       for (let i = 0; i < newLeads.length; i++) {
         const lead = newLeads[i];
-        await supabase.from('leads').update({ status: 'enriching' }).eq('id', lead.id);
         try {
           console.log('Enrichment webhook:', n8nWebhookUrl(webhookPath));
           const response = await fetch(n8nWebhookUrl(webhookPath), {
