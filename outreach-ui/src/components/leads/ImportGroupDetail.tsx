@@ -8,7 +8,7 @@ import Pagination from '@/components/shared/Pagination';
 import GlassButton from '@/components/glass/GlassButton';
 import PushToWaveDialog from '@/components/leads/PushToWaveDialog';
 import MoveToReadyDialog from '@/components/leads/MoveToReadyDialog';
-import { TableSkeleton, Skeleton } from '@/components/shared/LoadingSkeleton';
+import { TableSkeleton } from '@/components/shared/LoadingSkeleton';
 import { PAGE_SIZE } from '@/lib/constants';
 import { supabase } from '@/lib/supabase';
 import { n8nWebhookUrl, n8nHeaders } from '@/lib/n8n';
@@ -274,7 +274,7 @@ export default function ImportGroupDetail({ group, onClose }: ImportGroupDetailP
                       <StatusBadge status={lead.status} />
                     </td>
                     <td style={{ padding: '11px 14px', fontSize: 12, color: 'var(--text-dim)', fontFamily: 'JetBrains Mono, monospace' }}>
-                      {isEnriching ? <Skeleton width={120} height={14} /> : primaryEmail}
+                      {isEnriching ? <span style={{ display: 'inline-block', animation: 'spin 1s linear infinite', fontSize: 14 }}>↻</span> : primaryEmail}
                     </td>
                     <td style={{ padding: '11px 14px', fontSize: 12, color: 'var(--text-dim)' }}>
                       {primaryContact}

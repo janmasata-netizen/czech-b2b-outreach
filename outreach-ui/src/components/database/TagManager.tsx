@@ -3,7 +3,7 @@ import { useTranslation } from 'react-i18next';
 import { X, Lock } from 'lucide-react';
 import GlassCard from '@/components/glass/GlassCard';
 import GlassButton from '@/components/glass/GlassButton';
-import { useTags, useCreateTag, useDeleteTag } from '@/hooks/useTags';
+import { useCompanyRelevantTags, useCreateTag, useDeleteTag } from '@/hooks/useTags';
 import { isSystemTag } from '@/lib/constants';
 import { toast } from 'sonner';
 
@@ -14,7 +14,7 @@ const PRESET_COLORS = [
 
 export default function TagManager({ teamId }: { teamId?: string }) {
   const { t } = useTranslation();
-  const { data: tags = [] } = useTags(teamId);
+  const { data: tags = [] } = useCompanyRelevantTags(teamId);
   const createTag = useCreateTag();
   const deleteTag = useDeleteTag();
   const [open, setOpen] = useState(false);

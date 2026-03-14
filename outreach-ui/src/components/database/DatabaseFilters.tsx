@@ -1,4 +1,4 @@
-import { useTags } from '@/hooks/useTags';
+import { useCompanyRelevantTags } from '@/hooks/useTags';
 import { useTeams } from '@/hooks/useLeads';
 import type { CompanyFilters, MasterStatus } from '@/types/database';
 
@@ -15,7 +15,7 @@ const STATUS_OPTIONS: { value: MasterStatus | ''; label: string }[] = [
 ];
 
 export default function DatabaseFilters({ filters, onChange }: DatabaseFiltersProps) {
-  const { data: tags = [] } = useTags(filters.team_id);
+  const { data: tags = [] } = useCompanyRelevantTags(filters.team_id);
   const { data: teams = [] } = useTeams();
   const selectedTagIds = filters.tag_ids ?? [];
 

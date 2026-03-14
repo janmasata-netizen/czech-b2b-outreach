@@ -7,6 +7,7 @@ const WF_DIR = decodeURIComponent(path.dirname(new URL(import.meta.url).pathname
 
 const SUB_BURNER_PROBE_ID = '9J5svDvgXBkZtOLX';
 const WF_EMAIL_FINDER_V2_ID = '6sc6c0ZSuglJ548A';
+const SUB_SMTP_CHECK_ID = 'L6D2HcFYoNorgiom';
 
 function n8nAPI(method, apiPath, body) {
   return new Promise((resolve, reject) => {
@@ -99,6 +100,14 @@ await deactivate(WF_EMAIL_FINDER_V2_ID, 'wf-email-finder-v2');
 const wfV2 = readWF('wf-email-finder-v2.json');
 await updateWorkflow(WF_EMAIL_FINDER_V2_ID, wfV2, 'wf-email-finder-v2');
 await activate(WF_EMAIL_FINDER_V2_ID, 'wf-email-finder-v2');
+console.log('');
+
+// Step 3: Update sub-smtp-check (retry on failure, remove hasPartialData catch-all)
+console.log('Step 3: Update sub-smtp-check');
+await deactivate(SUB_SMTP_CHECK_ID, 'sub-smtp-check');
+const subSmtp = readWF('sub-smtp-check.json');
+await updateWorkflow(SUB_SMTP_CHECK_ID, subSmtp, 'sub-smtp-check');
+await activate(SUB_SMTP_CHECK_ID, 'sub-smtp-check');
 console.log('');
 
 console.log('═══ Done ═══');

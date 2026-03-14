@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import GlassButton from '@/components/glass/GlassButton';
 import ConfirmDialog from '@/components/shared/ConfirmDialog';
-import { useTags, useAddTagToCompany } from '@/hooks/useTags';
+import { useCompanyRelevantTags, useAddTagToCompany } from '@/hooks/useTags';
 import { useUpdateCompanyMasterStatus } from '@/hooks/useCompanies';
 import { toast } from 'sonner';
 import { supabase } from '@/lib/supabase';
@@ -25,7 +25,7 @@ function useDeleteCompanies() {
 }
 
 export default function DatabaseBulkActions({ selected, onClear, teamId }: DatabaseBulkActionsProps) {
-  const { data: tags = [] } = useTags(teamId);
+  const { data: tags = [] } = useCompanyRelevantTags(teamId);
   const addTag = useAddTagToCompany();
   const updateStatus = useUpdateCompanyMasterStatus();
   const deleteCompanies = useDeleteCompanies();

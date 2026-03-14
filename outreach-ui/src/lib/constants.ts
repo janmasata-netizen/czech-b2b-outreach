@@ -137,7 +137,7 @@ export const PAGE_SIZE = 20;
 // ================================================================
 // SYSTEM TAGS — protected from deletion
 // ================================================================
-export const SYSTEM_TAG_NAMES = ['blacklist', 'email outreach', 'telefon', 'vip'];
+export const SYSTEM_TAG_NAMES = ['blacklist', 'email outreach', 'dopis', 'legacy', 'vip'];
 
 export function isSystemTag(tagName: string): boolean {
   return SYSTEM_TAG_NAMES.includes(tagName.toLowerCase());
