@@ -389,6 +389,30 @@ export default {
     icosFoundOnWeb: '{{count}} Company IDs found on websites',
   },
 
+  // ── Import Groups ──
+  importGroups: {
+    noImports: 'No imports yet',
+    noImportsDesc: 'Import leads via CSV or Google Sheets.',
+    leads: 'leads',
+    found: 'found',
+    info: 'info',
+    notFound: 'not found',
+    inProgress: 'in progress',
+    retryFailed: 'Retry failed ({{count}})',
+    addToWave: 'Add to wave',
+    deleteGroup: 'Delete group',
+    deleteConfirm: 'Are you sure you want to delete this import group? Leads will remain in the database.',
+    groupDeleted: 'Group deleted',
+    retrying: 'Retry sent',
+    importName: 'Import name',
+    importNamePlaceholder: 'e.g. Brno companies March 2026',
+    enrichmentBadge: {
+      import_only: 'Import only',
+      find_emails: 'Find emails',
+      full_pipeline: 'Full pipeline',
+    },
+  },
+
   // ── Import Chooser ──
   importChooser: {
     title: 'Import Leads',

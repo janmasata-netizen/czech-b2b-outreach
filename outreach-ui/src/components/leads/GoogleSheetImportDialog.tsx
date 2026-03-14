@@ -47,6 +47,7 @@ export default function GoogleSheetImportDialog({ open, onClose }: GoogleSheetIm
   const [teamAllocations, setTeamAllocations] = useState<TeamAllocation[]>([]);
   const [language, setLanguage] = useState<LeadLanguage>('cs');
   const [enrichmentLevel, setEnrichmentLevel] = useState<EnrichmentLevel>('full_pipeline');
+  const [importName, setImportName] = useState('');
   const [progress, setProgress] = useState<Progress>({ done: 0, errors: 0, duplicates: 0, total: 0, icosFound: 0, phase: '' });
   const [mapError, setMapError] = useState('');
   const [dedupResult, setDedupResult] = useState<DedupResult | null>(null);
@@ -62,6 +63,7 @@ export default function GoogleSheetImportDialog({ open, onClose }: GoogleSheetIm
     setTeamAllocations([]);
     setLanguage('cs');
     setEnrichmentLevel('full_pipeline');
+    setImportName('');
     setProgress({ done: 0, errors: 0, duplicates: 0, total: 0, icosFound: 0, phase: '' });
     setMapError('');
     setDedupResult(null);
@@ -195,6 +197,18 @@ export default function GoogleSheetImportDialog({ open, onClose }: GoogleSheetIm
         ? [{ teamId: teams[0].id, teamName: teams[0].name, percentage: 100 }]
         : [];
 
+    // Create import group
+    const primaryTeamId = effectiveAllocations[0]?.teamId || null;
+    const { data: group, error: groupErr } = await supabase
+      .from('import_groups')
+      .insert({ name: importName || 'Google Sheet import', source: 'gsheet' as const, enrichment_level: enrichmentLevel, team_id: primaryTeamId })
+      .select()
+      .single();
+    if (groupErr) {
+      console.error('Failed to create import group:', groupErr);
+    }
+    const groupId = group?.id;
+
     // Count non-skipped rows for team distribution
     const activeCount = rows.filter((_, i) => !skipIndices.has(i)).length;
     const teamForRow = assignTeamToRows(activeCount, effectiveAllocations);
@@ -289,13 +303,14 @@ export default function GoogleSheetImportDialog({ open, onClose }: GoogleSheetIm
             const leadId = rpcResult?.lead_id;
             const companyId = rpcResult?.company_id;
 
-            // Update lead with custom_fields and status
+            // Update lead with custom_fields, status, and import_group_id
             if (leadId) {
               await supabase
                 .from('leads')
                 .update({
                   status: email ? 'ready' : 'new',
                   custom_fields: Object.keys(custom_fields).length > 0 ? custom_fields : {},
+                  ...(groupId ? { import_group_id: groupId } : {}),
                 })
                 .eq('id', leadId);
             }
@@ -332,6 +347,7 @@ export default function GoogleSheetImportDialog({ open, onClose }: GoogleSheetIm
           };
           if (contact_name) payload.contact_name = contact_name;
           if (Object.keys(custom_fields).length > 0) payload.custom_fields = custom_fields;
+          if (groupId) payload.import_group_id = groupId;
 
           const res = await fetch(n8nWebhookUrl('lead-ingest'), {
             method: 'POST',
@@ -361,8 +377,36 @@ export default function GoogleSheetImportDialog({ open, onClose }: GoogleSheetIm
       if (i < rows.length - 1) await delay(200);
     }
 
+    // Retry sweep for stuck leads (enrichment modes only)
+    if (enrichmentLevel !== 'import_only' && groupId) {
+      await delay(3000);
+      const { data: stuck } = await supabase
+        .from('leads')
+        .select('id, company_name, ico, website, team_id, language')
+        .eq('import_group_id', groupId)
+        .eq('status', 'new');
+      for (const lead of stuck ?? []) {
+        try {
+          await fetch(n8nWebhookUrl('lead-ingest'), {
+            method: 'POST',
+            headers: n8nHeaders(),
+            body: JSON.stringify({
+              company_name: lead.company_name,
+              ico: lead.ico,
+              website: lead.website,
+              team_id: lead.team_id,
+              language: lead.language || 'cs',
+              import_group_id: groupId,
+            }),
+          });
+          await delay(200);
+        } catch { /* ignore retry failures */ }
+      }
+    }
+
     setProgress({ done, errors, duplicates, total, icosFound, phase: '' });
     qc.invalidateQueries({ queryKey: ['leads'] });
+    qc.invalidateQueries({ queryKey: ['import-groups'] });
     setStep('done');
   }
 
@@ -481,6 +525,14 @@ export default function GoogleSheetImportDialog({ open, onClose }: GoogleSheetIm
           ))}
         </select>
       </div>
+
+      {/* Import name */}
+      <GlassInput
+        label={t('importGroups.importName')}
+        placeholder={t('importGroups.importNamePlaceholder')}
+        value={importName}
+        onChange={e => setImportName(e.target.value)}
+      />
 
       {/* Enrichment level */}
       <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginTop: 4 }}>
@@ -637,7 +689,7 @@ export default function GoogleSheetImportDialog({ open, onClose }: GoogleSheetIm
       {step === 'map' && (
         <>
           <GlassButton variant="secondary" onClick={() => setStep('url')}>{t('common.back')}</GlassButton>
-          <GlassButton variant="primary" onClick={handleMapNext} disabled={dedupChecking}>
+          <GlassButton variant="primary" onClick={handleMapNext} disabled={dedupChecking || !importName.trim()}>
             {dedupChecking ? t('csvImport.checkingDuplicates') : t('csvImport.startImport', { count: rows.length })}
           </GlassButton>
         </>
