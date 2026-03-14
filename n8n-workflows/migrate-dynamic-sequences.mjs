@@ -63,8 +63,9 @@ async function main() {
   );
 
   // 5. Update wave_analytics view to include sequence_schedule
+  await runSQL(`DROP VIEW IF EXISTS public.wave_analytics;`, '5a. Drop wave_analytics view');
   await runSQL(
-    `CREATE OR REPLACE VIEW public.wave_analytics AS
+    `CREATE VIEW public.wave_analytics AS
      SELECT w.id, w.name, w.team_id, w.status, w.template_set_id,
             ts.name AS template_set_name,
             w.salesman_id, w.outreach_account_id, w.from_email,
@@ -105,7 +106,12 @@ async function main() {
      LEFT JOIN LATERAL (SELECT COUNT(*) AS cnt FROM public.sent_emails se JOIN public.wave_leads wl ON wl.id = se.wave_lead_id WHERE wl.wave_id = w.id AND wl.ab_variant = 'B') vbs ON TRUE
      LEFT JOIN LATERAL (SELECT COUNT(*) AS cnt FROM public.lead_replies lr JOIN public.wave_leads wl ON wl.id = lr.wave_lead_id WHERE wl.wave_id = w.id AND wl.ab_variant = 'A') var_ ON TRUE
      LEFT JOIN LATERAL (SELECT COUNT(*) AS cnt FROM public.lead_replies lr JOIN public.wave_leads wl ON wl.id = lr.wave_lead_id WHERE wl.wave_id = w.id AND wl.ab_variant = 'B') vbr ON TRUE;`,
-    '5. Update wave_analytics view with sequence_schedule'
+    '5b. Recreate wave_analytics view with sequence_schedule'
+  );
+
+  await runSQL(
+    `GRANT SELECT ON public.wave_analytics TO anon, authenticated, service_role;`,
+    '5c. Grant perms on wave_analytics'
   );
 
   console.log('\n=== Done ===');
