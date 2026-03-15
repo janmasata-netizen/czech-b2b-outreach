@@ -18,6 +18,5 @@
 
 | Branch | Agent | Files (exact paths) | Started | Last Updated | PR |
 |---|---|---|---|---|---|
-| claude/fix-ready-tab-flat-list | Claude Opus | outreach-ui/src/hooks/useLeads.ts, outreach-ui/src/components/leads/ReadyLeadsTab.tsx | 2026-03-15 | 2026-03-15 | — |
 
 
