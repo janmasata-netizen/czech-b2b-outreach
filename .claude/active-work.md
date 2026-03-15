@@ -18,6 +18,5 @@
 
 | Branch | Agent | Files (exact paths) | Started | Last Updated | PR |
 |---|---|---|---|---|---|
-| claude/fix-claim-tz | claude-opus | `n8n-workflows/migrate-fix-claim-tz.mjs` | 2026-03-15 | 2026-03-15 | — |
 
 
