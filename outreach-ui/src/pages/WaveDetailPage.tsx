@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { useTranslation } from 'react-i18next';
 import DOMPurify from 'dompurify';
 import { useParams, useNavigate } from 'react-router-dom';
@@ -24,55 +24,132 @@ import Breadcrumb from '@/components/shared/Breadcrumb';
 import { exportCsv } from '@/lib/export';
 import { toast } from 'sonner';
 
-/** Scrollable column for the time picker — auto-scrolls selected item to center */
-const COL_ITEM_H = 34;
-const COL_VISIBLE = 7;
-const COL_H = COL_ITEM_H * COL_VISIBLE;
+/**
+ * Infinite-scroll wheel column — renders items repeated many times so
+ * the user can scroll endlessly in either direction. When scroll nears
+ * the edge, it silently jumps back to the middle set.
+ */
+const ITEM_H = 34;
+const VISIBLE = 5;
+const COL_H = ITEM_H * VISIBLE;
+const REPEAT = 40; // how many copies of the list to render
+const MID = Math.floor(REPEAT / 2);
 
-function PickerColumn({ items, selected, onSelect }: {
+function InfiniteWheelColumn({ items, selected, onSelect }: {
   items: string[];
   selected: string;
   onSelect: (v: string) => void;
 }) {
-  const listRef = useRef<HTMLDivElement>(null);
+  const ref = useRef<HTMLDivElement>(null);
+  const suppressSnap = useRef(false);
+  const snapTimer = useRef<ReturnType<typeof setTimeout>>(undefined);
+  const len = items.length;
+  const oneSetH = len * ITEM_H;
+  // padding so the center slot aligns with the middle of the visible area
+  const padTop = Math.floor(VISIBLE / 2) * ITEM_H;
 
-  // scroll selected into view on mount
-  useEffect(() => {
-    if (!listRef.current) return;
-    const idx = items.indexOf(selected);
+  // scroll to selected item in the middle set (no animation)
+  const jumpToSelected = useCallback((val: string) => {
+    if (!ref.current) return;
+    const idx = items.indexOf(val);
     if (idx < 0) return;
-    // center the selected item in the visible area
-    const scrollTarget = idx * COL_ITEM_H - (COL_H / 2) + (COL_ITEM_H / 2);
-    listRef.current.scrollTo({ top: Math.max(0, scrollTarget), behavior: 'instant' });
-  }, [selected, items]);
+    ref.current.scrollTop = MID * oneSetH + idx * ITEM_H;
+  }, [items, oneSetH]);
+
+  // on mount / when selected changes externally, jump
+  useEffect(() => {
+    jumpToSelected(selected);
+  }, [selected, jumpToSelected]);
+
+  const handleScroll = () => {
+    if (!ref.current || suppressSnap.current) return;
+    const el = ref.current;
+    const scrollTop = el.scrollTop;
+
+    // if near top or bottom quarter, silently recenter
+    const lowerBound = 5 * oneSetH;
+    const upperBound = (REPEAT - 5) * oneSetH;
+    if (scrollTop < lowerBound || scrollTop > upperBound) {
+      suppressSnap.current = true;
+      // figure out which item index is currently centered
+      const rawIdx = Math.round(scrollTop / ITEM_H);
+      const itemIdx = ((rawIdx % len) + len) % len;
+      el.scrollTop = MID * oneSetH + itemIdx * ITEM_H;
+      requestAnimationFrame(() => { suppressSnap.current = false; });
+    }
+
+    // debounced snap: after scrolling stops, snap to nearest item and select it
+    clearTimeout(snapTimer.current);
+    snapTimer.current = setTimeout(() => {
+      if (!ref.current) return;
+      const top = ref.current.scrollTop;
+      const rawIdx = Math.round(top / ITEM_H);
+      const snappedTop = rawIdx * ITEM_H;
+      const itemIdx = ((rawIdx % len) + len) % len;
+      ref.current.scrollTo({ top: snappedTop, behavior: 'smooth' });
+      if (items[itemIdx] !== selected) onSelect(items[itemIdx]);
+    }, 100);
+  };
 
   return (
-    <div
-      ref={listRef}
-      style={{
-        height: COL_H, width: 54, overflowY: 'auto',
-        scrollbarWidth: 'thin', borderRadius: 6,
-      }}
-    >
-      {items.map(item => {
-        const active = item === selected;
-        return (
-          <div
-            key={item}
-            onClick={() => onSelect(item)}
-            style={{
-              height: COL_ITEM_H, display: 'flex', alignItems: 'center', justifyContent: 'center',
-              cursor: 'pointer', borderRadius: 4,
-              fontFamily: 'JetBrains Mono, monospace', fontSize: 14, fontWeight: active ? 700 : 500,
-              color: active ? 'var(--green)' : 'var(--text-muted)',
-              background: active ? 'var(--green-bg)' : 'transparent',
-              transition: 'all 0.12s',
-            }}
-          >
-            {item}
-          </div>
-        );
-      })}
+    <div style={{ position: 'relative', height: COL_H, width: 54, overflow: 'hidden' }}>
+      {/* highlight band in center */}
+      <div style={{
+        position: 'absolute', top: padTop, left: 0, right: 0, height: ITEM_H,
+        background: 'var(--green-bg)', borderRadius: 6, border: '1px solid var(--green-border)',
+        pointerEvents: 'none', zIndex: 2,
+      }} />
+      {/* fade top */}
+      <div style={{
+        position: 'absolute', top: 0, left: 0, right: 0, height: padTop,
+        background: 'linear-gradient(to bottom, var(--bg-base) 20%, transparent 100%)',
+        pointerEvents: 'none', zIndex: 3,
+      }} />
+      {/* fade bottom */}
+      <div style={{
+        position: 'absolute', bottom: 0, left: 0, right: 0, height: padTop,
+        background: 'linear-gradient(to top, var(--bg-base) 20%, transparent 100%)',
+        pointerEvents: 'none', zIndex: 3,
+      }} />
+      <div
+        ref={ref}
+        onScroll={handleScroll}
+        style={{
+          height: COL_H, overflowY: 'scroll', position: 'relative', zIndex: 1,
+          scrollbarWidth: 'none',
+          paddingTop: padTop, paddingBottom: padTop,
+        }}
+      >
+        {Array.from({ length: REPEAT }, (_, setIdx) =>
+          items.map((item, i) => {
+            const active = item === selected;
+            return (
+              <div
+                key={`${setIdx}-${i}`}
+                onClick={() => {
+                  onSelect(item);
+                  // jump so clicked item is centered
+                  if (ref.current) {
+                    ref.current.scrollTo({
+                      top: MID * oneSetH + i * ITEM_H,
+                      behavior: 'smooth',
+                    });
+                  }
+                }}
+                style={{
+                  height: ITEM_H, display: 'flex', alignItems: 'center', justifyContent: 'center',
+                  cursor: 'pointer',
+                  fontFamily: 'JetBrains Mono, monospace', fontSize: 15, fontWeight: active ? 700 : 500,
+                  color: active ? 'var(--green)' : 'var(--text-muted)',
+                  transition: 'color 0.1s',
+                }}
+              >
+                {item}
+              </div>
+            );
+          })
+        )}
+      </div>
     </div>
   );
 }
@@ -80,13 +157,12 @@ function PickerColumn({ items, selected, onSelect }: {
 const HOURS = Array.from({ length: 24 }, (_, i) => String(i).padStart(2, '0'));
 const MINUTES = Array.from({ length: 60 }, (_, i) => String(i).padStart(2, '0'));
 
-/** 24h time picker — click to open scrollable hour/minute columns */
+/** 24h time picker with infinite-scroll wheels */
 function TimeInput24h({ value, onChange }: { value: string; onChange: (v: string) => void }) {
   const [open, setOpen] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
   const [hh, mm] = (value || '08:00').split(':');
 
-  // close on outside click
   useEffect(() => {
     if (!open) return;
     const handler = (e: MouseEvent) => {
@@ -113,18 +189,12 @@ function TimeInput24h({ value, onChange }: { value: string; onChange: (v: string
         <div style={{
           position: 'absolute', top: '100%', left: 0, marginTop: 4, zIndex: 50,
           background: 'var(--bg-base)', border: '1px solid var(--border)',
-          borderRadius: 10, padding: '8px 6px', display: 'flex', gap: 4, alignItems: 'flex-start',
+          borderRadius: 10, padding: '8px 6px', display: 'flex', gap: 4, alignItems: 'center',
           boxShadow: '0 8px 32px rgba(0,0,0,0.5)',
         }}>
-          <div>
-            <div style={{ fontSize: 10, color: 'var(--text-muted)', textAlign: 'center', marginBottom: 4, textTransform: 'uppercase', letterSpacing: 1 }}>hod</div>
-            <PickerColumn items={HOURS} selected={hh} onSelect={h => onChange(`${h}:${mm}`)} />
-          </div>
-          <span style={{ color: 'var(--text-muted)', fontWeight: 700, fontSize: 18, userSelect: 'none', marginTop: 94 }}>:</span>
-          <div>
-            <div style={{ fontSize: 10, color: 'var(--text-muted)', textAlign: 'center', marginBottom: 4, textTransform: 'uppercase', letterSpacing: 1 }}>min</div>
-            <PickerColumn items={MINUTES} selected={mm} onSelect={m => onChange(`${hh}:${m}`)} />
-          </div>
+          <InfiniteWheelColumn items={HOURS} selected={hh} onSelect={h => onChange(`${h}:${mm}`)} />
+          <span style={{ color: 'var(--text-muted)', fontWeight: 700, fontSize: 18, userSelect: 'none' }}>:</span>
+          <InfiniteWheelColumn items={MINUTES} selected={mm} onSelect={m => onChange(`${hh}:${m}`)} />
         </div>
       )}
     </div>
