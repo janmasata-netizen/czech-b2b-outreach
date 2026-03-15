@@ -458,18 +458,6 @@ export interface WavePreset {
   template_set?: TemplateSet;
   salesman?: Salesman;
 }
-export interface WavePreset {
-  id: string;
-  team_id: string;
-  name: string;
-  template_set_id: string | null;
-  from_email: string | null;
-  salesman_id: string | null;
-  created_at?: string;
-  updated_at?: string;
-  template_set?: TemplateSet;
-  salesman?: Salesman;
-}
 
 // ── Bug Reports ──
 export type BugReportSeverity = 'low' | 'medium' | 'high' | 'critical';

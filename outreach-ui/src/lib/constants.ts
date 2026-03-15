@@ -66,14 +66,14 @@ export const QUEUE_STATUS_MAP: Record<EmailQueueStatus, { label: string; color: 
 // STATUS COLOR → CSS vars
 // ================================================================
 export const STATUS_COLOR_MAP: Record<string, { bg: string; border: string; text: string }> = {
-  accent: { bg: 'rgba(62,207,142,0.1)',  border: 'rgba(62,207,142,0.25)',  text: '#3ECF8E' },
-  green:  { bg: 'rgba(62,207,142,0.1)',  border: 'rgba(62,207,142,0.25)',  text: '#3ECF8E' },
-  orange: { bg: 'rgba(251,146,60,0.1)',  border: 'rgba(251,146,60,0.25)',  text: '#fb923c' },
-  red:    { bg: 'rgba(248,113,113,0.1)', border: 'rgba(248,113,113,0.25)', text: '#f87171' },
-  purple: { bg: 'rgba(167,139,250,0.1)', border: 'rgba(167,139,250,0.25)', text: '#a78bfa' },
-  cyan:   { bg: 'rgba(34,211,238,0.1)',  border: 'rgba(34,211,238,0.25)',  text: '#22d3ee' },
-  yellow: { bg: 'rgba(251,191,36,0.1)',  border: 'rgba(251,191,36,0.25)',  text: '#fbbf24' },
-  muted:  { bg: 'rgba(82,82,91,0.15)',   border: 'rgba(82,82,91,0.3)',     text: '#71717a' },
+  accent: { bg: 'rgba(62,207,142,0.18)',  border: 'rgba(62,207,142,0.45)',  text: '#34b87a' },
+  green:  { bg: 'rgba(62,207,142,0.18)',  border: 'rgba(62,207,142,0.45)',  text: '#34b87a' },
+  orange: { bg: 'rgba(251,146,60,0.18)',  border: 'rgba(251,146,60,0.45)',  text: '#f59e0b' },
+  red:    { bg: 'rgba(239,68,68,0.18)',   border: 'rgba(239,68,68,0.45)',   text: '#ef4444' },
+  purple: { bg: 'rgba(139,92,246,0.18)',  border: 'rgba(139,92,246,0.45)',  text: '#8b5cf6' },
+  cyan:   { bg: 'rgba(6,182,212,0.18)',   border: 'rgba(6,182,212,0.45)',   text: '#0891b2' },
+  yellow: { bg: 'rgba(234,179,8,0.18)',   border: 'rgba(234,179,8,0.45)',   text: '#ca8a04' },
+  muted:  { bg: 'rgba(82,82,91,0.2)',     border: 'rgba(82,82,91,0.4)',     text: '#71717a' },
 };
 
 // ================================================================
@@ -118,14 +118,14 @@ export const PIPELINE_STEPS = [
 // EMAIL STATUS STYLES
 // ================================================================
 export const EMAIL_STATUS_STYLES: Record<string, { color: string; bg: string; label: string }> = {
-  valid:             { color: '#3ecf8e', bg: 'rgba(62,207,142,0.12)', label: 'valid' },
-  manually_verified: { color: '#3ecf8e', bg: 'rgba(62,207,142,0.12)', label: 'verified' },
-  likely_valid:      { color: '#f0b429', bg: 'rgba(240,180,41,0.12)',  label: 'likely valid' },
-  bounced:           { color: '#f87171', bg: 'rgba(248,113,113,0.12)', label: 'bounced' },
-  invalid:           { color: '#f87171', bg: 'rgba(248,113,113,0.12)', label: 'invalid' },
-  pending:           { color: '#94a3b8', bg: 'rgba(148,163,184,0.12)', label: 'pending' },
-  unknown:           { color: '#94a3b8', bg: 'rgba(148,163,184,0.12)', label: 'unknown' },
-  info_email:        { color: '#22d3ee', bg: 'rgba(34,211,238,0.12)',  label: 'info email' },
+  valid:             { color: '#34b87a', bg: 'rgba(62,207,142,0.18)', label: 'valid' },
+  manually_verified: { color: '#34b87a', bg: 'rgba(62,207,142,0.18)', label: 'verified' },
+  likely_valid:      { color: '#ca8a04', bg: 'rgba(234,179,8,0.18)',  label: 'likely valid' },
+  bounced:           { color: '#ef4444', bg: 'rgba(239,68,68,0.18)',  label: 'bounced' },
+  invalid:           { color: '#ef4444', bg: 'rgba(239,68,68,0.18)',  label: 'invalid' },
+  pending:           { color: '#94a3b8', bg: 'rgba(148,163,184,0.18)', label: 'pending' },
+  unknown:           { color: '#94a3b8', bg: 'rgba(148,163,184,0.18)', label: 'unknown' },
+  info_email:        { color: '#0891b2', bg: 'rgba(6,182,212,0.18)',   label: 'info email' },
 };
 
 // ================================================================

@@ -62,7 +62,7 @@
     {
       "parameters": {
         "mode": "runOnceForAllItems",
-        "jsCode": "const body = $input.all().map(i => i.json);\nif (body.length === 0) return [{ json: { has_emails: false } }];\n\nconst emails = body.map(eq => ({\n  has_emails: true,\n  id:                  eq.id,\n  wave_lead_id:        eq.wave_lead_id,\n  jednatel_id:         eq.jednatel_id,\n  email_address:       eq.email_address,\n  sequence_number:     eq.sequence_number,\n  smtp_message_id_ref: eq.smtp_message_id_ref,\n  subject_rendered:    eq.subject_rendered,\n  body_rendered:       eq.body_rendered,\n  thread_subject:      eq.thread_subject || '',\n  max_sequence_number: eq.max_sequence_number || 3,\n  retry_count:         eq.retry_count || 0,\n}));\nreturn emails.map(e => ({ json: e }));"
+        "jsCode": "const body = $input.all().map(i => i.json);\nif (body.length === 0) return [{ json: { has_emails: false } }];\n\nconst emails = body.map(eq => ({\n  has_emails: true,\n  id:                  eq.id,\n  wave_lead_id:        eq.wave_lead_id,\n  jednatel_id:         eq.jednatel_id,\n  email_address:       eq.email_address,\n  sequence_number:     eq.sequence_number,\n  smtp_message_id_ref: eq.smtp_message_id_ref,\n  smtp_message_id:     eq.smtp_message_id || null,\n  subject_rendered:    eq.subject_rendered,\n  body_rendered:       eq.body_rendered,\n  thread_subject:      eq.thread_subject || '',\n  max_sequence_number: eq.max_sequence_number || 3,\n  retry_count:         eq.retry_count || 0,\n}));\nreturn emails.map(e => ({ json: e }));"
       },
       "id": "wf08-0000-0000-0000-000000000003",
       "name": "Flatten Email Queue",
@@ -306,7 +306,7 @@
     {
       "parameters": {
         "mode": "runOnceForEachItem",
-        "jsCode": "const eq = $('Check Limit Result').first().json;\n\n// Generate a unique SMTP Message-ID for this email\nconst timestamp = Date.now();\nconst random = Math.random().toString(36).substring(2, 10);\nconst domain = eq.outreach_email ? eq.outreach_email.split('@')[1] : 'mail.local';\nconst generatedMessageId = '<' + timestamp + '.' + random + '@' + domain + '>';\n\n// Subject: seq 1 uses own subject, seq 2/3 use seq 1's subject (thread_subject) with Re: prefix\nlet subject = eq.subject_rendered || '';\nif (eq.sequence_number > 1) {\n  const baseSubject = eq.thread_subject || eq.subject_rendered || '';\n  subject = baseSubject.startsWith('Re:') ? baseSubject : 'Re: ' + baseSubject;\n}\n\n// References chain: smtp_message_id_ref stores the full ancestor chain\nconst refChain = eq.smtp_message_id_ref || '';\n\n// For smtp-proxy: only include threading headers when non-empty (seq 1 has none)\nconst proxyInReplyTo = refChain ? refChain.trim().split(' ').pop() : '';\nconst proxyReferences = refChain || '';\n\nreturn { json: {\n  ...eq,\n  generated_message_id: generatedMessageId,\n  smtp_message_id: generatedMessageId,\n  smtp_subject: subject,\n  in_reply_to: proxyInReplyTo,\n  references: proxyReferences,\n  proxy_in_reply_to: proxyInReplyTo || null,\n  proxy_references: proxyReferences || null,\n}};"
+        "jsCode": "const eq = $('Check Limit Result').first().json;\n\n// Reuse existing message ID on retries to preserve threading\nlet generatedMessageId = eq.smtp_message_id;\nif (!generatedMessageId) {\n  const timestamp = Date.now();\n  const random = Math.random().toString(36).substring(2, 10);\n  const domain = eq.outreach_email ? eq.outreach_email.split('@')[1] : 'mail.local';\n  generatedMessageId = '<' + timestamp + '.' + random + '@' + domain + '>';\n}\n\n// Subject: seq 1 uses own subject, seq 2/3 use seq 1's subject (thread_subject) with Re: prefix\nlet subject = eq.subject_rendered || '';\nif (eq.sequence_number > 1) {\n  const baseSubject = eq.thread_subject || eq.subject_rendered || '';\n  subject = baseSubject.startsWith('Re:') ? baseSubject : 'Re: ' + baseSubject;\n}\n\n// References chain: smtp_message_id_ref stores the full ancestor chain\nconst refChain = eq.smtp_message_id_ref || '';\n\n// For smtp-proxy: only include threading headers when non-empty (seq 1 has none)\nconst proxyInReplyTo = refChain ? refChain.trim().split(' ').pop() : '';\nconst proxyReferences = refChain || '';\n\nreturn { json: {\n  ...eq,\n  generated_message_id: generatedMessageId,\n  smtp_message_id: generatedMessageId,\n  smtp_subject: subject,\n  in_reply_to: proxyInReplyTo,\n  references: proxyReferences,\n  proxy_in_reply_to: proxyInReplyTo || null,\n  proxy_references: proxyReferences || null,\n}};"
       },
       "id": "wf08-0000-0000-0000-000000000009",
       "name": "Prepare Email",
@@ -314,6 +314,53 @@
       "typeVersion": 2,
       "position": [
         2160,
+        120
+      ]
+    },
+    {
+      "parameters": {
+        "method": "PATCH",
+        "url": "https://cycapkswtucbucyegdsn.supabase.co/rest/v1/email_queue",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "apikey",
+              "value": "SUPABASE_SERVICE_ROLE_KEY_PLACEHOLDER"
+            },
+            {
+              "name": "Authorization",
+              "value": "Bearer SUPABASE_SERVICE_ROLE_KEY_PLACEHOLDER"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            {
+              "name": "id",
+              "value": "={{ 'eq.' + $json.id }}"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ smtp_message_id: $json.generated_message_id }) }}",
+        "options": {
+          "timeout": 30000,
+          "neverError": true
+        }
+      },
+      "id": "wf08-0000-0000-0000-000000000034",
+      "name": "Store Message ID",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        2340,
         120
       ]
     },
@@ -812,6 +859,17 @@
         ]
       ]
     },
+    "Store Message ID": {
+      "main": [
+        [
+          {
+            "node": "Send SMTP Email",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
     "IF Has Emails": {
       "main": [
         [
@@ -937,7 +995,7 @@
       "main": [
         [
           {
-            "node": "Send SMTP Email",
+            "node": "Store Message ID",
             "type": "main",
             "index": 0
           }

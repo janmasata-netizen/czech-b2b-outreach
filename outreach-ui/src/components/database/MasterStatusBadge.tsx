@@ -1,9 +1,9 @@
 import type { MasterStatus } from '@/types/database';
 
 const STATUS_MAP: Record<MasterStatus, { label: string; bg: string; border: string; text: string }> = {
-  active:      { label: 'Aktivní',       bg: 'rgba(62,207,142,0.1)',  border: 'rgba(62,207,142,0.25)',  text: '#3ECF8E' },
-  blacklisted: { label: 'Blacklist',     bg: 'rgba(248,113,113,0.1)', border: 'rgba(248,113,113,0.25)', text: '#f87171' },
-  archived:    { label: 'Archivováno',   bg: 'rgba(82,82,91,0.15)',   border: 'rgba(82,82,91,0.3)',     text: '#71717a' },
+  active:      { label: 'Aktivní',       bg: 'rgba(62,207,142,0.18)',  border: 'rgba(62,207,142,0.45)',  text: '#34b87a' },
+  blacklisted: { label: 'Blacklist',     bg: 'rgba(239,68,68,0.18)',   border: 'rgba(239,68,68,0.45)',   text: '#ef4444' },
+  archived:    { label: 'Archivováno',   bg: 'rgba(82,82,91,0.2)',     border: 'rgba(82,82,91,0.4)',     text: '#71717a' },
 };
 
 export default function MasterStatusBadge({ status }: { status: MasterStatus | string }) {

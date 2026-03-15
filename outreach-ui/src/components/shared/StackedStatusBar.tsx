@@ -5,7 +5,7 @@ const COLORS = {
   ready:      '#3ecf8e',
   backup:     '#22d3ee',
   failed:     '#f87171',
-  inProgress: '#a78bfa',
+  inProgress: '#f59e0b',
 };
 
 interface StackedStatusBarProps {
