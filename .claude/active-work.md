@@ -18,5 +18,6 @@
 
 | Branch | Agent | Files (exact paths) | Started | Last Updated | PR |
 |---|---|---|---|---|---|
+| claude/infinite-time-wheel | claude-opus | outreach-ui/src/pages/WaveDetailPage.tsx | 2026-03-15 | 2026-03-15 | — |
 
 
