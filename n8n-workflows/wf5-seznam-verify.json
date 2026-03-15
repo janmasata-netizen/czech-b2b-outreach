@@ -184,7 +184,7 @@
     {
       "parameters": {
         "mode": "runOnceForEachItem",
-        "jsCode": "const verify = $input.item.json;\nconst cand   = $('Add Config').item.json;\nconst valid  = verify.is_valid && !verify.is_disposable;\nreturn { json: {\n  id:             cand.id,\n  email_address:  cand.email_address,\n  lead_id:        cand.lead_id,\n  seznam_status:  valid ? 'verified' : 'bounced',\n  is_verified:    valid,\n  confidence_score: verify.confidence_score,\n  is_catch_all:   verify.is_catch_all\n}};"
+        "jsCode": "const verify = $input.item.json;\nconst cand   = $('Add Config').item.json;\nconst valid  = verify.is_valid && !verify.is_disposable && !verify.is_catch_all;\nreturn { json: {\n  id:             cand.id,\n  email_address:  cand.email_address,\n  lead_id:        cand.lead_id,\n  seznam_status:  valid ? 'verified' : 'bounced',\n  is_verified:    valid,\n  confidence_score: verify.confidence_score,\n  is_catch_all:   verify.is_catch_all\n}};"
       },
       "id": "wf05c-nB",
       "name": "Classify Candidates",

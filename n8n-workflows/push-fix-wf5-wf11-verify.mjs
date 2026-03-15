@@ -14,8 +14,9 @@ import { N8N_API_KEY, N8N_BASE_URL, SUPABASE_SERVICE_ROLE_KEY } from './env.mjs'
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
 const WORKFLOWS = [
-  { file: 'wf5-seznam-verify.json',      id: '7JzGHAG24ra3977B' },
-  { file: 'wf11-website-fallback.json',   id: 'E5QzxzZe4JbSv5lU' },
+  { file: 'email-verification-subwf.json', id: 'Aov5PfwmBDv51L0e' },
+  { file: 'wf5-seznam-verify.json',        id: '7JzGHAG24ra3977B' },
+  { file: 'wf11-website-fallback.json',     id: 'E5QzxzZe4JbSv5lU' },
 ];
 
 function apiCall(method, urlPath, body) {
@@ -41,6 +42,9 @@ async function pushWorkflow(wf) {
   rawStr = rawStr.replace(/SUPABASE_SERVICE_ROLE_KEY_PLACEHOLDER/g, SUPABASE_SERVICE_ROLE_KEY);
   const raw = JSON.parse(rawStr);
   delete raw.pinData; delete raw.active; delete raw.id; delete raw.staticData; delete raw.meta;
+  delete raw.updatedAt; delete raw.createdAt; delete raw.isArchived; delete raw.shared;
+  delete raw.tags; delete raw.versionId; delete raw.activeVersionId; delete raw.versionCounter;
+  delete raw.triggerCount; delete raw.activeVersion; delete raw.description;
   if (raw.settings) delete raw.settings.availableInMCP;
 
   console.log(`[${wf.file}] Deactivating...`);
