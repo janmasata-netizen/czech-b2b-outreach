@@ -18,6 +18,5 @@
 
 | Branch | Agent | Files (exact paths) | Started | Last Updated | PR |
 |---|---|---|---|---|---|
-| claude/wave-ready-filter | Claude Opus | `outreach-ui/src/hooks/useLeads.ts` | 2026-03-15 | 2026-03-15 | — |
 
 
