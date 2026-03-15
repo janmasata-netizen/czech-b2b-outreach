@@ -18,6 +18,5 @@
 
 | Branch | Agent | Files (exact paths) | Started | Last Updated | PR |
 |---|---|---|---|---|---|
-| claude/wf11-lenient-classify | claude-opus | `n8n-workflows/wf11-website-fallback.json`, `docs/architecture.md`, `docs/operations-manual.md` | 2026-03-15 | 2026-03-15 | — |
 
 
