@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { useTranslation } from 'react-i18next';
 import DOMPurify from 'dompurify';
 import { useParams, useNavigate } from 'react-router-dom';
@@ -24,32 +24,142 @@ import Breadcrumb from '@/components/shared/Breadcrumb';
 import { exportCsv } from '@/lib/export';
 import { toast } from 'sonner';
 
-/** 24-hour time picker — always HH:MM regardless of OS locale */
-function TimeInput24h({ value, onChange }: { value: string; onChange: (v: string) => void }) {
-  const [hh, mm] = (value || '08:00').split(':');
+/** Single scroll-wheel column for the time picker */
+const ITEM_H = 32;
+const VISIBLE = 5;
+const WHEEL_H = ITEM_H * VISIBLE;
+
+function WheelColumn({ items, selected, onSelect }: {
+  items: string[];
+  selected: string;
+  onSelect: (v: string) => void;
+}) {
+  const ref = useRef<HTMLDivElement>(null);
+  const isScrolling = useRef(false);
+  const scrollTimer = useRef<ReturnType<typeof setTimeout>>(undefined);
+
+  const scrollToIdx = useCallback((idx: number, smooth = false) => {
+    if (!ref.current) return;
+    ref.current.scrollTo({ top: idx * ITEM_H, behavior: smooth ? 'smooth' : 'instant' });
+  }, []);
+
+  // scroll to selected on mount & when selected changes externally
+  useEffect(() => {
+    const idx = items.indexOf(selected);
+    if (idx >= 0) scrollToIdx(idx);
+  }, [selected, items, scrollToIdx]);
+
+  const handleScroll = () => {
+    if (!ref.current) return;
+    isScrolling.current = true;
+    clearTimeout(scrollTimer.current);
+    scrollTimer.current = setTimeout(() => {
+      if (!ref.current) return;
+      const idx = Math.round(ref.current.scrollTop / ITEM_H);
+      const clamped = Math.max(0, Math.min(idx, items.length - 1));
+      scrollToIdx(clamped, true);
+      if (items[clamped] !== selected) onSelect(items[clamped]);
+      isScrolling.current = false;
+    }, 80);
+  };
+
   return (
-    <div style={{ display: 'flex', gap: 4, alignItems: 'center' }}>
-      <select
-        className="glass-input"
-        value={hh}
-        onChange={e => onChange(`${e.target.value}:${mm}`)}
-        style={{ fontFamily: 'JetBrains Mono, monospace', width: 56, padding: '6px 4px' }}
+    <div style={{ position: 'relative', height: WHEEL_H, width: 52, overflow: 'hidden' }}>
+      {/* highlight band for center item */}
+      <div style={{
+        position: 'absolute', top: ITEM_H * 2, left: 0, right: 0, height: ITEM_H,
+        background: 'var(--green-bg)', borderRadius: 6, border: '1px solid var(--green-border)',
+        pointerEvents: 'none', zIndex: 1,
+      }} />
+      {/* fade overlays */}
+      <div style={{
+        position: 'absolute', top: 0, left: 0, right: 0, height: ITEM_H * 2,
+        background: 'linear-gradient(to bottom, var(--bg-base) 0%, transparent 100%)',
+        pointerEvents: 'none', zIndex: 2,
+      }} />
+      <div style={{
+        position: 'absolute', bottom: 0, left: 0, right: 0, height: ITEM_H * 2,
+        background: 'linear-gradient(to top, var(--bg-base) 0%, transparent 100%)',
+        pointerEvents: 'none', zIndex: 2,
+      }} />
+      <div
+        ref={ref}
+        onScroll={handleScroll}
+        style={{
+          height: WHEEL_H, overflowY: 'auto', scrollSnapType: 'y mandatory',
+          msOverflowStyle: 'none', scrollbarWidth: 'none',
+          WebkitMaskImage: 'none', position: 'relative', zIndex: 0,
+        }}
       >
-        {Array.from({ length: 24 }, (_, i) => String(i).padStart(2, '0')).map(h => (
-          <option key={h} value={h}>{h}</option>
+        {/* top/bottom padding so first/last items can center */}
+        <div style={{ height: ITEM_H * 2 }} />
+        {items.map(item => (
+          <div
+            key={item}
+            onClick={() => { onSelect(item); scrollToIdx(items.indexOf(item), true); }}
+            style={{
+              height: ITEM_H, display: 'flex', alignItems: 'center', justifyContent: 'center',
+              scrollSnapAlign: 'start', cursor: 'pointer',
+              fontFamily: 'JetBrains Mono, monospace', fontSize: 15, fontWeight: 600,
+              color: item === selected ? 'var(--green)' : 'var(--text-muted)',
+              transition: 'color 0.15s',
+            }}
+          >
+            {item}
+          </div>
         ))}
-      </select>
-      <span style={{ color: 'var(--text-muted)', fontWeight: 700 }}>:</span>
-      <select
+        <div style={{ height: ITEM_H * 2 }} />
+      </div>
+    </div>
+  );
+}
+
+const HOURS = Array.from({ length: 24 }, (_, i) => String(i).padStart(2, '0'));
+const MINUTES = Array.from({ length: 60 }, (_, i) => String(i).padStart(2, '0'));
+
+/** Apple-style scroll-wheel 24h time picker */
+function TimeInput24h({ value, onChange }: { value: string; onChange: (v: string) => void }) {
+  const [open, setOpen] = useState(false);
+  const containerRef = useRef<HTMLDivElement>(null);
+  const [hh, mm] = (value || '08:00').split(':');
+
+  // close on outside click
+  useEffect(() => {
+    if (!open) return;
+    const handler = (e: MouseEvent) => {
+      if (containerRef.current && !containerRef.current.contains(e.target as Node)) setOpen(false);
+    };
+    document.addEventListener('mousedown', handler);
+    return () => document.removeEventListener('mousedown', handler);
+  }, [open]);
+
+  return (
+    <div ref={containerRef} style={{ position: 'relative', display: 'inline-block' }}>
+      {/* trigger button */}
+      <button
+        type="button"
         className="glass-input"
-        value={mm}
-        onChange={e => onChange(`${hh}:${e.target.value}`)}
-        style={{ fontFamily: 'JetBrains Mono, monospace', width: 56, padding: '6px 4px' }}
+        onClick={() => setOpen(p => !p)}
+        style={{
+          fontFamily: 'JetBrains Mono, monospace', fontSize: 15, fontWeight: 600,
+          width: 90, textAlign: 'center', cursor: 'pointer', letterSpacing: 1,
+        }}
       >
-        {Array.from({ length: 12 }, (_, i) => String(i * 5).padStart(2, '0')).map(m => (
-          <option key={m} value={m}>{m}</option>
-        ))}
-      </select>
+        {hh}:{mm}
+      </button>
+      {/* dropdown wheel picker */}
+      {open && (
+        <div style={{
+          position: 'absolute', top: '100%', left: 0, marginTop: 4, zIndex: 50,
+          background: 'var(--bg-base)', border: '1px solid var(--border)',
+          borderRadius: 10, padding: '8px 6px', display: 'flex', gap: 2, alignItems: 'center',
+          boxShadow: '0 8px 32px rgba(0,0,0,0.5)',
+        }}>
+          <WheelColumn items={HOURS} selected={hh} onSelect={h => onChange(`${h}:${mm}`)} />
+          <span style={{ color: 'var(--text-muted)', fontWeight: 700, fontSize: 18, userSelect: 'none' }}>:</span>
+          <WheelColumn items={MINUTES} selected={mm} onSelect={m => onChange(`${hh}:${m}`)} />
+        </div>
+      )}
     </div>
   );
 }
