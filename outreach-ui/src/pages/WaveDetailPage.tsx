@@ -24,6 +24,36 @@ import Breadcrumb from '@/components/shared/Breadcrumb';
 import { exportCsv } from '@/lib/export';
 import { toast } from 'sonner';
 
+/** 24-hour time picker — always HH:MM regardless of OS locale */
+function TimeInput24h({ value, onChange }: { value: string; onChange: (v: string) => void }) {
+  const [hh, mm] = (value || '08:00').split(':');
+  return (
+    <div style={{ display: 'flex', gap: 4, alignItems: 'center' }}>
+      <select
+        className="glass-input"
+        value={hh}
+        onChange={e => onChange(`${e.target.value}:${mm}`)}
+        style={{ fontFamily: 'JetBrains Mono, monospace', width: 56, padding: '6px 4px' }}
+      >
+        {Array.from({ length: 24 }, (_, i) => String(i).padStart(2, '0')).map(h => (
+          <option key={h} value={h}>{h}</option>
+        ))}
+      </select>
+      <span style={{ color: 'var(--text-muted)', fontWeight: 700 }}>:</span>
+      <select
+        className="glass-input"
+        value={mm}
+        onChange={e => onChange(`${hh}:${e.target.value}`)}
+        style={{ fontFamily: 'JetBrains Mono, monospace', width: 56, padding: '6px 4px' }}
+      >
+        {Array.from({ length: 12 }, (_, i) => String(i * 5).padStart(2, '0')).map(m => (
+          <option key={m} value={m}>{m}</option>
+        ))}
+      </select>
+    </div>
+  );
+}
+
 /** Format YYYY-MM-DD → DD.MM.YYYY */
 function fmtDate(iso: string): string {
   if (!iso) return '';
@@ -648,13 +678,7 @@ export default function WaveDetailPage() {
                     onChange={e => handleSeqDateChange(seq, e.target.value, 'schedule')}
                     style={{ fontFamily: 'JetBrains Mono, monospace', maxWidth: 170 }}
                   />
-                  <input
-                    className="glass-input"
-                    type="time"
-                    value={seqTimes[seq] || '08:00'}
-                    onChange={e => setSeqTimes(prev => ({ ...prev, [seq]: e.target.value }))}
-                    style={{ fontFamily: 'JetBrains Mono, monospace', maxWidth: 120 }}
-                  />
+                  <TimeInput24h value={seqTimes[seq] || '08:00'} onChange={v => setSeqTimes(prev => ({ ...prev, [seq]: v }))} />
                 </div>
 
                 {/* Gap buttons between sequences */}
@@ -784,13 +808,7 @@ export default function WaveDetailPage() {
                     onChange={e => handleSeqDateChange(seq, e.target.value, 'rerun')}
                     style={{ fontFamily: 'JetBrains Mono, monospace', maxWidth: 170 }}
                   />
-                  <input
-                    className="glass-input"
-                    type="time"
-                    value={rerunSeqTimes[seq] || '08:00'}
-                    onChange={e => setRerunSeqTimes(prev => ({ ...prev, [seq]: e.target.value }))}
-                    style={{ fontFamily: 'JetBrains Mono, monospace', maxWidth: 120 }}
-                  />
+                  <TimeInput24h value={rerunSeqTimes[seq] || '08:00'} onChange={v => setRerunSeqTimes(prev => ({ ...prev, [seq]: v }))} />
                 </div>
 
                 {idx < availableSeqs.length - 1 && (() => {
