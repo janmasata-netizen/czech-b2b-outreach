@@ -44,8 +44,11 @@ async function pushWorkflow({ file, id, activate }) {
   const jsonStr = readFileSync(file, 'utf-8')
     .replaceAll('SUPABASE_SERVICE_ROLE_KEY_PLACEHOLDER', SUPABASE_SERVICE_ROLE_KEY);
   const raw = JSON.parse(jsonStr);
-  delete raw.pinData;
-  delete raw.active;
+  // Strip non-writable properties that n8n API rejects
+  const allowed = ['name', 'nodes', 'connections', 'settings', 'staticData'];
+  for (const key of Object.keys(raw)) {
+    if (!allowed.includes(key)) delete raw[key];
+  }
 
   console.log(`\n--- ${file} (${id}) ---`);
 
