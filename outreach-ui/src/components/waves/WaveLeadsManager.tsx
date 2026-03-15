@@ -8,7 +8,7 @@ import EmailEditModal from './EmailEditModal';
 import { useRemoveLeadFromWave } from '@/hooks/useLeads';
 import { toast } from 'sonner';
 import type { EmailTemplate, EmailQueue, TemplateVariable, WaveLeadRow, Contact, EmailCandidate } from '@/types/database';
-import { WAVE_LEAD_STATUS_MAP, STATUS_COLOR_MAP } from '@/lib/constants';
+import { getWaveLeadStatusMeta, STATUS_COLOR_MAP } from '@/lib/constants';
 
 const EMAIL_STATUS_COLORS: Record<string, { bg: string; border: string; text: string }> = {
   valid:         { bg: 'rgba(62,207,142,0.1)',  border: 'rgba(62,207,142,0.25)',  text: '#3ECF8E' },
@@ -139,7 +139,7 @@ export default function WaveLeadsManager({ waveId, waveLeads, waveStatus, templa
                       </td>
                       <td style={{ padding: '10px 12px' }}>
                         {(() => {
-                          const s = WAVE_LEAD_STATUS_MAP[wl.status as keyof typeof WAVE_LEAD_STATUS_MAP] ?? { label: wl.status, color: 'muted' };
+                          const s = getWaveLeadStatusMeta(wl.status);
                           const c = STATUS_COLOR_MAP[s.color] ?? STATUS_COLOR_MAP.muted;
                           return (
                             <span style={{

@@ -414,6 +414,7 @@ export default function CsvImportDialog({ open, onClose }: CsvImportDialogProps)
           teams={teams}
           allocations={teamAllocations}
           onChange={setTeamAllocations}
+          totalCount={rows.length}
         />
       )}
 

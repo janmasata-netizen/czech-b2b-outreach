@@ -114,9 +114,9 @@ DB trigger: `trg_refresh_salutations_on_wave_add` on `wave_leads` — AFTER INSE
 - **Daily send limits tracked on teams** (`teams.daily_send_limit`, `teams.sends_today`)
 - **Threading**: smtp-proxy uses nodemailer's dedicated `messageId`, `inReplyTo`, `references` mail options (NOT headers object)
 - **Reply-To**: set to `salesman_email` from `teams` table
-- **WF5** fetches `seznam_from_email` from `config` table at runtime. SMTP-only verification (no QEV). Always triggers WF11 after verification. Does NOT set final lead status (WF11 does).
+- **WF5** fetches `seznam_from_email` from `config` table at runtime. SMTP-only verification (no QEV). Sets `seznam_status='verified'` + `is_verified=true` for SMTP-verified emails (previously `'likely_valid'`). Always triggers WF11 after verification. Does NOT set final lead status (WF11 does).
 - **WF6** is **DEACTIVATED** — QEV verification removed. SMTP verification in WF5 produces same results. QEV had a `safe_to_send: "true"` string-vs-boolean bug.
-- **WF11** always runs (triggered by WF5). Scrapes website for additional emails. Sets final lead status based on ALL email_candidates (from both WF5 SMTP and WF11 scraping): `ready` > `staff_email` > `info_email` > `failed`.
+- **WF11** always runs (triggered by WF5). Scrapes website for additional emails (Fetch nodes use `neverError:true` WITHOUT `fullResponse:true` to avoid 0-items bug). Sets final lead status based on ALL email_candidates (from both WF5 SMTP and WF11 scraping): `ready` > `staff_email` > `info_email` > `failed`. Recognizes both `seznam_status='verified'` and legacy `'likely_valid'`.
 - **WF8** uses atomic `claim_queued_emails()` RPC + `increment_and_check_sends(p_team_id)` for daily limits (on teams table)
 - **WF8** calls `auto_complete_waves()` on loop done
 - **WF10** calls `reset_daily_sends()` RPC at midnight + deletes old `email_probe_bounces`

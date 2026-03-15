@@ -58,6 +58,25 @@ export function assignTeamToRows(
 }
 
 /**
+ * Distribute leads evenly by count across teams.
+ * E.g. 10 leads, 3 teams: [4, 3, 3]. Remainder given to first teams.
+ * Returns TeamAllocation[] with percentage derived from count/total.
+ */
+export function distributeEvenlyByCount(
+  teams: Array<{ id: string; name: string }>,
+  totalCount: number
+): TeamAllocation[] {
+  if (teams.length === 0 || totalCount === 0) return [];
+  const base = Math.floor(totalCount / teams.length);
+  let remainder = totalCount - base * teams.length;
+  return teams.map((t) => {
+    const count = base + (remainder > 0 ? 1 : 0);
+    if (remainder > 0) remainder--;
+    return { teamId: t.id, teamName: t.name, percentage: (count / totalCount) * 100 };
+  });
+}
+
+/**
  * Weighted random pick for single-lead case.
  * Percentages act as probability weights.
  */

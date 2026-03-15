@@ -137,17 +137,23 @@ export function useEmailVolumeChart(days = 14, teamId?: string) {
         data = res.data ?? [];
       }
 
-      const buckets: Record<string, { seq1: number; seq2: number; seq3: number }> = {};
+      const buckets: Record<string, Record<string, number>> = {};
       data.forEach(row => {
         const d = row.sent_at?.slice(0, 10) ?? '';
-        if (!buckets[d]) buckets[d] = { seq1: 0, seq2: 0, seq3: 0 };
-        const k = `seq${row.sequence_number ?? 1}` as 'seq1' | 'seq2' | 'seq3';
+        if (!buckets[d]) buckets[d] = {};
+        const k = `seq${row.sequence_number ?? 1}`;
         buckets[d][k] = (buckets[d][k] ?? 0) + 1;
       });
-
+      // Ensure all days have all seq keys for consistent chart rendering
+      const allKeys = new Set<string>();
+      Object.values(buckets).forEach(b => Object.keys(b).forEach(k => allKeys.add(k)));
       return Object.entries(buckets)
         .sort(([a], [b]) => a.localeCompare(b))
-        .map(([date, counts]) => ({ date, ...counts }));
+        .map(([date, counts]) => {
+          const row: Record<string, unknown> = { date };
+          for (const k of allKeys) row[k] = counts[k] ?? 0;
+          return row;
+        });
     },
   });
 }

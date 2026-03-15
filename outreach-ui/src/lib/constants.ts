@@ -45,6 +45,14 @@ export const WAVE_LEAD_STATUS_MAP: Record<WaveLeadStatus, { label: string; color
   failed:    { label: 'status.waveLead.failed',    color: 'red'    },
 };
 
+export function getWaveLeadStatusMeta(status: string): { label: string; color: string } {
+  const entry = (WAVE_LEAD_STATUS_MAP as Record<string, { label: string; color: string }>)[status];
+  if (entry) return entry;
+  const match = status.match(/^seq(\d+)_sent$/);
+  if (match) return { label: `Sek. ${match[1]} odesláno`, color: 'accent' };
+  return { label: status, color: 'muted' };
+}
+
 export const QUEUE_STATUS_MAP: Record<EmailQueueStatus, { label: string; color: string }> = {
   queued:       { label: 'status.queue.queued',       color: 'accent'  },
   sending:      { label: 'status.queue.sending',      color: 'orange'  },
