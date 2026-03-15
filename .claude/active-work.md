@@ -18,6 +18,5 @@
 
 | Branch | Agent | Files (exact paths) | Started | Last Updated | PR |
 |---|---|---|---|---|---|
-| claude/fix-wf8-email-sending | claude-opus | `n8n-workflows/wf8-send-cron.json`, `n8n-workflows/migrate-fix-increment-sends.mjs` (new) | 2026-03-15 | 2026-03-15 | — |
 
 
