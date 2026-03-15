@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, useCallback } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useTranslation } from 'react-i18next';
 import DOMPurify from 'dompurify';
 import { useParams, useNavigate } from 'react-router-dom';
@@ -24,92 +24,55 @@ import Breadcrumb from '@/components/shared/Breadcrumb';
 import { exportCsv } from '@/lib/export';
 import { toast } from 'sonner';
 
-/** Single scroll-wheel column for the time picker */
-const ITEM_H = 32;
-const VISIBLE = 5;
-const WHEEL_H = ITEM_H * VISIBLE;
+/** Scrollable column for the time picker — auto-scrolls selected item to center */
+const COL_ITEM_H = 34;
+const COL_VISIBLE = 7;
+const COL_H = COL_ITEM_H * COL_VISIBLE;
 
-function WheelColumn({ items, selected, onSelect }: {
+function PickerColumn({ items, selected, onSelect }: {
   items: string[];
   selected: string;
   onSelect: (v: string) => void;
 }) {
-  const ref = useRef<HTMLDivElement>(null);
-  const isScrolling = useRef(false);
-  const scrollTimer = useRef<ReturnType<typeof setTimeout>>(undefined);
+  const listRef = useRef<HTMLDivElement>(null);
 
-  const scrollToIdx = useCallback((idx: number, smooth = false) => {
-    if (!ref.current) return;
-    ref.current.scrollTo({ top: idx * ITEM_H, behavior: smooth ? 'smooth' : 'instant' });
-  }, []);
-
-  // scroll to selected on mount & when selected changes externally
+  // scroll selected into view on mount
   useEffect(() => {
+    if (!listRef.current) return;
     const idx = items.indexOf(selected);
-    if (idx >= 0) scrollToIdx(idx);
-  }, [selected, items, scrollToIdx]);
-
-  const handleScroll = () => {
-    if (!ref.current) return;
-    isScrolling.current = true;
-    clearTimeout(scrollTimer.current);
-    scrollTimer.current = setTimeout(() => {
-      if (!ref.current) return;
-      const idx = Math.round(ref.current.scrollTop / ITEM_H);
-      const clamped = Math.max(0, Math.min(idx, items.length - 1));
-      scrollToIdx(clamped, true);
-      if (items[clamped] !== selected) onSelect(items[clamped]);
-      isScrolling.current = false;
-    }, 80);
-  };
+    if (idx < 0) return;
+    // center the selected item in the visible area
+    const scrollTarget = idx * COL_ITEM_H - (COL_H / 2) + (COL_ITEM_H / 2);
+    listRef.current.scrollTo({ top: Math.max(0, scrollTarget), behavior: 'instant' });
+  }, [selected, items]);
 
   return (
-    <div style={{ position: 'relative', height: WHEEL_H, width: 52, overflow: 'hidden' }}>
-      {/* highlight band for center item */}
-      <div style={{
-        position: 'absolute', top: ITEM_H * 2, left: 0, right: 0, height: ITEM_H,
-        background: 'var(--green-bg)', borderRadius: 6, border: '1px solid var(--green-border)',
-        pointerEvents: 'none', zIndex: 1,
-      }} />
-      {/* fade overlays */}
-      <div style={{
-        position: 'absolute', top: 0, left: 0, right: 0, height: ITEM_H * 2,
-        background: 'linear-gradient(to bottom, var(--bg-base) 0%, transparent 100%)',
-        pointerEvents: 'none', zIndex: 2,
-      }} />
-      <div style={{
-        position: 'absolute', bottom: 0, left: 0, right: 0, height: ITEM_H * 2,
-        background: 'linear-gradient(to top, var(--bg-base) 0%, transparent 100%)',
-        pointerEvents: 'none', zIndex: 2,
-      }} />
-      <div
-        ref={ref}
-        onScroll={handleScroll}
-        style={{
-          height: WHEEL_H, overflowY: 'auto', scrollSnapType: 'y mandatory',
-          msOverflowStyle: 'none', scrollbarWidth: 'none',
-          WebkitMaskImage: 'none', position: 'relative', zIndex: 0,
-        }}
-      >
-        {/* top/bottom padding so first/last items can center */}
-        <div style={{ height: ITEM_H * 2 }} />
-        {items.map(item => (
+    <div
+      ref={listRef}
+      style={{
+        height: COL_H, width: 54, overflowY: 'auto',
+        scrollbarWidth: 'thin', borderRadius: 6,
+      }}
+    >
+      {items.map(item => {
+        const active = item === selected;
+        return (
           <div
             key={item}
-            onClick={() => { onSelect(item); scrollToIdx(items.indexOf(item), true); }}
+            onClick={() => onSelect(item)}
             style={{
-              height: ITEM_H, display: 'flex', alignItems: 'center', justifyContent: 'center',
-              scrollSnapAlign: 'start', cursor: 'pointer',
-              fontFamily: 'JetBrains Mono, monospace', fontSize: 15, fontWeight: 600,
-              color: item === selected ? 'var(--green)' : 'var(--text-muted)',
-              transition: 'color 0.15s',
+              height: COL_ITEM_H, display: 'flex', alignItems: 'center', justifyContent: 'center',
+              cursor: 'pointer', borderRadius: 4,
+              fontFamily: 'JetBrains Mono, monospace', fontSize: 14, fontWeight: active ? 700 : 500,
+              color: active ? 'var(--green)' : 'var(--text-muted)',
+              background: active ? 'var(--green-bg)' : 'transparent',
+              transition: 'all 0.12s',
             }}
           >
             {item}
           </div>
-        ))}
-        <div style={{ height: ITEM_H * 2 }} />
-      </div>
+        );
+      })}
     </div>
   );
 }
@@ -117,7 +80,7 @@ function WheelColumn({ items, selected, onSelect }: {
 const HOURS = Array.from({ length: 24 }, (_, i) => String(i).padStart(2, '0'));
 const MINUTES = Array.from({ length: 60 }, (_, i) => String(i).padStart(2, '0'));
 
-/** Apple-style scroll-wheel 24h time picker */
+/** 24h time picker — click to open scrollable hour/minute columns */
 function TimeInput24h({ value, onChange }: { value: string; onChange: (v: string) => void }) {
   const [open, setOpen] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
@@ -135,7 +98,6 @@ function TimeInput24h({ value, onChange }: { value: string; onChange: (v: string
 
   return (
     <div ref={containerRef} style={{ position: 'relative', display: 'inline-block' }}>
-      {/* trigger button */}
       <button
         type="button"
         className="glass-input"
@@ -147,17 +109,22 @@ function TimeInput24h({ value, onChange }: { value: string; onChange: (v: string
       >
         {hh}:{mm}
       </button>
-      {/* dropdown wheel picker */}
       {open && (
         <div style={{
           position: 'absolute', top: '100%', left: 0, marginTop: 4, zIndex: 50,
           background: 'var(--bg-base)', border: '1px solid var(--border)',
-          borderRadius: 10, padding: '8px 6px', display: 'flex', gap: 2, alignItems: 'center',
+          borderRadius: 10, padding: '8px 6px', display: 'flex', gap: 4, alignItems: 'flex-start',
           boxShadow: '0 8px 32px rgba(0,0,0,0.5)',
         }}>
-          <WheelColumn items={HOURS} selected={hh} onSelect={h => onChange(`${h}:${mm}`)} />
-          <span style={{ color: 'var(--text-muted)', fontWeight: 700, fontSize: 18, userSelect: 'none' }}>:</span>
-          <WheelColumn items={MINUTES} selected={mm} onSelect={m => onChange(`${hh}:${m}`)} />
+          <div>
+            <div style={{ fontSize: 10, color: 'var(--text-muted)', textAlign: 'center', marginBottom: 4, textTransform: 'uppercase', letterSpacing: 1 }}>hod</div>
+            <PickerColumn items={HOURS} selected={hh} onSelect={h => onChange(`${h}:${mm}`)} />
+          </div>
+          <span style={{ color: 'var(--text-muted)', fontWeight: 700, fontSize: 18, userSelect: 'none', marginTop: 94 }}>:</span>
+          <div>
+            <div style={{ fontSize: 10, color: 'var(--text-muted)', textAlign: 'center', marginBottom: 4, textTransform: 'uppercase', letterSpacing: 1 }}>min</div>
+            <PickerColumn items={MINUTES} selected={mm} onSelect={m => onChange(`${hh}:${m}`)} />
+          </div>
         </div>
       )}
     </div>
