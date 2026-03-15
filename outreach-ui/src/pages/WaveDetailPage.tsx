@@ -61,6 +61,19 @@ function InfiniteWheelColumn({ items, selected, onSelect }: {
     jumpToSelected(selected);
   }, [selected, jumpToSelected]);
 
+  // intercept mouse wheel: move exactly 1 item per tick
+  useEffect(() => {
+    const el = ref.current;
+    if (!el) return;
+    const onWheel = (e: WheelEvent) => {
+      e.preventDefault();
+      const direction = e.deltaY > 0 ? 1 : -1;
+      el.scrollTop += direction * ITEM_H;
+    };
+    el.addEventListener('wheel', onWheel, { passive: false });
+    return () => el.removeEventListener('wheel', onWheel);
+  }, []);
+
   const handleScroll = () => {
     if (!ref.current || suppressSnap.current) return;
     const el = ref.current;
