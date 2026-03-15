@@ -8,6 +8,7 @@
  * GET  /health       → { "status": "ok" }
  */
 import http from 'http';
+import https from 'https';
 import { readFileSync } from 'fs';
 import { fileURLToPath } from 'url';
 import { dirname, join } from 'path';
@@ -51,10 +52,13 @@ try {
 }
 
 /**
- * Fetch unseen emails from an IMAP mailbox using BODY.PEEK[] (never marks \Seen)
+ * Fetch emails from an IMAP mailbox using BODY.PEEK[] (never marks \Seen)
  * Returns array in n8n emailReadImap v2 "simple" format
+ * Searches ALL emails since N days ago — dedup handled by processed_reply_emails table
+ * @param {object} creds - IMAP credentials
+ * @param {number} sinceDays - Only fetch emails from the last N days (default: 7)
  */
-async function fetchUnseenEmails(creds) {
+async function fetchEmails(creds, sinceDays = 7) {
   const client = new ImapFlow({
     host: creds.host,
     port: creds.port || 993,
@@ -73,27 +77,35 @@ async function fetchUnseenEmails(creds) {
     const lock = await client.getMailboxLock('INBOX');
 
     try {
-      // Search for unseen messages
-      const uids = await client.search({ seen: false }, { uid: true });
+      // Search emails since N days ago (dedup handled by processed_reply_emails table)
+      const since = new Date();
+      since.setDate(since.getDate() - sinceDays);
+      const uids = await client.search({ since }, { uid: true });
 
       if (uids && uids.length > 0) {
+        // Post-filter: only keep emails within sinceDays (IMAP SINCE is date-only)
+        const cutoff = new Date(Date.now() - sinceDays * 86400000);
+
         // Fetch with BODY.PEEK[] — this NEVER sets \Seen
         for await (const msg of client.fetch(uids, {
           uid: true,
           source: true, // BODY.PEEK[] — raw RFC822 source
-        })) {
+        }, { uid: true })) {
           try {
             const parsed = await simpleParser(msg.source);
 
-            // Format to match n8n emailReadImap v2 "simple" output exactly
+            // Skip emails older than the precise cutoff (IMAP SINCE rounds to day)
+            if (parsed.date && parsed.date < cutoff) continue;
+
+            // Lightweight output — match cascade only needs headers, not bodies
             const email = {
               from: formatAddress(parsed.from),
               to: formatAddress(parsed.to),
               cc: formatAddress(parsed.cc),
               subject: parsed.subject || '',
               date: parsed.date ? parsed.date.toISOString() : new Date().toISOString(),
-              text: parsed.text || '',
-              textHtml: parsed.html || '',
+              text: (parsed.text || '').slice(0, 200),
+              textHtml: '',
               messageId: parsed.messageId || '',
               headers: flattenHeaders(parsed.headers),
             };
@@ -113,6 +125,48 @@ async function fetchUnseenEmails(creds) {
   }
 
   return emails;
+}
+
+/**
+ * Query Supabase for already-processed message IDs
+ * Returns a Set of message_id strings
+ */
+async function getProcessedMessageIds() {
+  const sbUrl = config.supabase_url;
+  const sbKey = config.supabase_service_key;
+  if (!sbUrl || !sbKey) return new Set();
+
+  const url = `${sbUrl}/rest/v1/processed_reply_emails?select=message_id`;
+
+  return new Promise((resolve) => {
+    const req = https.get(url, {
+      headers: {
+        'apikey': sbKey,
+        'Authorization': `Bearer ${sbKey}`,
+      },
+      timeout: 10000,
+    }, (res) => {
+      let data = '';
+      res.on('data', chunk => data += chunk);
+      res.on('end', () => {
+        try {
+          const rows = JSON.parse(data);
+          resolve(new Set(rows.map(r => r.message_id)));
+        } catch {
+          console.error('Failed to parse processed_reply_emails response');
+          resolve(new Set());
+        }
+      });
+    });
+    req.on('error', (err) => {
+      console.error('Supabase query error:', err.message);
+      resolve(new Set()); // On error, return empty set (no dedup, safe fallback)
+    });
+    req.on('timeout', () => {
+      req.destroy();
+      resolve(new Set());
+    });
+  });
 }
 
 /** Format mailparser address object to "Name <email>" string (matches n8n format) */
@@ -219,8 +273,17 @@ async function handleRequest(req, res) {
     }
 
     try {
-      const emails = await fetchUnseenEmails(creds);
-      console.log(`[${new Date().toISOString()}] check-inbox: ${emails.length} unseen emails`);
+      const sinceDays = parseFloat(payload.since_days) || 7;
+      const allEmails = await fetchEmails(creds, sinceDays);
+
+      // Dedup: filter out already-processed emails
+      const processedIds = await getProcessedMessageIds();
+      const newEmails = allEmails.filter(e => e.messageId && !processedIds.has(e.messageId));
+
+      // Return max 1 unprocessed email to avoid n8n task runner crash on loop iteration 2+
+      const emails = newEmails.slice(0, 1);
+
+      console.log(`[${new Date().toISOString()}] check-inbox: ${allEmails.length} fetched, ${processedIds.size} processed, ${newEmails.length} new, returning ${emails.length} (last ${sinceDays}d)`);
       res.writeHead(200, { 'Content-Type': 'application/json' });
       res.end(JSON.stringify({ success: true, emails }));
     } catch (err) {

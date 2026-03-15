@@ -127,6 +127,38 @@
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
       "position": [960, 300]
+    },
+    {
+      "parameters": {
+        "method": "DELETE",
+        "url": "={{ 'https://cycapkswtucbucyegdsn.supabase.co/rest/v1/unmatched_replies?created_at=lt.' + new Date(Date.now() - 30 * 86400000).toISOString() }}",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "apikey",
+              "value": "SUPABASE_SERVICE_ROLE_KEY_PLACEHOLDER"
+            },
+            {
+              "name": "Authorization",
+              "value": "Bearer SUPABASE_SERVICE_ROLE_KEY_PLACEHOLDER"
+            },
+            {
+              "name": "Prefer",
+              "value": "return=minimal"
+            }
+          ]
+        },
+        "options": {
+          "timeout": 30000,
+          "neverError": true
+        }
+      },
+      "id": "wf10-0000-0000-0000-000000000006",
+      "name": "Delete Old Unmatched Replies",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [1200, 300]
     }
   ],
   "connections": {

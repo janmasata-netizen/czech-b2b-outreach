@@ -13,17 +13,6 @@ interface EmailCandidatesTableProps {
   leadDomain?: string | null;
 }
 
-// ── QEV badge config ───────────────────────────────────────────────────────────
-const QEV_BADGE: Record<string, { label: string; bg: string; border: string; text: string; title?: string }> = {
-  valid:             { label: '✓ Ověřeno',        bg: 'rgba(62,207,142,0.12)',  border: 'rgba(62,207,142,0.3)',  text: '#3ecf8e' },
-  catch_all:         { label: '⚠ Catch-all',       bg: 'rgba(251,146,60,0.12)',  border: 'rgba(251,146,60,0.3)',  text: '#fb923c',
-                       title: 'Doména přijímá všechny emaily — nelze ověřit konkrétní schránku. Doména je reálná.' },
-  manually_verified: { label: '✓ Ručně ověřeno',   bg: 'rgba(34,211,238,0.12)',  border: 'rgba(34,211,238,0.3)',  text: '#22d3ee' },
-  invalid:           { label: '✗ Neplatný',         bg: 'rgba(248,113,113,0.12)', border: 'rgba(248,113,113,0.3)', text: '#f87171' },
-  unknown:           { label: '? Neznámý',          bg: 'rgba(82,82,91,0.15)',    border: 'rgba(82,82,91,0.3)',    text: '#71717a' },
-  null:              { label: '– Nespuštěno',       bg: 'rgba(82,82,91,0.1)',     border: 'rgba(82,82,91,0.2)',    text: '#52525b' },
-};
-
 const SEZNAM_BADGE: Record<string, { label: string; color: string }> = {
   likely_valid: { label: 'pravděp. platný', color: '#3ecf8e' },
   bounced:      { label: 'vráceno',         color: '#f87171' },
@@ -118,7 +107,7 @@ export default function EmailCandidatesTable({ candidates, leadId, leadStatus, l
             <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 12 }}>
               <thead>
                 <tr style={{ borderBottom: '1px solid var(--border)' }}>
-                  {['Email', 'Typ', 'Jistota', 'Seznam', 'QEV', 'Ověřeno', 'Vzor', 'Akce'].map(h => (
+                  {['Email', 'Typ', 'Jistota', 'Seznam', 'Ověřeno', 'Vzor', 'Akce'].map(h => (
                     <th key={h} style={{
                       padding: '7px 10px', textAlign: 'left', fontSize: 10,
                       fontWeight: 600, letterSpacing: '0.05em', textTransform: 'uppercase',
@@ -129,11 +118,9 @@ export default function EmailCandidatesTable({ candidates, leadId, leadStatus, l
               </thead>
               <tbody>
                 {sorted.map(c => {
-                  const qev = QEV_BADGE[c.qev_status ?? 'null'] ?? QEV_BADGE.null;
                   const sz  = SEZNAM_BADGE[c.seznam_status ?? 'pending'] ?? SEZNAM_BADGE.pending;
                   const isCatchAll = c.is_catch_all === true;
                   const isVerified = c.is_verified === true;
-                  const isInvalid  = c.qev_status === 'invalid';
 
                   return (
                     <tr
@@ -190,26 +177,6 @@ export default function EmailCandidatesTable({ candidates, leadId, leadStatus, l
                         {sz.label}
                       </td>
 
-                      {/* QEV */}
-                      <td style={{ padding: '10px 10px', whiteSpace: 'nowrap' }}>
-                        <span
-                          title={qev.title}
-                          style={{
-                            display: 'inline-block',
-                            padding: '2px 8px',
-                            borderRadius: 4,
-                            fontSize: 11,
-                            fontWeight: 600,
-                            background: qev.bg,
-                            border: `1px solid ${qev.border}`,
-                            color: qev.text,
-                            cursor: qev.title ? 'help' : undefined,
-                          }}
-                        >
-                          {qev.label}
-                        </span>
-                      </td>
-
                       {/* Ověřeno */}
                       <td style={{ padding: '10px 10px', textAlign: 'center' }}>
                         {isVerified
@@ -251,8 +218,8 @@ export default function EmailCandidatesTable({ candidates, leadId, leadStatus, l
                             </GlassButton>
                           )}
 
-                          {/* Přesto ověřit — for invalid candidates */}
-                          {isInvalid && !isVerified && (
+                          {/* Přesto ověřit — for unverified non-catch-all candidates */}
+                          {!isCatchAll && !isVerified && (
                             <GlassButton
                               size="sm"
                               variant="secondary"

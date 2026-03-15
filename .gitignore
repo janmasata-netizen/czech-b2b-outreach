@@ -2,6 +2,7 @@
 .env.local
 .env.*.local
 creds.json
+SETUP-AGENT-PROMPT.md
 imap-proxy/config.json
 smtp-proxy/config.json
 

@@ -1,6 +1,8 @@
+import { useMemo, useId } from 'react';
+import { AreaChart, Area, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
 import GlassCard from '@/components/glass/GlassCard';
 import StatCard from '@/components/shared/StatCard';
-import type { WaveAnalytics, WaveLeadRow, SentEmail, EmailQueue } from '@/types/database';
+import type { WaveAnalytics, WaveLeadRow, SentEmail, EmailQueue, LeadReply } from '@/types/database';
 import { formatPercent } from '@/lib/utils';
 
 interface WaveResultsProps {
@@ -87,6 +89,101 @@ export default function WaveResults({ wave, waveLeads = [] }: WaveResultsProps) 
     return { seq, count, scheduled, earliestSentAt };
   });
 
+  const rawId = useId().replace(/:/g, '_');
+
+  const chartData = useMemo(() => {
+    const dayBuckets: Record<string, Record<string, number>> = {};
+
+    // Bucket sent emails by date + sequence
+    for (const wl of waveLeads) {
+      for (const e of (wl.sent_emails ?? [])) {
+        if (!e.sent_at) continue;
+        const day = e.sent_at.slice(0, 10);
+        if (!dayBuckets[day]) dayBuckets[day] = {};
+        const key = `seq${e.sequence_number}`;
+        dayBuckets[day][key] = (dayBuckets[day][key] ?? 0) + 1;
+      }
+    }
+
+    // Bucket replies by date
+    for (const wl of waveLeads) {
+      for (const r of (wl.lead_replies ?? []) as LeadReply[]) {
+        const day = (r.received_at ?? r.created_at)?.slice(0, 10);
+        if (!day) continue;
+        if (!dayBuckets[day]) dayBuckets[day] = {};
+        dayBuckets[day]._replies = (dayBuckets[day]._replies ?? 0) + 1;
+      }
+    }
+
+    const sortedDays = Object.keys(dayBuckets).sort();
+    if (sortedDays.length === 0) return [];
+
+    let cumTotalSent = 0;
+    let cumReplies = 0;
+    const seqCumulative: Record<string, number> = {};
+
+    return sortedDays.map(day => {
+      const bucket = dayBuckets[day];
+      const row: Record<string, unknown> = {};
+
+      // Format date as DD.MM
+      const [, m, d] = day.split('-');
+      row.date = `${d}.${m}`;
+
+      // Cumulative per sequence
+      for (const seq of seqNumbers) {
+        const key = `seq${seq}`;
+        const daySent = bucket[key] ?? 0;
+        seqCumulative[key] = (seqCumulative[key] ?? 0) + daySent;
+        cumTotalSent += daySent;
+        row[key] = seqCumulative[key];
+      }
+
+      // Cumulative replies
+      cumReplies += bucket._replies ?? 0;
+      row.replies = cumReplies;
+
+      // Reply rate
+      row.replyRate = cumTotalSent > 0 ? Math.round((cumReplies / cumTotalSent) * 1000) / 10 : 0;
+
+      return row;
+    });
+  }, [waveLeads, seqNumbers]);
+
+  function ChartTooltip({ active, payload, label }: { active?: boolean; payload?: Array<{ dataKey: string; value: number; color: string }>; label?: string }) {
+    if (!active || !payload?.length) return null;
+    const replyEntry = payload.find(p => p.dataKey === 'replies');
+    const rateEntry = payload.find(p => p.dataKey === 'replyRate');
+    const seqEntries = payload.filter(p => p.dataKey.startsWith('seq'));
+
+    return (
+      <div style={{ background: 'var(--bg-surface)', border: '1px solid var(--border-strong)', borderRadius: 8, padding: '10px 14px', fontSize: 12, color: 'var(--text)' }}>
+        <div style={{ fontWeight: 600, marginBottom: 6 }}>{label}</div>
+        {seqEntries.map(e => (
+          <div key={e.dataKey} style={{ display: 'flex', justifyContent: 'space-between', gap: 16, marginBottom: 2 }}>
+            <span style={{ color: e.color }}>Sekvence {e.dataKey.replace('seq', '')}</span>
+            <span style={{ fontFamily: 'JetBrains Mono, monospace' }}>{e.value}</span>
+          </div>
+        ))}
+        {replyEntry && (
+          <div style={{ display: 'flex', justifyContent: 'space-between', gap: 16, marginBottom: 2 }}>
+            <span style={{ color: '#f472b6' }}>Odpovědi</span>
+            <span style={{ fontFamily: 'JetBrains Mono, monospace' }}>{replyEntry.value}</span>
+          </div>
+        )}
+        {rateEntry && (
+          <>
+            <div style={{ borderTop: '1px solid var(--border)', margin: '6px 0' }} />
+            <div style={{ display: 'flex', justifyContent: 'space-between', gap: 16 }}>
+              <span style={{ color: 'var(--cyan)' }}>Reply rate</span>
+              <span style={{ fontFamily: 'JetBrains Mono, monospace' }}>{rateEntry.value}%</span>
+            </div>
+          </>
+        )}
+      </div>
+    );
+  }
+
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: 12 }}>
@@ -95,6 +192,83 @@ export default function WaveResults({ wave, waveLeads = [] }: WaveResultsProps) 
         <StatCard label="Odpovědí" value={wave.reply_count} icon="↩" color="var(--green)" />
         <StatCard label="Reply rate" value={formatPercent(wave.reply_rate)} icon="%" color="var(--cyan)" />
       </div>
+
+      {chartData.length > 0 && (
+        <GlassCard padding={20}>
+          <h3 style={{ fontSize: 13, fontWeight: 600, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 16 }}>
+            Průběh odesílání
+          </h3>
+          <ResponsiveContainer width="100%" height={280}>
+            <AreaChart data={chartData} margin={{ top: 0, right: 0, left: -20, bottom: 0 }}>
+              <defs>
+                {seqNumbers.map((seq, i) => {
+                  const color = SEQ_COLORS[(seq - 1) % SEQ_COLORS.length];
+                  return (
+                    <linearGradient key={seq} id={`grad_seq${seq}_${rawId}`} x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="0%" stopColor={color} stopOpacity={0.25} />
+                      <stop offset="100%" stopColor={color} stopOpacity={0} />
+                    </linearGradient>
+                  );
+                })}
+                <linearGradient id={`grad_replies_${rawId}`} x1="0" y1="0" x2="0" y2="1">
+                  <stop offset="0%" stopColor="#f472b6" stopOpacity={0.15} />
+                  <stop offset="100%" stopColor="#f472b6" stopOpacity={0} />
+                </linearGradient>
+              </defs>
+              <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" />
+              <XAxis
+                dataKey="date"
+                tick={{ fill: 'var(--text-muted)', fontSize: 11 }}
+                axisLine={false}
+                tickLine={false}
+              />
+              <YAxis
+                yAxisId="left"
+                allowDecimals={false}
+                tick={{ fill: 'var(--text-muted)', fontSize: 11 }}
+                axisLine={false}
+                tickLine={false}
+              />
+              <YAxis yAxisId="right" orientation="right" hide />
+              <Tooltip content={<ChartTooltip />} cursor={{ stroke: 'var(--text-muted)', strokeDasharray: '4 4' }} />
+              {seqNumbers.map((seq) => {
+                const color = SEQ_COLORS[(seq - 1) % SEQ_COLORS.length];
+                return (
+                  <Area
+                    key={seq}
+                    yAxisId="left"
+                    type="monotone"
+                    dataKey={`seq${seq}`}
+                    name={`Sekvence ${seq}`}
+                    stackId="sent"
+                    stroke={color}
+                    fill={`url(#grad_seq${seq}_${rawId})`}
+                  />
+                );
+              })}
+              <Area
+                yAxisId="left"
+                type="monotone"
+                dataKey="replies"
+                name="Odpovědi"
+                stroke="#f472b6"
+                strokeDasharray="5 3"
+                fill={`url(#grad_replies_${rawId})`}
+              />
+              <Line
+                yAxisId="right"
+                type="monotone"
+                dataKey="replyRate"
+                name="Reply rate %"
+                stroke="var(--cyan)"
+                strokeDasharray="3 3"
+                dot={false}
+                strokeWidth={2}
+              />
+            </AreaChart>
+          </ResponsiveContainer>
+        </GlassCard>
+      )}
 
       {/* Sequence breakdown — only show if there's any data */}
       {total > 0 && (
