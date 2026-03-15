@@ -269,9 +269,9 @@ export function useLeadsNotInWave(teamId: string | undefined, search?: string, l
 
       let q = supabase
         .from('leads')
-        .select('id, company_name, ico, website, language')
+        .select('id, company_name, ico, website, language, status')
         .eq('team_id', teamId!)
-        .neq('status', 'problematic')
+        .in('status', ['ready', 'info_email', 'staff_email'])
         .neq('master_status', 'blacklisted')
         .order('company_name');
 
