@@ -252,7 +252,7 @@
     {
       "parameters": {
         "mode": "runOnceForEachItem",
-        "jsCode": "const verify = $input.item.json;\nconst cand = $('Generate New Domain Candidates').item.json;\nreturn { json: {\n  contact_id:   cand.contact_id,\n  email_address: cand.email_address,\n  seznam_status: (verify.is_valid && !verify.is_disposable) ? 'verified' : 'bounced',\n  is_verified:   (verify.is_valid && !verify.is_disposable),\n  type:          cand.type       || 'jednatel',\n  confidence:    cand.confidence || 'combo',\n  source:        cand.source     || 'combo_generation',\n  best_email:    cand.best_email,\n  lead_id:       cand.lead_id,\n}};"
+        "jsCode": "const verify = $input.item.json;\nconst cand = $('Generate New Domain Candidates').item.json;\nconst valid = verify.is_valid && !verify.is_disposable && !verify.is_catch_all;\nreturn { json: {\n  contact_id:   cand.contact_id,\n  email_address: cand.email_address,\n  seznam_status: valid ? 'verified' : 'bounced',\n  is_verified:   valid,\n  is_catch_all:  verify.is_catch_all || false,\n  type:          cand.type       || 'jednatel',\n  confidence:    cand.confidence || 'combo',\n  source:        cand.source     || 'combo_generation',\n  best_email:    cand.best_email,\n  lead_id:       cand.lead_id,\n}};"
       },
       "id": "wf11-n23",
       "name": "Classify New Candidates",
