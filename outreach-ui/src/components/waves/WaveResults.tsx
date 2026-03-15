@@ -193,80 +193,86 @@ export default function WaveResults({ wave, waveLeads = [] }: WaveResultsProps) 
         <StatCard label="Reply rate" value={formatPercent(wave.reply_rate)} icon="%" color="var(--cyan)" />
       </div>
 
-      {chartData.length > 0 && (
+      {(chartData.length > 0 || (wave.sent_count ?? 0) > 0) && (
         <GlassCard padding={20}>
           <h3 style={{ fontSize: 13, fontWeight: 600, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 16 }}>
             Průběh odesílání
           </h3>
-          <ResponsiveContainer width="100%" height={280}>
-            <AreaChart data={chartData} margin={{ top: 0, right: 0, left: -20, bottom: 0 }}>
-              <defs>
-                {seqNumbers.map((seq, i) => {
+          {chartData.length > 0 ? (
+            <ResponsiveContainer width="100%" height={280}>
+              <AreaChart data={chartData} margin={{ top: 0, right: 0, left: -20, bottom: 0 }}>
+                <defs>
+                  {seqNumbers.map((seq, i) => {
+                    const color = SEQ_COLORS[(seq - 1) % SEQ_COLORS.length];
+                    return (
+                      <linearGradient key={seq} id={`grad_seq${seq}_${rawId}`} x1="0" y1="0" x2="0" y2="1">
+                        <stop offset="0%" stopColor={color} stopOpacity={0.25} />
+                        <stop offset="100%" stopColor={color} stopOpacity={0} />
+                      </linearGradient>
+                    );
+                  })}
+                  <linearGradient id={`grad_replies_${rawId}`} x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="0%" stopColor="#f472b6" stopOpacity={0.15} />
+                    <stop offset="100%" stopColor="#f472b6" stopOpacity={0} />
+                  </linearGradient>
+                </defs>
+                <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" />
+                <XAxis
+                  dataKey="date"
+                  tick={{ fill: 'var(--text-muted)', fontSize: 11 }}
+                  axisLine={false}
+                  tickLine={false}
+                />
+                <YAxis
+                  yAxisId="left"
+                  allowDecimals={false}
+                  tick={{ fill: 'var(--text-muted)', fontSize: 11 }}
+                  axisLine={false}
+                  tickLine={false}
+                />
+                <YAxis yAxisId="right" orientation="right" hide />
+                <Tooltip content={<ChartTooltip />} cursor={{ stroke: 'var(--text-muted)', strokeDasharray: '4 4' }} />
+                {seqNumbers.map((seq) => {
                   const color = SEQ_COLORS[(seq - 1) % SEQ_COLORS.length];
                   return (
-                    <linearGradient key={seq} id={`grad_seq${seq}_${rawId}`} x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="0%" stopColor={color} stopOpacity={0.25} />
-                      <stop offset="100%" stopColor={color} stopOpacity={0} />
-                    </linearGradient>
+                    <Area
+                      key={seq}
+                      yAxisId="left"
+                      type="monotone"
+                      dataKey={`seq${seq}`}
+                      name={`Sekvence ${seq}`}
+                      stackId="sent"
+                      stroke={color}
+                      fill={`url(#grad_seq${seq}_${rawId})`}
+                    />
                   );
                 })}
-                <linearGradient id={`grad_replies_${rawId}`} x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="0%" stopColor="#f472b6" stopOpacity={0.15} />
-                  <stop offset="100%" stopColor="#f472b6" stopOpacity={0} />
-                </linearGradient>
-              </defs>
-              <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" />
-              <XAxis
-                dataKey="date"
-                tick={{ fill: 'var(--text-muted)', fontSize: 11 }}
-                axisLine={false}
-                tickLine={false}
-              />
-              <YAxis
-                yAxisId="left"
-                allowDecimals={false}
-                tick={{ fill: 'var(--text-muted)', fontSize: 11 }}
-                axisLine={false}
-                tickLine={false}
-              />
-              <YAxis yAxisId="right" orientation="right" hide />
-              <Tooltip content={<ChartTooltip />} cursor={{ stroke: 'var(--text-muted)', strokeDasharray: '4 4' }} />
-              {seqNumbers.map((seq) => {
-                const color = SEQ_COLORS[(seq - 1) % SEQ_COLORS.length];
-                return (
-                  <Area
-                    key={seq}
-                    yAxisId="left"
-                    type="monotone"
-                    dataKey={`seq${seq}`}
-                    name={`Sekvence ${seq}`}
-                    stackId="sent"
-                    stroke={color}
-                    fill={`url(#grad_seq${seq}_${rawId})`}
-                  />
-                );
-              })}
-              <Area
-                yAxisId="left"
-                type="monotone"
-                dataKey="replies"
-                name="Odpovědi"
-                stroke="#f472b6"
-                strokeDasharray="5 3"
-                fill={`url(#grad_replies_${rawId})`}
-              />
-              <Line
-                yAxisId="right"
-                type="monotone"
-                dataKey="replyRate"
-                name="Reply rate %"
-                stroke="var(--cyan)"
-                strokeDasharray="3 3"
-                dot={false}
-                strokeWidth={2}
-              />
-            </AreaChart>
-          </ResponsiveContainer>
+                <Area
+                  yAxisId="left"
+                  type="monotone"
+                  dataKey="replies"
+                  name="Odpovědi"
+                  stroke="#f472b6"
+                  strokeDasharray="5 3"
+                  fill={`url(#grad_replies_${rawId})`}
+                />
+                <Line
+                  yAxisId="right"
+                  type="monotone"
+                  dataKey="replyRate"
+                  name="Reply rate %"
+                  stroke="var(--cyan)"
+                  strokeDasharray="3 3"
+                  dot={false}
+                  strokeWidth={2}
+                />
+              </AreaChart>
+            </ResponsiveContainer>
+          ) : (
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: 120, color: 'var(--text-muted)', fontSize: 13 }}>
+              Data se na\u010d\u00edtaj\u00ed z odeslan\u00fdch email\u016f
+            </div>
+          )}
         </GlassCard>
       )}
 
