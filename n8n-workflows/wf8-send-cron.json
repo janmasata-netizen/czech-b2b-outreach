@@ -203,7 +203,8 @@
         "specifyBody": "json",
         "jsonBody": "={{ JSON.stringify({ p_team_id: $json.team_id }) }}",
         "options": {
-          "timeout": 30000
+          "timeout": 30000,
+          "neverError": true
         }
       },
       "id": "wf08-0000-0000-0000-000000000015",
@@ -218,7 +219,7 @@
     {
       "parameters": {
         "mode": "runOnceForEachItem",
-        "jsCode": "const eq = $('Parse Limit Check').first().json;\nconst rpcResult = $input.item.json;\nconst isOverLimit = rpcResult.is_over_limit === true;\nreturn { json: { ...eq, is_over_limit: isOverLimit } };"
+        "jsCode": "const eq = $('Parse Limit Check').first().json;\nconst rpcResult = $input.item.json;\nconst isOverLimit = rpcResult.is_over_limit === true || !!rpcResult.error;\nreturn { json: { ...eq, is_over_limit: isOverLimit } };"
       },
       "id": "wf08-0000-0000-0000-000000000031",
       "name": "Check Limit Result",
@@ -313,20 +314,6 @@
       "typeVersion": 2,
       "position": [
         2160,
-        120
-      ]
-    },
-    {
-      "parameters": {
-        "time": 1500,
-        "unit": "milliseconds"
-      },
-      "id": "wf08-0000-0000-0000-000000000032",
-      "name": "Inter-Email Delay",
-      "type": "n8n-nodes-base.wait",
-      "typeVersion": 1.1,
-      "position": [
-        2340,
         120
       ]
     },
@@ -947,17 +934,6 @@
       ]
     },
     "Prepare Email": {
-      "main": [
-        [
-          {
-            "node": "Inter-Email Delay",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
-    "Inter-Email Delay": {
       "main": [
         [
           {
