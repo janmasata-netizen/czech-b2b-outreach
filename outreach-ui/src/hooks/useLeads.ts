@@ -259,6 +259,22 @@ export function useReadyLeadsByGroup() {
   });
 }
 
+export function useReadyLeads() {
+  return useQuery<Lead[]>({
+    queryKey: ['ready-leads'],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('leads')
+        .select('*')
+        .in('status', ['ready', 'info_email', 'staff_email'])
+        .order('company_name');
+      if (error) throw error;
+      return (data ?? []) as Lead[];
+    },
+    refetchInterval: 15000,
+  });
+}
+
 export function useLeadsNotInWave(teamId: string | undefined, search?: string, language?: string) {
   return useQuery({
     queryKey: ['leads-for-wave', teamId, search, language],
