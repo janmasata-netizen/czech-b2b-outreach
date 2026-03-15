@@ -18,6 +18,5 @@
 
 | Branch | Agent | Files (exact paths) | Started | Last Updated | PR |
 |---|---|---|---|---|---|
-| claude/fix-reply-data-flow | claude-opus | `n8n-workflows/sub-reply-check.json` | 2026-03-15 | 2026-03-15 | — |
 
 
