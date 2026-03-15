@@ -18,6 +18,4 @@
 
 | Branch | Agent | Files (exact paths) | Started | Last Updated | PR |
 |---|---|---|---|---|---|
-| claude/pipeline-audit-fixes | Claude Opus | `n8n-workflows/wf8-send-cron.json`, `n8n-workflows/wf7-wave-schedule.json`, `n8n-workflows/wf10-daily-reset.json`, `outreach-ui/src/components/leads/EmailCandidatesTable.tsx`, `outreach-ui/src/types/database.ts`, `outreach-ui/src/components/waves/WaveResults.tsx`, `outreach-ui/src/components/database/MasterStatusBadge.tsx`, `outreach-ui/src/components/shared/StackedStatusBar.tsx`, `outreach-ui/src/lib/constants.ts`, `imap-proxy/server.mjs`, `imap-proxy/docker-compose.yml`, `.gitignore` | 2026-03-15 | 2026-03-15 | — |
-
 
