@@ -888,7 +888,7 @@
           "parameters": [
             {
               "name": "wave_lead_id",
-              "value": "={{ 'eq.' + $json.wave_lead_id }}"
+              "value": "={{ 'eq.' + $('Extract Wave Lead').first().json.wave_lead_id }}"
             },
             {
               "name": "status",
@@ -939,7 +939,7 @@
           "parameters": [
             {
               "name": "id",
-              "value": "={{ 'eq.' + $json.wave_lead_id }}"
+              "value": "={{ 'eq.' + $('Extract Wave Lead').first().json.wave_lead_id }}"
             }
           ]
         },
@@ -983,7 +983,7 @@
         },
         "sendBody": true,
         "specifyBody": "json",
-        "jsonBody": "={{ JSON.stringify({ lead_id: $json.lead_id, wave_lead_id: $json.wave_lead_id, salesman_id: $json.salesman_id, from_email: $json.from_email, subject: $json.subject, body_preview: $json.body_preview, received_at: $json.received_at }) }}",
+        "jsonBody": "={{ JSON.stringify({ lead_id: $('Extract Wave Lead').first().json.lead_id, wave_lead_id: $('Extract Wave Lead').first().json.wave_lead_id, salesman_id: $('Extract Wave Lead').first().json.salesman_id, from_email: $('Extract Wave Lead').first().json.from_email, subject: $('Extract Wave Lead').first().json.subject, body_preview: $('Extract Wave Lead').first().json.body_preview, received_at: $('Extract Wave Lead').first().json.received_at }) }}",
         "options": {
           "timeout": 30000,
           "neverError": true
@@ -1024,7 +1024,7 @@
           "parameters": [
             {
               "name": "id",
-              "value": "={{ 'eq.' + $json.lead_id }}"
+              "value": "={{ 'eq.' + $('Extract Wave Lead').first().json.lead_id }}"
             }
           ]
         },
