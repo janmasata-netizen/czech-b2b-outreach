@@ -151,8 +151,7 @@
         },
         "options": {
           "timeout": 15000,
-          "neverError": true,
-          "response": { "response": { "responseFormat": "text" } }
+          "response": { "response": { "responseFormat": "text", "neverError": true } }
         }
       },
       "id": "wf11-n10",
@@ -185,8 +184,7 @@
         },
         "options": {
           "timeout": 10000,
-          "neverError": true,
-          "response": { "response": { "responseFormat": "text" } }
+          "response": { "response": { "responseFormat": "text", "neverError": true } }
         }
       },
       "id": "wf11-n12",
