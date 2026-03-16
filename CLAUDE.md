@@ -63,7 +63,7 @@ An automated Czech B2B cold email outreach system built on n8n + Supabase. It en
 | wf5-seznam-verify.json (SMTP Verification) | 7JzGHAG24ra3977B | webhook:wf5-seznam |
 | wf6-qev-verify.json (**DEACTIVATED**) | EbKgRSRr2Poe34vH | webhook:wf6-qev |
 | wf7-wave-schedule.json | TVNOzjSnaWrmTlqw | webhook:wf7-wave-schedule |
-| wf8-send-cron.json | wJLD5sFxddNNxR7p | cron:every-5min |
+| wf8-send-cron.json | wJLD5sFxddNNxR7p | cron:every-1min |
 | wf9-reply-detection.json | AaHXknYh9egPDxcG | cron:every-1min |
 | wf10-daily-reset.json | 50Odnt5vzIMfSBZE | cron:midnight |
 | wf11-website-fallback (Website Email Scraper) | E5QzxzZe4JbSv5lU | webhook:wf11-website-fallback |
@@ -251,6 +251,15 @@ After ANY change to code, workflows, config, DB schema, or UI:
 - **No Hardcoded Secrets**: Use n8n credentials or the Supabase `config` table.
 - **Timeout Handling**: Set reasonable timeout values (30s default).
 - **No Over-Engineering**: Don't build "just in case" features.
+
+---
+
+## HARD RULE — Response Summary Footer
+
+At the end of every response, include a brief summary with exactly 3 parts:
+- **Context:** 1–2 sentences on what we were working on (the goal/task).
+- **Done:** 1–2 sentences on what you actually did in this response.
+- **Status:** 1–2 sentences on the current status (completed, in progress, blocked, next steps).
 
 ---
 

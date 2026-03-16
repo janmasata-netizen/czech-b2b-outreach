@@ -13,7 +13,7 @@
         }
       },
       "id": "wf08-0000-0000-0000-000000000001",
-      "name": "Every 5 Minutes",
+      "name": "Every Minute",
       "type": "n8n-nodes-base.scheduleTrigger",
       "typeVersion": 1.1,
       "position": [

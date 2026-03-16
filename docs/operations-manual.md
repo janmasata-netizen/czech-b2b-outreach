@@ -241,7 +241,7 @@ Vytvorit vlnu, naplnit ji leady, pridat e-mailovou sablonu a naplanovat odeslani
 2. Nastavte datum a cas zahajeni
 3. Potvrdte
 
-Vlna prejde do stavu `scheduled`. V naplanovany cas WF8 (cron kazdych 5 minut) zacne odesilat emaily z fronty.
+Vlna prejde do stavu `scheduled`. V naplanovany cas WF8 (cron kazdou minutu) zacne odesilat emaily z fronty.
 
 #### Krok 5 — Monitorovat prubeh
 
