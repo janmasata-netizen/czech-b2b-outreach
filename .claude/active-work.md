@@ -18,4 +18,5 @@
 
 | Branch | Agent | Files (exact paths) | Started | Last Updated | PR |
 |---|---|---|---|---|---|
+| claude/fix-wf8-connection | Claude | n8n-workflows/wf8-send-cron.json, n8n-workflows/diagnose-wave-send.mjs, docs/operations-manual.md | 2026-03-16 | 2026-03-16 | - |
 
