@@ -18,5 +18,4 @@
 
 | Branch | Agent | Files (exact paths) | Started | Last Updated | PR |
 |---|---|---|---|---|---|
-| claude/fix-send-timing | Claude | n8n-workflows/wf8-send-cron.json, n8n-workflows/wf7-wave-schedule.json, CLAUDE.md, docs/architecture.md, docs/operations-manual.md | 2026-03-16 | 2026-03-16 | — |
 
