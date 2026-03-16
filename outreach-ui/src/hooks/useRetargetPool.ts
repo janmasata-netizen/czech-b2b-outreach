@@ -8,9 +8,8 @@ export function useRetargetPool(search?: string, teamId?: string, page = 0, page
   const { isDemoMode } = useDemoMode();
   return useQuery<RetargetPoolLead[]>({
     queryKey: ['retarget-pool', search ?? '', teamId ?? '', page],
-    enabled: !isDemoMode,
-    ...(isDemoMode && { initialData: DEMO_RETARGET_POOL }),
     queryFn: async () => {
+      if (isDemoMode) return DEMO_RETARGET_POOL;
       const params: Record<string, unknown> = {
         p_limit: pageSize,
         p_offset: page * pageSize,
@@ -29,9 +28,8 @@ export function useRetargetPoolCount() {
   const { isDemoMode } = useDemoMode();
   return useQuery<number>({
     queryKey: ['retarget-pool-count'],
-    enabled: !isDemoMode,
-    ...(isDemoMode && { initialData: DEMO_RETARGET_READY_COUNT }),
     queryFn: async () => {
+      if (isDemoMode) return DEMO_RETARGET_READY_COUNT;
       const { data, error } = await supabase
         .from('retarget_pool')
         .select('lead_id', { count: 'exact', head: true });
@@ -46,8 +44,7 @@ export function useRetargetLeadHistory(leadId: string | undefined) {
   const { isDemoMode } = useDemoMode();
   return useQuery({
     queryKey: ['retarget-history', leadId],
-    enabled: isDemoMode ? !!leadId : !!leadId,
-    ...(isDemoMode && { initialData: [] }),
+    enabled: !!leadId,
     queryFn: async () => {
       if (isDemoMode) return [];
       const { data, error } = await supabase

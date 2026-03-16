@@ -509,31 +509,22 @@ Vestaveny rezim pro prezentace, skoleni a demo ucelovy. Kdyz je aktivni, cele UI
 ### Jak aktivovat
 
 1. Kliknete na **ikonu oka** (Eye) v **TopBar** — nachazi se mezi tlacitkem bug reportu a uzivatelskeho avataru
-2. Po kliknuti se rezim aktivuje:
-   - Tlacitko dostane **oranzovy border** a svitici tecku
-   - Cele pozadi aplikace se **oranzove toni**
-   - Pod TopBar se objevi **banner**: "DEMO REZIM — zobrazena data jsou fiktivni"
+2. Po kliknuti se rezim aktivuje — ikona oka se zbarvi **zlute**
 3. Opetovnym kliknutim na ikonu oka se demo rezim **deaktivuje**
 
 ### Co se deje v demo rezimu
 
 | Oblast | Chovani |
 |--------|---------|
-| **Dashboard** (`/prehled`) | Fiktivni statistiky (leady, emaily, odpovedi, vlny) |
+| **Dashboard** (`/prehled`) | Fiktivni statistiky, grafy (area chart, bar charty), aktivni vlny |
 | **Databaze** (`/databaze`) | 15 fiktivnich firem s ceskymi nazvy |
 | **Leady** (`/leady`) | Fiktivni leady s ruznymi stavy |
-| **Vlny** (`/vlny`) | 4 fiktivni vlny (draft, sending, done, completed) |
+| **Vlny** (`/vlny`) | 4 fiktivni vlny s analytiky, odpovedi, casovou osou |
 | **Sablony** (`/sablony`) | 2 fiktivni sady sablon |
 | **Retarget** (`/retarget`) | Fiktivni retarget pool |
+| **System** (`/system`) | Fiktivni health metriky, logy, workflow statistiky |
 | **Vsechny mutace** | Tichy no-op — vytvareni, editace, mazani, planovani nic nedelaji |
 | **Realtime subscriptions** | Preskoceny — zadne WebSocket spojeni |
-
-### Co NENI ovlivneno
-
-Admin stranky zobrazuji **realna data** i v demo rezimu:
-- `/nastaveni/*` (tymy, obchodnici, uzivatele, ucty, API klice)
-- `/system` (stav systemu)
-- `/email-finder` (hledani emailu)
 
 ### Persistence
 

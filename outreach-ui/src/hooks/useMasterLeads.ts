@@ -14,10 +14,9 @@ export function useMasterLeads(filters: MasterLeadFilters = {}, page = 1) {
   const { isDemoMode } = useDemoMode();
   return useQuery({
     queryKey: ['master-leads', filters, page],
-    enabled: !isDemoMode,
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    ...(isDemoMode && { initialData: { data: DEMO_LEADS as any, count: DEMO_LEADS.length } }),
     queryFn: async () => {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      if (isDemoMode) return { data: DEMO_LEADS as any, count: DEMO_LEADS.length };
       let tagLeadIds: string[] | null = null;
       if (filters.tag_ids && filters.tag_ids.length > 0) {
         const { data: tagRows, error: te } = await supabase

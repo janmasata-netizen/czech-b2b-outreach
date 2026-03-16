@@ -8,9 +8,8 @@ export function useTeamsSettings() {
   const { isDemoMode } = useDemoMode();
   return useQuery<Team[]>({
     queryKey: ['settings', 'teams'],
-    enabled: !isDemoMode,
-    ...(isDemoMode && { initialData: DEMO_TEAMS }),
     queryFn: async () => {
+      if (isDemoMode) return DEMO_TEAMS;
       const { data, error } = await supabase.from('teams').select('*').order('name');
       if (error) throw error;
       return data ?? [];
@@ -42,9 +41,8 @@ export function useConfigEntries() {
   const { isDemoMode } = useDemoMode();
   return useQuery<ConfigEntry[]>({
     queryKey: ['settings', 'config'],
-    enabled: !isDemoMode,
-    ...(isDemoMode && { initialData: [] as ConfigEntry[] }),
     queryFn: async () => {
+      if (isDemoMode) return [] as ConfigEntry[];
       const { data, error } = await supabase.from('config').select('*');
       if (error) throw error;
       return data ?? [];
@@ -71,9 +69,8 @@ export function useSalesmen(teamId?: string) {
   const { isDemoMode } = useDemoMode();
   return useQuery<Salesman[]>({
     queryKey: ['settings', 'salesmen', teamId ?? 'all'],
-    enabled: !isDemoMode,
-    ...(isDemoMode && { initialData: DEMO_SALESMEN }),
     queryFn: async () => {
+      if (isDemoMode) return DEMO_SALESMEN;
       let q = supabase.from('salesmen').select('*, team:teams(name)').order('name');
       if (teamId) q = q.eq('team_id', teamId);
       const { data, error } = await q;
@@ -119,9 +116,8 @@ export function useTemplateSetsSettings(teamId?: string) {
   const { isDemoMode } = useDemoMode();
   return useQuery({
     queryKey: ['settings', 'template-sets', teamId ?? 'all'],
-    enabled: !isDemoMode,
-    ...(isDemoMode && { initialData: DEMO_TEMPLATE_SETS }),
     queryFn: async () => {
+      if (isDemoMode) return DEMO_TEMPLATE_SETS;
       let q = supabase
         .from('template_sets')
         .select('*, email_templates(*)')

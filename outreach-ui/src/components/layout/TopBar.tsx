@@ -119,26 +119,17 @@ export default function TopBar() {
           title={isDemoMode ? 'Vypnout demo rezim' : 'Zapnout demo rezim'}
           style={{
             width: 32, height: 32, borderRadius: '50%',
-            border: `1px solid ${isDemoMode ? '#f59e0b' : 'var(--border)'}`,
-            background: isDemoMode ? 'rgba(245,158,11,0.12)' : 'none',
+            border: '1px solid var(--border)',
+            background: 'none',
             display: 'flex', alignItems: 'center', justifyContent: 'center',
             cursor: 'pointer',
             color: isDemoMode ? '#f59e0b' : 'var(--text-dim)',
             transition: 'border-color 0.15s, color 0.15s, background 0.15s',
-            position: 'relative',
           }}
-          onMouseEnter={e => { if (!isDemoMode) { e.currentTarget.style.borderColor = 'var(--border-strong)'; e.currentTarget.style.color = 'var(--text)'; e.currentTarget.style.background = 'var(--bg-surface)'; } }}
-          onMouseLeave={e => { if (!isDemoMode) { e.currentTarget.style.borderColor = 'var(--border)'; e.currentTarget.style.color = 'var(--text-dim)'; e.currentTarget.style.background = 'none'; } }}
+          onMouseEnter={e => { e.currentTarget.style.borderColor = 'var(--border-strong)'; e.currentTarget.style.color = isDemoMode ? '#f59e0b' : 'var(--text)'; e.currentTarget.style.background = 'var(--bg-surface)'; }}
+          onMouseLeave={e => { e.currentTarget.style.borderColor = 'var(--border)'; e.currentTarget.style.color = isDemoMode ? '#f59e0b' : 'var(--text-dim)'; e.currentTarget.style.background = 'none'; }}
         >
           <Eye size={16} />
-          {isDemoMode && (
-            <span style={{
-              position: 'absolute', top: 2, right: 2,
-              width: 6, height: 6, borderRadius: '50%',
-              background: '#f59e0b',
-              boxShadow: '0 0 6px rgba(245,158,11,0.6)',
-            }} />
-          )}
         </button>
       <div ref={ref} style={{ position: 'relative' }}>
         <button

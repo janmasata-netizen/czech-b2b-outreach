@@ -14,9 +14,8 @@ export function useWaves() {
   const { isDemoMode } = useDemoMode();
   return useQuery<WaveAnalytics[]>({
     queryKey: ['waves'],
-    enabled: !isDemoMode,
-    ...(isDemoMode && { initialData: DEMO_WAVES }),
     queryFn: async () => {
+      if (isDemoMode) return DEMO_WAVES;
       const { data, error } = await supabase
         .from('wave_analytics')
         .select('*')
@@ -31,9 +30,8 @@ export function useWave(id: string | undefined) {
   const { isDemoMode } = useDemoMode();
   return useQuery({
     queryKey: ['waves', id],
-    enabled: isDemoMode ? !!id : !!id,
+    enabled: !!id,
     refetchInterval: isDemoMode ? false : 10_000,
-    ...(isDemoMode && id && { initialData: getDemoWaveDetail(id) }),
     queryFn: async () => {
       if (isDemoMode) return getDemoWaveDetail(id!);
       const [waveRes, leadsRes, waveRowRes] = await Promise.all([
@@ -71,9 +69,8 @@ export function useFromEmailSuggestions() {
   const { isDemoMode } = useDemoMode();
   return useQuery<string[]>({
     queryKey: ['from-email-suggestions'],
-    enabled: !isDemoMode,
-    ...(isDemoMode && { initialData: DEMO_FROM_EMAILS }),
     queryFn: async () => {
+      if (isDemoMode) return DEMO_FROM_EMAILS;
       const { data, error } = await supabase
         .from('waves')
         .select('from_email')
@@ -90,9 +87,8 @@ export function useTemplateSets(teamId?: string) {
   const { isDemoMode } = useDemoMode();
   return useQuery({
     queryKey: ['template-sets', teamId ?? 'all'],
-    enabled: !isDemoMode,
-    ...(isDemoMode && { initialData: DEMO_TEMPLATE_SETS }),
     queryFn: async () => {
+      if (isDemoMode) return DEMO_TEMPLATE_SETS;
       let q = supabase
         .from('template_sets')
         .select('*, email_templates(*)')
@@ -217,8 +213,7 @@ export function useFailedEmails(waveId: string) {
   const { isDemoMode } = useDemoMode();
   return useQuery({
     queryKey: ['failed-emails', waveId],
-    enabled: isDemoMode ? !!waveId : !!waveId,
-    ...(isDemoMode && { initialData: DEMO_FAILED_EMAILS }),
+    enabled: !!waveId,
     queryFn: async () => {
       if (isDemoMode) return DEMO_FAILED_EMAILS;
       // Get all wave_lead IDs for this wave

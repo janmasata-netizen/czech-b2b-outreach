@@ -8,9 +8,8 @@ export function useWavePresets(teamId?: string) {
   const { isDemoMode } = useDemoMode();
   return useQuery<WavePreset[]>({
     queryKey: ['wave-presets', teamId ?? 'all'],
-    enabled: !isDemoMode,
-    ...(isDemoMode && { initialData: DEMO_WAVE_PRESETS }),
     queryFn: async () => {
+      if (isDemoMode) return DEMO_WAVE_PRESETS;
       let q = supabase
         .from('wave_presets')
         .select('*, template_set:template_sets(id, name), salesman:salesmen(id, name, email)')

@@ -8,6 +8,8 @@ import GlassButton from '@/components/glass/GlassButton';
 import WorkflowMonitoringTab from '@/components/system/WorkflowMonitoringTab';
 import BugReportsTab from '@/components/system/BugReportsTab';
 import SystemLogsTab from '@/components/system/SystemLogsTab';
+import { useDemoMode } from '@/contexts/DemoModeContext';
+import { DEMO_SYSTEM_HEALTH } from '@/lib/demo-data';
 
 interface HealthMetrics {
   queuedEmails: number;
@@ -18,10 +20,12 @@ interface HealthMetrics {
 }
 
 function useSystemHealth() {
+  const { isDemoMode } = useDemoMode();
   return useQuery<HealthMetrics>({
     queryKey: ['system-health'],
-    refetchInterval: 15_000,
+    refetchInterval: isDemoMode ? false : 15_000,
     queryFn: async () => {
+      if (isDemoMode) return DEMO_SYSTEM_HEALTH;
       const [, failedRes, lastSentRes, teamsRes] = await Promise.all([
         supabase
           .from('email_queue')

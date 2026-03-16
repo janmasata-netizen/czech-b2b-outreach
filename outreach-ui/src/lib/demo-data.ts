@@ -704,3 +704,96 @@ export const DEMO_FAILED_EMAILS: Array<{
   status: string;
   scheduled_at: string;
 }> = [];
+
+// ── System Health ──
+
+export const DEMO_SYSTEM_HEALTH = {
+  queuedEmails: 12,
+  sendingEmails: 3,
+  failedEmails24h: 1,
+  lastSentAt: new Date(Date.now() - 180_000).toISOString(),
+  teamSends: [{ name: 'Meisat Outreach', sends_today: 47, daily_send_limit: 200 }],
+};
+
+// ── Enrichment Logs ──
+
+export const DEMO_ENRICHMENT_LOGS = [
+  { id: did(2001), lead_id: did(300), step: 'ares_lookup', status: 'success', error_message: null, created_at: daysAgo(1), leads: { company_name: 'Marido s.r.o.' } },
+  { id: did(2002), lead_id: did(301), step: 'kurzy_scrape', status: 'success', error_message: null, created_at: daysAgo(1), leads: { company_name: 'TechnoServis Praha a.s.' } },
+  { id: did(2003), lead_id: did(302), step: 'email_generation', status: 'success', error_message: null, created_at: daysAgo(1), leads: { company_name: 'Stavba Plus s.r.o.' } },
+  { id: did(2004), lead_id: did(303), step: 'seznam_verify', status: 'success', error_message: null, created_at: daysAgo(2), leads: { company_name: 'Zeleny Svet s.r.o.' } },
+  { id: did(2005), lead_id: did(304), step: 'ares_lookup', status: 'success', error_message: null, created_at: daysAgo(2), leads: { company_name: 'DataSoft Solutions s.r.o.' } },
+  { id: did(2006), lead_id: did(305), step: 'kurzy_scrape', status: 'failed', error_message: 'Timeout fetching kurzy.cz page', created_at: daysAgo(3), leads: { company_name: 'Bohemia Transport a.s.' } },
+  { id: did(2007), lead_id: did(306), step: 'email_generation', status: 'success', error_message: null, created_at: daysAgo(3), leads: { company_name: 'Pekarna U Mlynare s.r.o.' } },
+  { id: did(2008), lead_id: did(307), step: 'seznam_verify', status: 'success', error_message: null, created_at: daysAgo(4), leads: { company_name: 'CityMed s.r.o.' } },
+  { id: did(2009), lead_id: did(310), step: 'ares_lookup', status: 'failed', error_message: 'ICO not found in ARES', created_at: daysAgo(5), leads: { company_name: 'Moravska Logistika s.r.o.' } },
+  { id: did(2010), lead_id: did(311), step: 'seznam_verify', status: 'success', error_message: null, created_at: daysAgo(5), leads: { company_name: 'EuroTech CZ s.r.o.' } },
+];
+
+// ── Sent Email Logs ──
+
+export const DEMO_SENT_EMAIL_LOGS = [
+  { id: did(2101), email_address: 'karel.mares@marido.cz', subject: 'Spoluprace s Marido s.r.o.', sequence_number: 1, sent_at: daysAgo(1), wave_leads: { waves: { name: 'Unor 2026 — tech firmy' } } },
+  { id: did(2102), email_address: 'pavel.cerny@technoservis.cz', subject: 'Spoluprace s TechnoServis Praha a.s.', sequence_number: 1, sent_at: daysAgo(1), wave_leads: { waves: { name: 'Unor 2026 — tech firmy' } } },
+  { id: did(2103), email_address: 'eva.kralova@technoservis.cz', subject: 'Nabidka pro TechnoServis Praha a.s.', sequence_number: 1, sent_at: daysAgo(2), wave_leads: { waves: { name: 'Unor 2026 — tech firmy' } } },
+  { id: did(2104), email_address: 'martin.dvorak@stavbaplus.cz', subject: 'Spoluprace s Stavba Plus s.r.o.', sequence_number: 2, sent_at: daysAgo(3), wave_leads: { waves: { name: 'Leden 2026 — hlavni' } } },
+  { id: did(2105), email_address: 'jana.novotna@zelenysvet.cz', subject: 'Re: Spoluprace s Zeleny Svet s.r.o.', sequence_number: 2, sent_at: daysAgo(4), wave_leads: { waves: { name: 'Leden 2026 — hlavni' } } },
+  { id: did(2106), email_address: 'tomas.kucera@datasoft.cz', subject: 'Re: Spoluprace s DataSoft Solutions', sequence_number: 3, sent_at: daysAgo(5), wave_leads: { waves: { name: 'Leden 2026 — hlavni' } } },
+  { id: did(2107), email_address: 'jiri.pokorny@bohemiatransport.cz', subject: 'Spoluprace s Bohemia Transport', sequence_number: 1, sent_at: daysAgo(6), wave_leads: { waves: { name: 'Leden 2026 — hlavni' } } },
+  { id: did(2108), email_address: 'ondrej.fiala@citymed.cz', subject: 'Nabidka pro CityMed s.r.o.', sequence_number: 2, sent_at: daysAgo(7), wave_leads: { waves: { name: 'Leden 2026 — hlavni' } } },
+  { id: did(2109), email_address: 'radek.prochazka@prumyslovesystemy.cz', subject: 'Re: Spoluprace', sequence_number: 3, sent_at: daysAgo(8), wave_leads: { waves: { name: 'Leden 2026 — hlavni' } } },
+  { id: did(2110), email_address: 'petra.kralickova@studiok2.cz', subject: 'Spoluprace s Kreativni Studio K2', sequence_number: 1, sent_at: daysAgo(10), wave_leads: { waves: { name: 'Leden 2026 — hlavni' } } },
+  { id: did(2111), email_address: 'david.nemec@eurotech.cz', subject: 'Nabidka pro EuroTech CZ', sequence_number: 1, sent_at: daysAgo(12), wave_leads: { waves: { name: 'Leden 2026 — hlavni' } } },
+  { id: did(2112), email_address: 'michal.bartos@kvalitest.cz', subject: 'Spoluprace s Kvalitest a.s.', sequence_number: 2, sent_at: daysAgo(13), wave_leads: { waves: { name: 'Leden 2026 — hlavni' } } },
+];
+
+// ── Reply Logs ──
+
+export const DEMO_REPLY_LOGS = [
+  { id: did(2201), from_email: 'karel.mares@marido.cz', subject: 'Re: Spoluprace s Marido s.r.o.', lead_id: did(300), created_at: daysAgo(1), source: 'matched' as const, leads: { company_name: 'Marido s.r.o.' } },
+  { id: did(2202), from_email: 'tomas.kucera@datasoft.cz', subject: 'Re: Spoluprace s DataSoft Solutions', lead_id: did(304), created_at: daysAgo(3), source: 'matched' as const, leads: { company_name: 'DataSoft Solutions s.r.o.' } },
+  { id: did(2203), from_email: 'ondrej.fiala@citymed.cz', subject: 'Re: Nabidka pro CityMed', lead_id: did(307), created_at: daysAgo(5), source: 'matched' as const, leads: { company_name: 'CityMed s.r.o.' } },
+  { id: did(2204), from_email: 'radek.prochazka@prumyslovesystemy.cz', subject: 'Re: Spoluprace', lead_id: did(308), created_at: daysAgo(7), source: 'matched' as const, leads: { company_name: 'Prumyslove Systemy a.s.' } },
+  { id: did(2205), from_email: 'david.nemec@eurotech.cz', subject: 'Re: Nabidka pro EuroTech CZ', lead_id: did(311), created_at: daysAgo(9), source: 'matched' as const, leads: { company_name: 'EuroTech CZ s.r.o.' } },
+  { id: did(2206), from_email: 'michal.bartos@kvalitest.cz', subject: 'Dotaz k nabidce', lead_id: did(313), created_at: daysAgo(11), source: 'matched' as const, leads: { company_name: 'Kvalitest a.s.' } },
+  { id: did(2207), from_email: 'unknown@firma.cz', subject: 'Out of office', lead_id: null, created_at: daysAgo(2), source: 'unmatched' as const, leads: null },
+  { id: did(2208), from_email: 'noreply@mailer.cz', subject: 'Delivery notification', lead_id: null, created_at: daysAgo(6), source: 'unmatched' as const, leads: null },
+];
+
+// ── System Events ──
+
+export const DEMO_SYSTEM_EVENTS = [
+  { id: did(2301), event_type: 'wave_created', actor_id: did(10), description: 'Vlna "Brezen 2026 — stavebnictvi" vytvorena', details: null, created_at: daysAgo(3), profiles: { full_name: 'Jan Novak' } },
+  { id: did(2302), event_type: 'wave_scheduled', actor_id: did(10), description: 'Vlna "Unor 2026 — tech firmy" naplanovana', details: null, created_at: daysAgo(5), profiles: { full_name: 'Jan Novak' } },
+  { id: did(2303), event_type: 'lead_imported', actor_id: did(11), description: 'Import 15 leadu z CSV', details: { count: 15, source: 'csv' }, created_at: daysAgo(7), profiles: { full_name: 'Petr Horak' } },
+  { id: did(2304), event_type: 'wave_completed', actor_id: null, description: 'Vlna "Leden 2026 — hlavni" dokoncena (25 leadu, 16.7% reply rate)', details: null, created_at: daysAgo(15), profiles: null },
+  { id: did(2305), event_type: 'user_login', actor_id: did(10), description: 'Prihlaseni uzivatele', details: null, created_at: daysAgo(0), profiles: { full_name: 'Jan Novak' } },
+  { id: did(2306), event_type: 'lead_imported', actor_id: did(10), description: 'Import 10 leadu z Google Sheets', details: { count: 10, source: 'gsheet' }, created_at: daysAgo(20), profiles: { full_name: 'Jan Novak' } },
+];
+
+// ── Workflow Stats ──
+
+function hoursAgo(n: number): string {
+  return new Date(Date.now() - n * 3_600_000).toISOString();
+}
+
+export const DEMO_WORKFLOW_STATS = {
+  timeSeries: Array.from({ length: 24 }, (_, i) => ({
+    bucket: hoursAgo(23 - i),
+    success: [12, 10, 8, 9, 11, 13, 10, 8, 14, 15, 12, 11, 9, 10, 13, 14, 11, 10, 12, 8, 9, 11, 13, 10][i],
+    failure: [0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0][i],
+  })),
+  workflows: [
+    { name: 'WF1 — Lead Ingest', totalRuns: 45, successCount: 45, failureCount: 0, successRate: 100, avgDurationMs: 2100, lastFailure: null },
+    { name: 'WF2 — ARES Lookup', totalRuns: 42, successCount: 41, failureCount: 1, successRate: 97.6, avgDurationMs: 3400, lastFailure: daysAgo(3) },
+    { name: 'WF3 — Kurzy Scrape', totalRuns: 38, successCount: 37, failureCount: 1, successRate: 97.4, avgDurationMs: 5200, lastFailure: daysAgo(3) },
+    { name: 'WF4 — Email Gen', totalRuns: 35, successCount: 35, failureCount: 0, successRate: 100, avgDurationMs: 1800, lastFailure: null },
+    { name: 'WF5 — Seznam Verify', totalRuns: 32, successCount: 31, failureCount: 1, successRate: 96.9, avgDurationMs: 8200, lastFailure: daysAgo(1) },
+    { name: 'WF8 — Send Cron', totalRuns: 1440, successCount: 1438, failureCount: 2, successRate: 99.9, avgDurationMs: 1200, lastFailure: daysAgo(5) },
+    { name: 'WF9 — Reply Detection', totalRuns: 1440, successCount: 1440, failureCount: 0, successRate: 100, avgDurationMs: 900, lastFailure: null },
+    { name: 'WF11 — Website Scraper', totalRuns: 28, successCount: 27, failureCount: 1, successRate: 96.4, avgDurationMs: 6500, lastFailure: daysAgo(4) },
+  ],
+  recentFailures: [
+    { workflowName: 'WF5 — Seznam Verify', error: 'SMTP connection timeout after 30s', timestamp: daysAgo(1) },
+  ],
+};

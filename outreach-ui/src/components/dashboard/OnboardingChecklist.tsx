@@ -12,6 +12,7 @@ function useOnboardingStatus() {
   return useQuery({
     queryKey: ['onboarding-status'],
     queryFn: async () => {
+      if (isDemoMode) return DEMO_ONBOARDING_STATUS;
       const [teams, templateSets, leads, waves] = await Promise.all([
         supabase.from('teams').select('id', { count: 'exact', head: true }),
         supabase.from('template_sets').select('id', { count: 'exact', head: true }),
@@ -25,8 +26,6 @@ function useOnboardingStatus() {
         hasWave: (waves.count ?? 0) > 0,
       };
     },
-    enabled: !isDemoMode,
-    ...(isDemoMode && { initialData: DEMO_ONBOARDING_STATUS }),
     staleTime: 60_000,
   });
 }

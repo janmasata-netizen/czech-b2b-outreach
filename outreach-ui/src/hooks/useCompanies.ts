@@ -9,9 +9,8 @@ export function useCompanies(filters: CompanyFilters = {}, page = 1) {
   const { isDemoMode } = useDemoMode();
   return useQuery({
     queryKey: ['companies', filters, page],
-    enabled: !isDemoMode,
-    ...(isDemoMode && { initialData: { data: DEMO_COMPANIES, count: DEMO_COMPANIES.length } }),
     queryFn: async () => {
+      if (isDemoMode) return { data: DEMO_COMPANIES, count: DEMO_COMPANIES.length };
       // If filtering by tags, first get matching company IDs
       let tagCompanyIds: string[] | null = null;
       if (filters.tag_ids && filters.tag_ids.length > 0) {
@@ -67,8 +66,7 @@ export function useCompany(id: string | undefined) {
   const { isDemoMode } = useDemoMode();
   return useQuery({
     queryKey: ['companies', id],
-    enabled: isDemoMode ? !!id : !!id,
-    ...(isDemoMode && id && { initialData: getDemoCompanyDetail(id) }),
+    enabled: !!id,
     queryFn: async () => {
       if (isDemoMode) return getDemoCompanyDetail(id!);
       const { data, error } = await supabase

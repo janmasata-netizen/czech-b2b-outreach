@@ -1,5 +1,7 @@
 import { useQuery } from '@tanstack/react-query';
 import { n8nWebhookUrl, n8nHeaders } from '@/lib/n8n';
+import { useDemoMode } from '@/contexts/DemoModeContext';
+import { DEMO_WORKFLOW_STATS } from '@/lib/demo-data';
 
 export interface WorkflowTimeSeries {
   bucket: string;
@@ -30,11 +32,13 @@ interface WorkflowStatsResponse {
 }
 
 export function useWorkflowStats(range: '24h' | '7d' | '30d' = '24h') {
+  const { isDemoMode } = useDemoMode();
   return useQuery<WorkflowStatsResponse>({
     queryKey: ['workflow-stats', range],
-    refetchInterval: 30_000,
+    refetchInterval: isDemoMode ? false : 30_000,
     retry: 1,
     queryFn: async () => {
+      if (isDemoMode) return DEMO_WORKFLOW_STATS as WorkflowStatsResponse;
       const res = await fetch(n8nWebhookUrl(`wf-execution-stats?range=${range}`), {
         headers: n8nHeaders(),
       });

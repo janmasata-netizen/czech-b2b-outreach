@@ -9,9 +9,8 @@ export function useTags(teamId?: string) {
   const { isDemoMode } = useDemoMode();
   return useQuery<Tag[]>({
     queryKey: ['tags', teamId],
-    enabled: !isDemoMode,
-    ...(isDemoMode && { initialData: DEMO_TAGS }),
     queryFn: async () => {
+      if (isDemoMode) return DEMO_TAGS;
       let q = supabase.from('tags').select('*').order('name');
       if (teamId) {
         q = q.or(`team_id.eq.${teamId},team_id.is.null`);
@@ -79,8 +78,7 @@ export function useLeadTags(leadId: string | undefined) {
   const demoData = leadId ? DEMO_LEAD_TAGS.filter(lt => lt.lead_id === leadId) : [];
   return useQuery<LeadTag[]>({
     queryKey: ['lead-tags', leadId],
-    enabled: isDemoMode ? !!leadId : !!leadId,
-    ...(isDemoMode && { initialData: demoData }),
+    enabled: !!leadId,
     queryFn: async () => {
       if (isDemoMode) return demoData;
       const { data, error } = await supabase
@@ -149,9 +147,8 @@ export function useCompanyRelevantTags(teamId?: string) {
   const { isDemoMode } = useDemoMode();
   return useQuery<Tag[]>({
     queryKey: ['company-relevant-tags', teamId],
-    enabled: !isDemoMode,
-    ...(isDemoMode && { initialData: DEMO_TAGS.filter(t => isSystemTag(t.name) || t.name === 'VIP') }),
     queryFn: async () => {
+      if (isDemoMode) return DEMO_TAGS.filter(t => isSystemTag(t.name) || t.name === 'VIP');
       // Get tag IDs actually used on companies
       const { data: usedRows } = await supabase
         .from('company_tags')
@@ -181,8 +178,7 @@ export function useCompanyTags(companyId: string | undefined) {
   const demoData = companyId ? getDemoCompanyTags(companyId) : [];
   return useQuery<CompanyTag[]>({
     queryKey: ['company-tags', companyId],
-    enabled: isDemoMode ? !!companyId : !!companyId,
-    ...(isDemoMode && { initialData: demoData }),
+    enabled: !!companyId,
     queryFn: async () => {
       if (isDemoMode) return demoData;
       const { data, error } = await supabase

@@ -9,10 +9,9 @@ export function useImportGroups() {
   const { isDemoMode } = useDemoMode();
   return useQuery<ImportGroupStats[]>({
     queryKey: ['import-groups'],
-    enabled: !isDemoMode,
-    ...(isDemoMode && { initialData: DEMO_IMPORT_GROUPS }),
     refetchInterval: isDemoMode ? false : 15_000,
     queryFn: async () => {
+      if (isDemoMode) return DEMO_IMPORT_GROUPS;
       const { data, error } = await supabase.rpc('get_import_group_stats');
       if (error) throw error;
       return (data ?? []) as ImportGroupStats[];
@@ -24,9 +23,8 @@ export function useImportGroupLeads(groupId: string | null, page = 1) {
   const { isDemoMode } = useDemoMode();
   return useQuery({
     queryKey: ['import-group-leads', groupId, page],
-    enabled: isDemoMode ? !!groupId : !!groupId,
+    enabled: !!groupId,
     refetchInterval: isDemoMode ? false : 15_000,
-    ...(isDemoMode && { initialData: { data: DEMO_LEADS.slice(0, 5), count: 5 } }),
     queryFn: async () => {
       if (isDemoMode) return { data: DEMO_LEADS.slice(0, 5), count: 5 };
       const { data, count, error } = await supabase
@@ -53,9 +51,8 @@ export function useImportGroup(id: string | undefined) {
   const { isDemoMode } = useDemoMode();
   return useQuery<ImportGroupStats | null>({
     queryKey: ['import-group', id],
-    enabled: isDemoMode ? !!id : !!id,
+    enabled: !!id,
     refetchInterval: isDemoMode ? false : 15_000,
-    ...(isDemoMode && { initialData: DEMO_IMPORT_GROUPS.find(g => g.id === id) ?? DEMO_IMPORT_GROUPS[0] }),
     queryFn: async () => {
       if (isDemoMode) return DEMO_IMPORT_GROUPS.find(g => g.id === id) ?? DEMO_IMPORT_GROUPS[0];
       const { data, error } = await supabase.rpc('get_import_group_stats');

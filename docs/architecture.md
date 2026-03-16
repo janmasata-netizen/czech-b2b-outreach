@@ -173,17 +173,15 @@ System obsahuje vestaveny demo rezim pro prezentace a skoleni. Kdyz je aktivni, 
 - **Stav** se uklada do `localStorage('demo-mode')` a preziva reload stranky.
 
 **Chovani v demo rezimu:**
-- Vsechny datove hooky (`useDashboard`, `useCompanies`, `useLeads`, `useWaves`, `useContacts`, `useTags`, `useRetargetPool`, `useSettings`, `useWavePresets`, `useForceSend`, `useImportGroups`, `useMasterLeads`) vraci fiktivni data misto Supabase volani (TanStack Query s `enabled: !isDemoMode` + `initialData` pattern).
+- Vsechny datove hooky (`useDashboard`, `useCompanies`, `useLeads`, `useWaves`, `useContacts`, `useTags`, `useRetargetPool`, `useSettings`, `useWavePresets`, `useForceSend`, `useImportGroups`, `useMasterLeads`, `useSystemLogs`, `useWorkflowStats`) vraci fiktivni data misto Supabase/n8n volani (queryFn early-return pattern).
 - Vsechny mutace (vytvareni, editace, mazani) tichy no-op — tlacitka nic nedelaji.
 - `useRealtime` preskakuje Supabase realtime subscriptions.
 - `OnboardingChecklist` vraci vsechny polozky jako dokoncene.
-- **Admin stranky** (`/nastaveni/*`, `/system`, `/email-finder`) nejsou ovlivneny — zobrazuji realna data i v demo rezimu.
+- System health, system logs a workflow stats stranky take zobrazuji fiktivni data.
 
 **Vizualni indikace:**
 - Prepinaci tlacitko (ikona Eye) v TopBar mezi bug reportem a user avatarem.
-- Aktivni stav: oranzovy border + svitici tecka na tlacitku.
-- Oranzove tonovaný pozadi cele aplikace.
-- Demo banner pod TopBar: "DEMO REZIM — zobrazena data jsou fiktivni".
+- Aktivni stav: ikona se zbarvi zlute (#f59e0b).
 
 #### Dalsi UI vlastnosti
 

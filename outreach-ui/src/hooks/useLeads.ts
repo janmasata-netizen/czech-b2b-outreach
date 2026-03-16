@@ -17,9 +17,8 @@ export function useLeads(filters: LeadFilters = {}, page = 1) {
   const { isDemoMode } = useDemoMode();
   return useQuery({
     queryKey: ['leads', filters, page],
-    enabled: !isDemoMode,
-    ...(isDemoMode && { initialData: { data: DEMO_LEADS, count: DEMO_LEADS.length } }),
     queryFn: async () => {
+      if (isDemoMode) return { data: DEMO_LEADS, count: DEMO_LEADS.length };
       let q = supabase
         .from('leads')
         .select(`
@@ -97,9 +96,8 @@ export function useTeams() {
   const { isDemoMode } = useDemoMode();
   return useQuery<Team[]>({
     queryKey: ['teams'],
-    enabled: !isDemoMode,
-    ...(isDemoMode && { initialData: DEMO_TEAMS }),
     queryFn: async () => {
+      if (isDemoMode) return DEMO_TEAMS;
       const { data, error } = await supabase.from('teams').select('*').order('name');
       if (error) throw error;
       return data ?? [];
@@ -252,9 +250,8 @@ export function useReadyLeadsByGroup() {
   const { isDemoMode } = useDemoMode();
   return useQuery<ReadyLeadGroup[]>({
     queryKey: ['ready-leads-by-group'],
-    enabled: !isDemoMode,
-    ...(isDemoMode && { initialData: DEMO_READY_LEADS_BY_GROUP }),
     queryFn: async () => {
+      if (isDemoMode) return DEMO_READY_LEADS_BY_GROUP;
       const { data, error } = await supabase
         .from('leads')
         .select(`
@@ -292,7 +289,7 @@ export function useReadyLeadsByGroup() {
       });
       return result;
     },
-    refetchInterval: 15000,
+    refetchInterval: isDemoMode ? false : 15000,
   });
 }
 
@@ -301,9 +298,8 @@ export function useReadyLeads() {
   const readyLeads = DEMO_LEADS.filter(l => ['ready', 'info_email', 'staff_email'].includes(l.status));
   return useQuery<Lead[]>({
     queryKey: ['ready-leads'],
-    enabled: !isDemoMode,
-    ...(isDemoMode && { initialData: readyLeads }),
     queryFn: async () => {
+      if (isDemoMode) return readyLeads;
       const { data, error } = await supabase
         .from('leads')
         .select('*')
@@ -312,7 +308,7 @@ export function useReadyLeads() {
       if (error) throw error;
       return (data ?? []) as Lead[];
     },
-    refetchInterval: 15000,
+    refetchInterval: isDemoMode ? false : 15000,
   });
 }
 
@@ -320,8 +316,7 @@ export function useLeadsNotInWave(teamId: string | undefined, search?: string, l
   const { isDemoMode } = useDemoMode();
   return useQuery({
     queryKey: ['leads-for-wave', teamId, search, language],
-    enabled: isDemoMode ? !!teamId : !!teamId,
-    ...(isDemoMode && { initialData: DEMO_LEADS_NOT_IN_WAVE }),
+    enabled: !!teamId,
     queryFn: async () => {
       if (isDemoMode) return DEMO_LEADS_NOT_IN_WAVE;
       const { data: wlRows } = await supabase.from('wave_leads').select('lead_id').limit(10000);
