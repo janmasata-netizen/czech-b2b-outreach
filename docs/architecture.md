@@ -159,7 +159,31 @@ Self-hosted na Hostinger VPS. Vsechny workflow jsou ulozeny jako JSON v `n8n-wor
 | `useSettings` | `useSettings.ts` | Nastaveni aplikace |
 | `useTags` | `useTags.ts` | Sprava tagu (pro firmy i leady) |
 | `useUsers` | `useUsers.ts` | Sprava uzivatelu |
+| `useWavePresets` | `useWavePresets.ts` | Sprava wave presets (sablony konfigurace vln) |
 | `useWaves` | `useWaves.ts` | CRUD operace nad vlnami |
+| `useImportGroups` | `useImportGroups.ts` | Sprava importnich skupin |
+
+#### Demo Mode (prezentacni rezim)
+
+System obsahuje vestaveny demo rezim pro prezentace a skoleni. Kdyz je aktivni, UI zobrazuje fiktivni ceska B2B data misto realnych dat ze Supabase.
+
+**Architektura:**
+- **DemoModeContext** (`src/contexts/DemoModeContext.tsx`) — React context poskytujici `isDemoMode` a `toggleDemoMode`. Obaluje celou aplikaci (uvnitr `AuthProvider`, kolem `Routes`).
+- **demo-data.ts** (`src/lib/demo-data.ts`) — obsahuje vsechny fiktivni entity: 15 firem, kontakty, leady, 4 vlny, 2 sady sablon, dashboard statistiky atd.
+- **Stav** se uklada do `localStorage('demo-mode')` a preziva reload stranky.
+
+**Chovani v demo rezimu:**
+- Vsechny datove hooky (`useDashboard`, `useCompanies`, `useLeads`, `useWaves`, `useContacts`, `useTags`, `useRetargetPool`, `useSettings`, `useWavePresets`, `useForceSend`, `useImportGroups`, `useMasterLeads`) vraci fiktivni data misto Supabase volani (TanStack Query s `enabled: !isDemoMode` + `initialData` pattern).
+- Vsechny mutace (vytvareni, editace, mazani) tichy no-op — tlacitka nic nedelaji.
+- `useRealtime` preskakuje Supabase realtime subscriptions.
+- `OnboardingChecklist` vraci vsechny polozky jako dokoncene.
+- **Admin stranky** (`/nastaveni/*`, `/system`, `/email-finder`) nejsou ovlivneny — zobrazuji realna data i v demo rezimu.
+
+**Vizualni indikace:**
+- Prepinaci tlacitko (ikona Eye) v TopBar mezi bug reportem a user avatarem.
+- Aktivni stav: oranzovy border + svitici tecka na tlacitku.
+- Oranzove tonovaný pozadi cele aplikace.
+- Demo banner pod TopBar: "DEMO REZIM — zobrazena data jsou fiktivni".
 
 #### Dalsi UI vlastnosti
 
@@ -573,7 +597,10 @@ Vsechna muzska jmena se sklonovani — zadna vyjimka pro cizi jmena.
 | **sub-clean-domain** | Sub-workflow pro cisteni a validaci domenoveho vstupu (odebira protokol, cestu, bile znaky) |
 | **cleanDomainInput()** | Frontendova utility funkce v `outreach-ui/src/lib/dedup.ts` pro cisteni domenoveho vstupu pred odeslanim na backend |
 | **StatusBadge** | UI komponenta zobrazujici stav s barvou a ikonou |
+| **Demo Mode** | Prezentacni rezim UI — zobrazuje fiktivni ceska B2B data misto realnych. Prepina se tlacitkem Eye v TopBar, stav v localStorage. Admin stranky neovlivneny. |
+| **DemoModeContext** | React context (`src/contexts/DemoModeContext.tsx`) poskytujici `isDemoMode` a `toggleDemoMode` celemu UI |
+| **demo-data.ts** | Modul s fiktivnimi daty pro demo rezim — firmy, kontakty, leady, vlny, sablony, dashboard stats |
 
 ---
 
-> Posledni aktualizace: 2026-03-15
+> Posledni aktualizace: 2026-03-17

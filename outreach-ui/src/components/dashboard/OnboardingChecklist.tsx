@@ -4,8 +4,11 @@ import { supabase } from '@/lib/supabase';
 import GlassCard from '@/components/glass/GlassCard';
 import GlassButton from '@/components/glass/GlassButton';
 import { Check, ArrowRight } from 'lucide-react';
+import { useDemoMode } from '@/contexts/DemoModeContext';
+import { DEMO_ONBOARDING_STATUS } from '@/lib/demo-data';
 
 function useOnboardingStatus() {
+  const { isDemoMode } = useDemoMode();
   return useQuery({
     queryKey: ['onboarding-status'],
     queryFn: async () => {
@@ -22,6 +25,8 @@ function useOnboardingStatus() {
         hasWave: (waves.count ?? 0) > 0,
       };
     },
+    enabled: !isDemoMode,
+    ...(isDemoMode && { initialData: DEMO_ONBOARDING_STATUS }),
     staleTime: 60_000,
   });
 }

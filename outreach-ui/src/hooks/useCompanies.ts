@@ -2,10 +2,15 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/lib/supabase';
 import type { Company, CompanyFilters, Contact, EmailCandidate } from '@/types/database';
 import { PAGE_SIZE } from '@/lib/constants';
+import { useDemoMode } from '@/contexts/DemoModeContext';
+import { DEMO_COMPANIES, getDemoCompanyDetail } from '@/lib/demo-data';
 
 export function useCompanies(filters: CompanyFilters = {}, page = 1) {
+  const { isDemoMode } = useDemoMode();
   return useQuery({
     queryKey: ['companies', filters, page],
+    enabled: !isDemoMode,
+    ...(isDemoMode && { initialData: { data: DEMO_COMPANIES, count: DEMO_COMPANIES.length } }),
     queryFn: async () => {
       // If filtering by tags, first get matching company IDs
       let tagCompanyIds: string[] | null = null;
@@ -59,10 +64,13 @@ export function useCompanies(filters: CompanyFilters = {}, page = 1) {
 }
 
 export function useCompany(id: string | undefined) {
+  const { isDemoMode } = useDemoMode();
   return useQuery({
     queryKey: ['companies', id],
-    enabled: !!id,
+    enabled: isDemoMode ? !!id : !!id,
+    ...(isDemoMode && id && { initialData: getDemoCompanyDetail(id) }),
     queryFn: async () => {
+      if (isDemoMode) return getDemoCompanyDetail(id!);
       const { data, error } = await supabase
         .from('companies')
         .select(`
@@ -98,39 +106,47 @@ export function useCompany(id: string | undefined) {
 
 export function useCreateCompany() {
   const qc = useQueryClient();
+  const { isDemoMode } = useDemoMode();
   return useMutation({
     mutationFn: async (company: Partial<Company>) => {
+      if (isDemoMode) return {} as Company;
       const { data, error } = await supabase.from('companies').insert(company).select().single();
       if (error) throw error;
       return data;
     },
-    onSuccess: () => qc.invalidateQueries({ queryKey: ['companies'] }),
+    onSuccess: () => { if (!isDemoMode) qc.invalidateQueries({ queryKey: ['companies'] }); },
   });
 }
 
 export function useUpdateCompany() {
   const qc = useQueryClient();
+  const { isDemoMode } = useDemoMode();
   return useMutation({
     mutationFn: async ({ id, updates }: { id: string; updates: Partial<Company> }) => {
+      if (isDemoMode) return;
       const { error } = await supabase.from('companies').update(updates).eq('id', id);
       if (error) throw error;
     },
     onSuccess: (_data, { id }) => {
-      qc.invalidateQueries({ queryKey: ['companies'] });
-      qc.invalidateQueries({ queryKey: ['companies', id] });
+      if (!isDemoMode) {
+        qc.invalidateQueries({ queryKey: ['companies'] });
+        qc.invalidateQueries({ queryKey: ['companies', id] });
+      }
     },
   });
 }
 
 export function useUpdateCompanyMasterStatus() {
   const qc = useQueryClient();
+  const { isDemoMode } = useDemoMode();
   return useMutation({
     mutationFn: async ({ ids, master_status }: { ids: string[]; master_status: string }) => {
+      if (isDemoMode) return;
       const { error } = await supabase.from('companies').update({ master_status }).in('id', ids);
       if (error) throw error;
     },
     onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ['companies'] });
+      if (!isDemoMode) qc.invalidateQueries({ queryKey: ['companies'] });
     },
   });
 }

@@ -15,9 +15,10 @@
 | Operator | Pouzit retarget pool | [Retarget pool](#4-retarget-pool) |
 | Operator | Importovat leady | [Import leadu](#6-import-leadu) |
 | Operator | Hledat e-maily | [Email Finder](#7-email-finder) |
+| Operator | Zapnout demo rezim | [Demo rezim](#8-demo-rezim-prezentacni-rezim) |
 | Admin | Spravovat uzivatele | [Sprava uzivatelu](#5-sprava-uzivatelu) |
-| Admin | Sledovat stav systemu | [Monitoring](#8-monitoring) |
-| Kdokoliv | Resit problem | [Reseni problemu](#9-reseni-problemu-faq) |
+| Admin | Sledovat stav systemu | [Monitoring](#9-monitoring) |
+| Kdokoliv | Resit problem | [Reseni problemu](#10-reseni-problemu-faq) |
 | Kdokoliv | Vysvetleni pojmu | [Slovnicek](#slovnicek) |
 
 ---
@@ -499,9 +500,62 @@ Automaticky hledani domeny firmy pro leady, ktere nemaji website. Spousti se z W
 
 ---
 
-## 8. Monitoring
+## 8. Demo rezim (prezentacni rezim)
 
-### 8.1 Detekce odpovedi (WF9)
+### Co to je
+
+Vestaveny rezim pro prezentace, skoleni a demo ucelovy. Kdyz je aktivni, cele UI zobrazuje fiktivni ceska B2B data (firmy, kontakty, leady, vlny, sablony, dashboard statistiky) misto realnych dat ze Supabase. Zadna mutace (vytvareni, editace, mazani) se neprovede — tlacitka tichy no-opuji.
+
+### Jak aktivovat
+
+1. Kliknete na **ikonu oka** (Eye) v **TopBar** — nachazi se mezi tlacitkem bug reportu a uzivatelskeho avataru
+2. Po kliknuti se rezim aktivuje:
+   - Tlacitko dostane **oranzovy border** a svitici tecku
+   - Cele pozadi aplikace se **oranzove toni**
+   - Pod TopBar se objevi **banner**: "DEMO REZIM — zobrazena data jsou fiktivni"
+3. Opetovnym kliknutim na ikonu oka se demo rezim **deaktivuje**
+
+### Co se deje v demo rezimu
+
+| Oblast | Chovani |
+|--------|---------|
+| **Dashboard** (`/prehled`) | Fiktivni statistiky (leady, emaily, odpovedi, vlny) |
+| **Databaze** (`/databaze`) | 15 fiktivnich firem s ceskymi nazvy |
+| **Leady** (`/leady`) | Fiktivni leady s ruznymi stavy |
+| **Vlny** (`/vlny`) | 4 fiktivni vlny (draft, sending, done, completed) |
+| **Sablony** (`/sablony`) | 2 fiktivni sady sablon |
+| **Retarget** (`/retarget`) | Fiktivni retarget pool |
+| **Vsechny mutace** | Tichy no-op — vytvareni, editace, mazani, planovani nic nedelaji |
+| **Realtime subscriptions** | Preskoceny — zadne WebSocket spojeni |
+
+### Co NENI ovlivneno
+
+Admin stranky zobrazuji **realna data** i v demo rezimu:
+- `/nastaveni/*` (tymy, obchodnici, uzivatele, ucty, API klice)
+- `/system` (stav systemu)
+- `/email-finder` (hledani emailu)
+
+### Persistence
+
+Stav demo rezimu se uklada do `localStorage` pod klicem `demo-mode`. Rezim prezije reload stranky i zavreni prohlizece. Odhlaseni a prihlaseni stav nemeni.
+
+### Pouziti
+
+| Scenar | Postup |
+|--------|--------|
+| **Prezentace klientovi** | Zapnete demo rezim → projdete stranky s fiktivnimi daty → po prezentaci vypnete |
+| **Skoleni noveho uzivatele** | Zapnete demo rezim → uzivatel si muze bezpecne klikat po cele aplikaci bez rizika zmeny dat |
+| **Screenshot / video** | Zapnete demo rezim → poridite screenshoty s profesionalnimi fiktivnimi daty |
+
+> **TIP:** Demo rezim funguje i bez pripojeni k Supabase — hookky vrati fiktivni data primo z pameti. To je uzitecne pro offline prezentace.
+
+> **POZOR:** V demo rezimu se nezobrazuji toast notifikace o uspesnych mutacich, protoze mutace se ve skutecnosti neprovadeji.
+
+---
+
+## 9. Monitoring
+
+### 9.1 Detekce odpovedi (WF9)
 
 - **Workflow:** WF9 (reply detection), bezi kazdou minutu
 - **Jak funguje:** Kontroluje IMAP schranky vsech aktivnich obchodniku pres IMAP proxy
@@ -511,7 +565,7 @@ Automaticky hledani domeny firmy pro leady, ktere nemaji website. Spousti se z W
   - E-mail se oznaci v `processed_reply_emails` (neopakuje se)
   - Neparovane odpovedi jdou do `unmatched_replies`
 
-### 8.2 NDR monitoring
+### 9.2 NDR monitoring
 
 - **Workflow:** wf-ndr-monitor + wf-ndr-monitor-spam
 - **Jak funguje:** Sleduje INBOX a spam slozku pro NDR (Non-Delivery Reports)
@@ -519,14 +573,14 @@ Automaticky hledani domeny firmy pro leady, ktere nemaji website. Spousti se z W
   - Lead se prepne do stavu `bounced`
   - Bounce se zaznmena do `email_probe_bounces`
 
-### 8.3 Denni reset (WF10)
+### 9.3 Denni reset (WF10)
 
 - **Workflow:** WF10, spousti se o pulnoci
 - **Co dela:**
   - Resetuje `teams.sends_today` na 0 (pres RPC `reset_daily_sends()`)
   - Maze stare zaznamy z `email_probe_bounces`
 
-### 8.4 Stranka stavu systemu (`/system`)
+### 9.4 Stranka stavu systemu (`/system`)
 
 Pristupna na `/system`. Zobrazuje:
 
@@ -548,14 +602,14 @@ Pristupna na `/system`. Zobrazuje:
 
 Data se automaticky obnovuji kazdych 15 sekund. Tlacitko **Obnovit** vynuti okamzitou aktualizaci.
 
-### 8.5 Selhanelost — Failed emails
+### 9.5 Selhanelost — Failed emails
 
 V detailu vlny (`/vlny/{id}`) najdete:
 - Tabulku selhalych emailu
 - Kazdy radek ma tlacitko **Opakovat** (retry) pro opetovne zarazeni do fronty
 - Informace o duvodu selhani
 
-### 8.6 Dashboard filtrování
+### 9.6 Dashboard filtrování
 
 Na dashboardu (`/prehled`) je prepinac casoveho rozsahu:
 
@@ -577,7 +631,7 @@ Zobrazované metriky:
 
 ---
 
-## 9. Reseni problemu (FAQ)
+## 10. Reseni problemu (FAQ)
 
 ### Emaily se neodesılaji
 
@@ -679,7 +733,8 @@ Zobrazované metriky:
 | **Daily send limit** | Maximalni pocet emailu, ktere muze tym odeslat za den. Resetuje se o pulnoci. |
 | **FROM email** | Adresa odesilatele nastavena primo na vlne (volny text). |
 | **Reply-To** | Adresa pro odpovedi — nastavuje se automaticky na email obchodnika z tymu. |
+| **Demo Mode** | Prezentacni rezim UI — zobrazuje fiktivni ceska B2B data. Prepina se ikonou Eye v TopBar. Stav v localStorage. Admin stranky neovlivneny. |
 
 ---
 
-> **Posledni aktualizace:** 2026-03-15
+> **Posledni aktualizace:** 2026-03-17

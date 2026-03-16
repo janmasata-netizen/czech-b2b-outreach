@@ -3,10 +3,22 @@ import { supabase } from '@/lib/supabase';
 import type { Lead, LeadFilters, Team, EmailCandidate, Contact } from '@/types/database';
 import { PAGE_SIZE } from '@/lib/constants';
 import { extractDomain } from '@/lib/dedup';
+import { useDemoMode } from '@/contexts/DemoModeContext';
+import {
+  DEMO_LEADS,
+  DEMO_TEAMS,
+  DEMO_LEADS_NOT_IN_WAVE,
+  DEMO_READY_LEADS_BY_GROUP,
+  getDemoLeadDetail,
+  getDemoEmailCandidates,
+} from '@/lib/demo-data';
 
 export function useLeads(filters: LeadFilters = {}, page = 1) {
+  const { isDemoMode } = useDemoMode();
   return useQuery({
     queryKey: ['leads', filters, page],
+    enabled: !isDemoMode,
+    ...(isDemoMode && { initialData: { data: DEMO_LEADS, count: DEMO_LEADS.length } }),
     queryFn: async () => {
       let q = supabase
         .from('leads')
@@ -41,10 +53,13 @@ export function useLeads(filters: LeadFilters = {}, page = 1) {
 }
 
 export function useLead(id: string | undefined) {
+  const { isDemoMode } = useDemoMode();
   return useQuery({
     queryKey: ['leads', id],
     enabled: !!id,
     queryFn: async () => {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      if (isDemoMode) return getDemoLeadDetail(id!) as any;
       const { data, error } = await supabase
         .from('leads')
         .select(`
@@ -79,8 +94,11 @@ export function useLead(id: string | undefined) {
 }
 
 export function useTeams() {
+  const { isDemoMode } = useDemoMode();
   return useQuery<Team[]>({
     queryKey: ['teams'],
+    enabled: !isDemoMode,
+    ...(isDemoMode && { initialData: DEMO_TEAMS }),
     queryFn: async () => {
       const { data, error } = await supabase.from('teams').select('*').order('name');
       if (error) throw error;
@@ -91,18 +109,21 @@ export function useTeams() {
 
 export function useCreateLead() {
   const qc = useQueryClient();
+  const { isDemoMode } = useDemoMode();
   return useMutation({
     mutationFn: async (lead: Partial<Lead>) => {
+      if (isDemoMode) return {} as Lead;
       const { data, error } = await supabase.from('leads').insert(lead).select().single();
       if (error) throw error;
       return data;
     },
-    onSuccess: () => qc.invalidateQueries({ queryKey: ['leads'] }),
+    onSuccess: () => { if (!isDemoMode) qc.invalidateQueries({ queryKey: ['leads'] }); },
   });
 }
 
 export function useCreateLeadWithEmail() {
   const qc = useQueryClient();
+  const { isDemoMode } = useDemoMode();
   return useMutation({
     mutationFn: async (payload: {
       company_name: string;
@@ -113,6 +134,7 @@ export function useCreateLeadWithEmail() {
       team_id: string;
       custom_fields?: Record<string, string>;
     }) => {
+      if (isDemoMode) return { id: 'demo' };
       const domain = extractDomain(payload.website) || null;
       const { data: rpcResult, error: rpcErr } = await supabase.rpc('ingest_lead', {
         p_company_name: payload.company_name,
@@ -161,47 +183,59 @@ export function useCreateLeadWithEmail() {
       return { id: leadId };
     },
     onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ['leads'] });
-      qc.invalidateQueries({ queryKey: ['companies'] });
+      if (!isDemoMode) {
+        qc.invalidateQueries({ queryKey: ['leads'] });
+        qc.invalidateQueries({ queryKey: ['companies'] });
+      }
     },
   });
 }
 
 export function useDeleteLeads() {
   const qc = useQueryClient();
+  const { isDemoMode } = useDemoMode();
   return useMutation({
     mutationFn: async (ids: string[]) => {
+      if (isDemoMode) return;
       const { error } = await supabase.from('leads').delete().in('id', ids);
       if (error) throw error;
     },
-    onSuccess: () => qc.invalidateQueries({ queryKey: ['leads'] }),
+    onSuccess: () => { if (!isDemoMode) qc.invalidateQueries({ queryKey: ['leads'] }); },
   });
 }
 
 export function useUpdateLeadStatus() {
   const qc = useQueryClient();
+  const { isDemoMode } = useDemoMode();
   return useMutation({
     mutationFn: async ({ id, status }: { id: string; status: string }) => {
+      if (isDemoMode) return;
       const { error } = await supabase.from('leads').update({ status }).eq('id', id);
       if (error) throw error;
     },
     onSuccess: (_data, { id }) => {
-      qc.invalidateQueries({ queryKey: ['leads'] });
-      qc.invalidateQueries({ queryKey: ['leads', id] });
+      if (!isDemoMode) {
+        qc.invalidateQueries({ queryKey: ['leads'] });
+        qc.invalidateQueries({ queryKey: ['leads', id] });
+      }
     },
   });
 }
 
 export function useUpdateLead() {
   const qc = useQueryClient();
+  const { isDemoMode } = useDemoMode();
   return useMutation({
     mutationFn: async ({ id, updates }: { id: string; updates: Partial<Lead> }) => {
+      if (isDemoMode) return;
       const { error } = await supabase.from('leads').update(updates).eq('id', id);
       if (error) throw error;
     },
     onSuccess: (_data, { id }) => {
-      qc.invalidateQueries({ queryKey: ['leads'] });
-      qc.invalidateQueries({ queryKey: ['leads', id] });
+      if (!isDemoMode) {
+        qc.invalidateQueries({ queryKey: ['leads'] });
+        qc.invalidateQueries({ queryKey: ['leads', id] });
+      }
     },
   });
 }
@@ -215,8 +249,11 @@ export interface ReadyLeadGroup {
 }
 
 export function useReadyLeadsByGroup() {
+  const { isDemoMode } = useDemoMode();
   return useQuery<ReadyLeadGroup[]>({
     queryKey: ['ready-leads-by-group'],
+    enabled: !isDemoMode,
+    ...(isDemoMode && { initialData: DEMO_READY_LEADS_BY_GROUP }),
     queryFn: async () => {
       const { data, error } = await supabase
         .from('leads')
@@ -260,8 +297,12 @@ export function useReadyLeadsByGroup() {
 }
 
 export function useReadyLeads() {
+  const { isDemoMode } = useDemoMode();
+  const readyLeads = DEMO_LEADS.filter(l => ['ready', 'info_email', 'staff_email'].includes(l.status));
   return useQuery<Lead[]>({
     queryKey: ['ready-leads'],
+    enabled: !isDemoMode,
+    ...(isDemoMode && { initialData: readyLeads }),
     queryFn: async () => {
       const { data, error } = await supabase
         .from('leads')
@@ -276,10 +317,13 @@ export function useReadyLeads() {
 }
 
 export function useLeadsNotInWave(teamId: string | undefined, search?: string, language?: string) {
+  const { isDemoMode } = useDemoMode();
   return useQuery({
     queryKey: ['leads-for-wave', teamId, search, language],
-    enabled: !!teamId,
+    enabled: isDemoMode ? !!teamId : !!teamId,
+    ...(isDemoMode && { initialData: DEMO_LEADS_NOT_IN_WAVE }),
     queryFn: async () => {
+      if (isDemoMode) return DEMO_LEADS_NOT_IN_WAVE;
       const { data: wlRows } = await supabase.from('wave_leads').select('lead_id').limit(10000);
       const usedIds = (wlRows ?? []).map((r: { lead_id: string }) => r.lead_id);
 
@@ -303,10 +347,12 @@ export function useLeadsNotInWave(teamId: string | undefined, search?: string, l
 }
 
 export function useEmailCandidates(leadId: string | undefined) {
+  const { isDemoMode } = useDemoMode();
   return useQuery<EmailCandidate[]>({
     queryKey: ['email-candidates', leadId],
     enabled: !!leadId,
     queryFn: async () => {
+      if (isDemoMode) return getDemoEmailCandidates(leadId!);
       const { data: lead } = await supabase.from('leads').select('company_id').eq('id', leadId!).single();
       if (!lead?.company_id) return [];
       const { data, error } = await supabase
@@ -321,8 +367,10 @@ export function useEmailCandidates(leadId: string | undefined) {
 
 export function useVerifyCandidate() {
   const qc = useQueryClient();
+  const { isDemoMode } = useDemoMode();
   return useMutation({
     mutationFn: async ({ id, leadId }: { id: string; leadId: string }) => {
+      if (isDemoMode) return;
       const { error } = await supabase
         .from('email_candidates')
         .update({ is_verified: true, qev_status: 'manually_verified' })
@@ -335,17 +383,21 @@ export function useVerifyCandidate() {
       if (le) throw le;
     },
     onSuccess: (_d, { leadId }) => {
-      qc.invalidateQueries({ queryKey: ['email-candidates', leadId] });
-      qc.invalidateQueries({ queryKey: ['leads', leadId] });
-      qc.invalidateQueries({ queryKey: ['leads'] });
+      if (!isDemoMode) {
+        qc.invalidateQueries({ queryKey: ['email-candidates', leadId] });
+        qc.invalidateQueries({ queryKey: ['leads', leadId] });
+        qc.invalidateQueries({ queryKey: ['leads'] });
+      }
     },
   });
 }
 
 export function useUnverifyCandidate() {
   const qc = useQueryClient();
+  const { isDemoMode } = useDemoMode();
   return useMutation({
     mutationFn: async ({ id, leadId }: { id: string; leadId: string }) => {
+      if (isDemoMode) return;
       const { error } = await supabase
         .from('email_candidates')
         .update({ is_verified: false })
@@ -369,58 +421,72 @@ export function useUnverifyCandidate() {
       if (le) throw le;
     },
     onSuccess: (_d, { leadId }) => {
-      qc.invalidateQueries({ queryKey: ['email-candidates', leadId] });
-      qc.invalidateQueries({ queryKey: ['leads', leadId] });
-      qc.invalidateQueries({ queryKey: ['leads'] });
+      if (!isDemoMode) {
+        qc.invalidateQueries({ queryKey: ['email-candidates', leadId] });
+        qc.invalidateQueries({ queryKey: ['leads', leadId] });
+        qc.invalidateQueries({ queryKey: ['leads'] });
+      }
     },
   });
 }
 
 export function useRemoveLeadFromWave() {
   const qc = useQueryClient();
+  const { isDemoMode } = useDemoMode();
   return useMutation({
     mutationFn: async ({ waveLeadId, leadId }: { waveLeadId: string; leadId: string }) => {
+      if (isDemoMode) return;
       const { error: e1 } = await supabase.from('wave_leads').delete().eq('id', waveLeadId);
       if (e1) throw e1;
       const { error: e2 } = await supabase.from('leads').update({ status: 'ready' }).eq('id', leadId);
       if (e2) throw e2;
     },
     onSuccess: (_data, { leadId }) => {
-      qc.invalidateQueries({ queryKey: ['leads'] });
-      qc.invalidateQueries({ queryKey: ['leads', leadId] });
-      qc.invalidateQueries({ queryKey: ['waves'] });
-      qc.invalidateQueries({ queryKey: ['leads-for-wave'] });
+      if (!isDemoMode) {
+        qc.invalidateQueries({ queryKey: ['leads'] });
+        qc.invalidateQueries({ queryKey: ['leads', leadId] });
+        qc.invalidateQueries({ queryKey: ['waves'] });
+        qc.invalidateQueries({ queryKey: ['leads-for-wave'] });
+      }
     },
   });
 }
 
 export function useUpdateLeadCustomFields() {
   const qc = useQueryClient();
+  const { isDemoMode } = useDemoMode();
   return useMutation({
     mutationFn: async ({ id, custom_fields }: { id: string; custom_fields: Record<string, string> }) => {
+      if (isDemoMode) return;
       const { error } = await supabase.from('leads').update({ custom_fields }).eq('id', id);
       if (error) throw error;
     },
     onSuccess: (_data, { id }) => {
-      qc.invalidateQueries({ queryKey: ['leads'] });
-      qc.invalidateQueries({ queryKey: ['leads', id] });
+      if (!isDemoMode) {
+        qc.invalidateQueries({ queryKey: ['leads'] });
+        qc.invalidateQueries({ queryKey: ['leads', id] });
+      }
     },
   });
 }
 
 export function useMarkLeadProblematic() {
   const qc = useQueryClient();
+  const { isDemoMode } = useDemoMode();
   return useMutation({
     mutationFn: async ({ waveLeadId, leadId }: { waveLeadId: string; leadId: string; waveId: string }) => {
+      if (isDemoMode) return;
       const { error: e1 } = await supabase.from('wave_leads').delete().eq('id', waveLeadId);
       if (e1) throw e1;
       const { error: e2 } = await supabase.from('leads').update({ status: 'problematic' }).eq('id', leadId);
       if (e2) throw e2;
     },
     onSuccess: (_data, { waveId }) => {
-      qc.invalidateQueries({ queryKey: ['waves', waveId] });
-      qc.invalidateQueries({ queryKey: ['waves'] });
-      qc.invalidateQueries({ queryKey: ['leads'] });
+      if (!isDemoMode) {
+        qc.invalidateQueries({ queryKey: ['waves', waveId] });
+        qc.invalidateQueries({ queryKey: ['waves'] });
+        qc.invalidateQueries({ queryKey: ['leads'] });
+      }
     },
   });
 }

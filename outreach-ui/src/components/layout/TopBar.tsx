@@ -1,9 +1,10 @@
 import { useState, useRef, useEffect } from 'react';
-import { LogOut, Settings, Menu, Bug } from 'lucide-react';
+import { LogOut, Settings, Menu, Bug, Eye } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { useAuthContext } from '@/components/AuthProvider';
 import { useMobileNav } from '@/hooks/useMobileNav';
+import { useDemoMode } from '@/contexts/DemoModeContext';
 import BugReportModal from '@/components/system/BugReportModal';
 
 export const TOP_H = 48;
@@ -11,6 +12,7 @@ export const TOP_H = 48;
 export default function TopBar() {
   const { user, profile, signOut } = useAuthContext();
   const { isMobile, toggleSidebar } = useMobileNav();
+  const { isDemoMode, toggleDemoMode } = useDemoMode();
   const { t, i18n } = useTranslation();
   const [open, setOpen] = useState(false);
   const [bugModalOpen, setBugModalOpen] = useState(false);
@@ -111,6 +113,32 @@ export default function TopBar() {
           onMouseLeave={e => { e.currentTarget.style.borderColor = 'var(--border)'; e.currentTarget.style.color = 'var(--text-dim)'; e.currentTarget.style.background = 'none'; }}
         >
           <Bug size={16} />
+        </button>
+        <button
+          onClick={toggleDemoMode}
+          title={isDemoMode ? 'Vypnout demo rezim' : 'Zapnout demo rezim'}
+          style={{
+            width: 32, height: 32, borderRadius: '50%',
+            border: `1px solid ${isDemoMode ? '#f59e0b' : 'var(--border)'}`,
+            background: isDemoMode ? 'rgba(245,158,11,0.12)' : 'none',
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+            cursor: 'pointer',
+            color: isDemoMode ? '#f59e0b' : 'var(--text-dim)',
+            transition: 'border-color 0.15s, color 0.15s, background 0.15s',
+            position: 'relative',
+          }}
+          onMouseEnter={e => { if (!isDemoMode) { e.currentTarget.style.borderColor = 'var(--border-strong)'; e.currentTarget.style.color = 'var(--text)'; e.currentTarget.style.background = 'var(--bg-surface)'; } }}
+          onMouseLeave={e => { if (!isDemoMode) { e.currentTarget.style.borderColor = 'var(--border)'; e.currentTarget.style.color = 'var(--text-dim)'; e.currentTarget.style.background = 'none'; } }}
+        >
+          <Eye size={16} />
+          {isDemoMode && (
+            <span style={{
+              position: 'absolute', top: 2, right: 2,
+              width: 6, height: 6, borderRadius: '50%',
+              background: '#f59e0b',
+              boxShadow: '0 0 6px rgba(245,158,11,0.6)',
+            }} />
+          )}
         </button>
       <div ref={ref} style={{ position: 'relative' }}>
         <button

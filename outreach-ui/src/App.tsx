@@ -1,5 +1,6 @@
 import { Routes, Route, Navigate } from 'react-router-dom';
 import { AuthProvider, RequireAuth } from '@/components/AuthProvider';
+import { DemoModeProvider } from '@/contexts/DemoModeContext';
 import ErrorBoundary from '@/components/shared/ErrorBoundary';
 import AppShell from '@/components/layout/AppShell';
 import LoginPage from '@/pages/LoginPage';
@@ -29,6 +30,7 @@ export default function App() {
   return (
     <ErrorBoundary>
     <AuthProvider>
+    <DemoModeProvider>
       <Routes>
         <Route path="/login" element={<LoginPage />} />
         <Route
@@ -64,6 +66,7 @@ export default function App() {
           <Route path="*" element={<Navigate to="/prehled" replace />} />
         </Route>
       </Routes>
+    </DemoModeProvider>
     </AuthProvider>
     </ErrorBoundary>
   );

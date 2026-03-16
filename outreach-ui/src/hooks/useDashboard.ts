@@ -1,10 +1,24 @@
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/lib/supabase';
 import type { DashboardStats, WaveAnalytics } from '@/types/database';
+import { useDemoMode } from '@/contexts/DemoModeContext';
+import {
+  DEMO_DASHBOARD_STATS,
+  DEMO_EMAIL_VOLUME,
+  DEMO_WAVE_REPLIES,
+  DEMO_ACTIVE_WAVES,
+  DEMO_READY_LEADS_COUNT,
+  DEMO_ACTIVE_WAVES_COUNT,
+  DEMO_RETARGET_READY_COUNT,
+  DEMO_REPLY_COUNT,
+} from '@/lib/demo-data';
 
 export function useDashboardStats(days = 0, teamId?: string) {
+  const { isDemoMode } = useDemoMode();
   return useQuery<DashboardStats>({
     queryKey: ['dashboard', 'stats', days, teamId ?? 'all'],
+    enabled: !isDemoMode,
+    ...(isDemoMode && { initialData: DEMO_DASHBOARD_STATS }),
     queryFn: async () => {
       // Always use direct queries when teamId is set (RPC doesn't support team filtering)
       // Also use direct queries for days>0 path
@@ -109,8 +123,11 @@ export function useDashboardStats(days = 0, teamId?: string) {
 }
 
 export function useEmailVolumeChart(days = 14, teamId?: string) {
+  const { isDemoMode } = useDemoMode();
   return useQuery({
     queryKey: ['dashboard', 'volume', days, teamId ?? 'all'],
+    enabled: !isDemoMode,
+    ...(isDemoMode && { initialData: DEMO_EMAIL_VOLUME }),
     queryFn: async () => {
       const since = days > 0
         ? new Date(Date.now() - days * 86_400_000).toISOString()
@@ -159,8 +176,11 @@ export function useEmailVolumeChart(days = 14, teamId?: string) {
 }
 
 export function useWaveReplies(teamId?: string) {
+  const { isDemoMode } = useDemoMode();
   return useQuery<WaveAnalytics[]>({
     queryKey: ['dashboard', 'wave-replies', teamId ?? 'all'],
+    enabled: !isDemoMode,
+    ...(isDemoMode && { initialData: DEMO_WAVE_REPLIES }),
     queryFn: async () => {
       let q = supabase
         .from('wave_analytics')
@@ -177,8 +197,11 @@ export function useWaveReplies(teamId?: string) {
 }
 
 export function useActiveWaves(teamId?: string) {
+  const { isDemoMode } = useDemoMode();
   return useQuery<WaveAnalytics[]>({
     queryKey: ['dashboard', 'active-waves', teamId ?? 'all'],
+    enabled: !isDemoMode,
+    ...(isDemoMode && { initialData: DEMO_ACTIVE_WAVES }),
     queryFn: async () => {
       let q = supabase
         .from('wave_analytics')
@@ -197,8 +220,11 @@ export function useActiveWaves(teamId?: string) {
 // --- New stat hooks ---
 
 export function useReadyLeadsCount(teamId?: string) {
+  const { isDemoMode } = useDemoMode();
   return useQuery<number>({
     queryKey: ['dashboard', 'ready-leads', teamId ?? 'all'],
+    enabled: !isDemoMode,
+    ...(isDemoMode && { initialData: DEMO_READY_LEADS_COUNT }),
     queryFn: async () => {
       let q = supabase.from('leads').select('id', { count: 'exact', head: false }).eq('status', 'ready');
       if (teamId) q = q.eq('team_id', teamId);
@@ -221,8 +247,11 @@ export function useReadyLeadsCount(teamId?: string) {
 }
 
 export function useActiveWavesCount(teamId?: string) {
+  const { isDemoMode } = useDemoMode();
   return useQuery<number>({
     queryKey: ['dashboard', 'active-waves-count', teamId ?? 'all'],
+    enabled: !isDemoMode,
+    ...(isDemoMode && { initialData: DEMO_ACTIVE_WAVES_COUNT }),
     queryFn: async () => {
       let q = supabase
         .from('wave_analytics')
@@ -237,8 +266,11 @@ export function useActiveWavesCount(teamId?: string) {
 }
 
 export function useRetargetReadyCount(teamId?: string) {
+  const { isDemoMode } = useDemoMode();
   return useQuery<number>({
     queryKey: ['dashboard', 'retarget-ready', teamId ?? 'all'],
+    enabled: !isDemoMode,
+    ...(isDemoMode && { initialData: DEMO_RETARGET_READY_COUNT }),
     queryFn: async () => {
       let q = supabase
         .from('retarget_pool')
@@ -252,8 +284,11 @@ export function useRetargetReadyCount(teamId?: string) {
 }
 
 export function useReplyCount(days: number, teamId?: string) {
+  const { isDemoMode } = useDemoMode();
   return useQuery<number>({
     queryKey: ['dashboard', 'reply-count', days, teamId ?? 'all'],
+    enabled: !isDemoMode,
+    ...(isDemoMode && { initialData: DEMO_REPLY_COUNT }),
     queryFn: async () => {
       const since = days > 0
         ? new Date(Date.now() - days * 86_400_000).toISOString()

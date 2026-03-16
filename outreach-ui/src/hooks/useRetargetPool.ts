@@ -1,10 +1,15 @@
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/lib/supabase';
 import type { RetargetPoolLead } from '@/types/database';
+import { useDemoMode } from '@/contexts/DemoModeContext';
+import { DEMO_RETARGET_POOL, DEMO_RETARGET_READY_COUNT } from '@/lib/demo-data';
 
 export function useRetargetPool(search?: string, teamId?: string, page = 0, pageSize = 50) {
+  const { isDemoMode } = useDemoMode();
   return useQuery<RetargetPoolLead[]>({
     queryKey: ['retarget-pool', search ?? '', teamId ?? '', page],
+    enabled: !isDemoMode,
+    ...(isDemoMode && { initialData: DEMO_RETARGET_POOL }),
     queryFn: async () => {
       const params: Record<string, unknown> = {
         p_limit: pageSize,
@@ -21,8 +26,11 @@ export function useRetargetPool(search?: string, teamId?: string, page = 0, page
 }
 
 export function useRetargetPoolCount() {
+  const { isDemoMode } = useDemoMode();
   return useQuery<number>({
     queryKey: ['retarget-pool-count'],
+    enabled: !isDemoMode,
+    ...(isDemoMode && { initialData: DEMO_RETARGET_READY_COUNT }),
     queryFn: async () => {
       const { data, error } = await supabase
         .from('retarget_pool')
@@ -35,10 +43,13 @@ export function useRetargetPoolCount() {
 }
 
 export function useRetargetLeadHistory(leadId: string | undefined) {
+  const { isDemoMode } = useDemoMode();
   return useQuery({
     queryKey: ['retarget-history', leadId],
-    enabled: !!leadId,
+    enabled: isDemoMode ? !!leadId : !!leadId,
+    ...(isDemoMode && { initialData: [] }),
     queryFn: async () => {
+      if (isDemoMode) return [];
       const { data, error } = await supabase
         .from('wave_leads')
         .select(`
