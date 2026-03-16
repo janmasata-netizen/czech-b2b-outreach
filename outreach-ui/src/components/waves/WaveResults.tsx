@@ -12,6 +12,40 @@ interface WaveResultsProps {
 
 const SEQ_COLORS = ['#3ECF8E', '#a78bfa', '#22d3ee', '#fb923c', '#f472b6'];
 
+function ChartTooltip({ active, payload, label }: { active?: boolean; payload?: Array<{ dataKey: string; value: number; color: string }>; label?: string }) {
+  if (!active || !payload?.length) return null;
+  const replyEntry = payload.find(p => p.dataKey === 'replies');
+  const rateEntry = payload.find(p => p.dataKey === 'replyRate');
+  const seqEntries = payload.filter(p => p.dataKey.startsWith('seq'));
+
+  return (
+    <div style={{ background: 'var(--bg-surface)', border: '1px solid var(--border-strong)', borderRadius: 8, padding: '10px 14px', fontSize: 12, color: 'var(--text)' }}>
+      <div style={{ fontWeight: 600, marginBottom: 6 }}>{label}</div>
+      {seqEntries.map(e => (
+        <div key={e.dataKey} style={{ display: 'flex', justifyContent: 'space-between', gap: 16, marginBottom: 2 }}>
+          <span style={{ color: e.color }}>Sekvence {e.dataKey.replace('seq', '')}</span>
+          <span style={{ fontFamily: 'JetBrains Mono, monospace' }}>{e.value}</span>
+        </div>
+      ))}
+      {replyEntry && (
+        <div style={{ display: 'flex', justifyContent: 'space-between', gap: 16, marginBottom: 2 }}>
+          <span style={{ color: '#f472b6' }}>Odpovědi</span>
+          <span style={{ fontFamily: 'JetBrains Mono, monospace' }}>{replyEntry.value}</span>
+        </div>
+      )}
+      {rateEntry && (
+        <>
+          <div style={{ borderTop: '1px solid var(--border)', margin: '6px 0' }} />
+          <div style={{ display: 'flex', justifyContent: 'space-between', gap: 16 }}>
+            <span style={{ color: 'var(--cyan)' }}>Reply rate</span>
+            <span style={{ fontFamily: 'JetBrains Mono, monospace' }}>{rateEntry.value}%</span>
+          </div>
+        </>
+      )}
+    </div>
+  );
+}
+
 function fmtSeqDate(date: string | null | undefined, time: string | null | undefined): string | null {
   if (!date) return null;
   const [y, m, d] = date.split('-');
@@ -33,18 +67,18 @@ export default function WaveResults({ wave, waveLeads = [] }: WaveResultsProps) 
   const total = wave.lead_count || waveLeads.length;
 
   // Discover all sequence numbers dynamically from data
-  const allSeqNums = new Set<number>();
-  for (const wl of waveLeads) {
-    for (const e of (wl.sent_emails ?? [])) allSeqNums.add(e.sequence_number);
-    for (const qi of (wl.email_queue ?? []) as EmailQueue[]) allSeqNums.add(qi.sequence_number);
-  }
-  // Also include seqs from sequence_schedule
-  if (wave.sequence_schedule?.length) {
-    for (const e of wave.sequence_schedule) allSeqNums.add(e.seq);
-  }
-  // Fallback: if nothing found, use legacy 1-3
-  if (allSeqNums.size === 0) { allSeqNums.add(1); allSeqNums.add(2); allSeqNums.add(3); }
-  const seqNumbers = Array.from(allSeqNums).sort((a, b) => a - b);
+  const seqNumbers = useMemo(() => {
+    const allSeqNums = new Set<number>();
+    for (const wl of waveLeads) {
+      for (const e of (wl.sent_emails ?? [])) allSeqNums.add(e.sequence_number);
+      for (const qi of (wl.email_queue ?? []) as EmailQueue[]) allSeqNums.add(qi.sequence_number);
+    }
+    if (wave.sequence_schedule?.length) {
+      for (const e of wave.sequence_schedule) allSeqNums.add(e.seq);
+    }
+    if (allSeqNums.size === 0) { allSeqNums.add(1); allSeqNums.add(2); allSeqNums.add(3); }
+    return Array.from(allSeqNums).sort((a, b) => a - b);
+  }, [waveLeads, wave.sequence_schedule]);
 
   // Count sent emails per sequence from waveLeads + find earliest sent_at
   const seqCounts = seqNumbers.map(seq => {
@@ -150,40 +184,6 @@ export default function WaveResults({ wave, waveLeads = [] }: WaveResultsProps) 
     });
   }, [waveLeads, seqNumbers]);
 
-  function ChartTooltip({ active, payload, label }: { active?: boolean; payload?: Array<{ dataKey: string; value: number; color: string }>; label?: string }) {
-    if (!active || !payload?.length) return null;
-    const replyEntry = payload.find(p => p.dataKey === 'replies');
-    const rateEntry = payload.find(p => p.dataKey === 'replyRate');
-    const seqEntries = payload.filter(p => p.dataKey.startsWith('seq'));
-
-    return (
-      <div style={{ background: 'var(--bg-surface)', border: '1px solid var(--border-strong)', borderRadius: 8, padding: '10px 14px', fontSize: 12, color: 'var(--text)' }}>
-        <div style={{ fontWeight: 600, marginBottom: 6 }}>{label}</div>
-        {seqEntries.map(e => (
-          <div key={e.dataKey} style={{ display: 'flex', justifyContent: 'space-between', gap: 16, marginBottom: 2 }}>
-            <span style={{ color: e.color }}>Sekvence {e.dataKey.replace('seq', '')}</span>
-            <span style={{ fontFamily: 'JetBrains Mono, monospace' }}>{e.value}</span>
-          </div>
-        ))}
-        {replyEntry && (
-          <div style={{ display: 'flex', justifyContent: 'space-between', gap: 16, marginBottom: 2 }}>
-            <span style={{ color: '#f472b6' }}>Odpovědi</span>
-            <span style={{ fontFamily: 'JetBrains Mono, monospace' }}>{replyEntry.value}</span>
-          </div>
-        )}
-        {rateEntry && (
-          <>
-            <div style={{ borderTop: '1px solid var(--border)', margin: '6px 0' }} />
-            <div style={{ display: 'flex', justifyContent: 'space-between', gap: 16 }}>
-              <span style={{ color: 'var(--cyan)' }}>Reply rate</span>
-              <span style={{ fontFamily: 'JetBrains Mono, monospace' }}>{rateEntry.value}%</span>
-            </div>
-          </>
-        )}
-      </div>
-    );
-  }
-
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: 12 }}>
@@ -202,7 +202,7 @@ export default function WaveResults({ wave, waveLeads = [] }: WaveResultsProps) 
             <ResponsiveContainer width="100%" height={280}>
               <AreaChart data={chartData} margin={{ top: 0, right: 0, left: -20, bottom: 0 }}>
                 <defs>
-                  {seqNumbers.map((seq, i) => {
+                  {seqNumbers.map((seq) => {
                     const color = SEQ_COLORS[(seq - 1) % SEQ_COLORS.length];
                     return (
                       <linearGradient key={seq} id={`grad_seq${seq}_${rawId}`} x1="0" y1="0" x2="0" y2="1">
