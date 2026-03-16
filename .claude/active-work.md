@@ -18,5 +18,6 @@
 
 | Branch | Agent | Files (exact paths) | Started | Last Updated | PR |
 |---|---|---|---|---|---|
+| claude/fix-dashboard-charts | Claude | outreach-ui/src/components/dashboard/WaveRepliesChart.tsx, outreach-ui/src/components/dashboard/TemplateRepliesChart.tsx | 2026-03-16 | 2026-03-16 | — |
 
 
