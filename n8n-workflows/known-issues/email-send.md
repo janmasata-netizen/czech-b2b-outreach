@@ -28,3 +28,11 @@
 - **Solution:** Ensure the connections key matches the actual trigger node name. In `wf8-send-cron.json`, change `"Every 5 Minutes":` to `"Every Minute":` in the connections object. Push to n8n via `update.mjs`. Always verify connection keys match node names when renaming nodes in JSON.
 - **Diagnostic:** Run `node n8n-workflows/diagnose-wave-send.mjs` — checks WF8 active status, executions, queue state, and function existence. Also check execution duration: ~20ms = trigger disconnected, 200ms+ = working.
 ---
+
+## WF7 Double-Scheduling Guard Blocks Rescheduling
+- **Date:** 2026-03-16
+- **Node/Service:** WF7 (wf7-wave-schedule.json) — Build Queue code node
+- **Error:** `Wave already in status: scheduled` when user stops a wave and tries to reschedule it.
+- **Root Cause:** Guard `['scheduled', 'sending', 'done', 'completed']` was too aggressive. When user clicks Stop, queue items get cancelled but wave status may stay 'scheduled' (RLS silent failure on status update). Rescheduling then fails because 'scheduled' is in the block list. The "Delete Old Queue Items" node already handles cleanup, making the 'scheduled' guard redundant.
+- **Solution:** Remove 'scheduled' from the guard list → `['sending', 'done', 'completed']`. Also have UI set `status: 'draft'` in handleSchedule before calling WF7 (belt and suspenders). Also add 'cancelled' to Delete Old Queue Items filter so cancelled items are cleaned up on reschedule.
+---

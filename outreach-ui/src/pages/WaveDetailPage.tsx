@@ -422,6 +422,7 @@ export default function WaveDetailPage() {
       await updateWave.mutateAsync({
         id: wave.id,
         updates: {
+          status: 'draft', // Reset status so WF7 guard allows (re)scheduling
           sequence_schedule: schedule,
           // Legacy compat: first 3 seqs
           ...(schedule[0] ? { send_date_seq1: schedule[0].send_date, send_time_seq1: schedule[0].send_time } : {}),
