@@ -18,5 +18,6 @@
 
 | Branch | Agent | Files (exact paths) | Started | Last Updated | PR |
 |---|---|---|---|---|---|
+| claude/domain-discovery | Claude | n8n-workflows/wf2-ares-lookup.json, n8n-workflows/wf3-kurzy-scrape.json, n8n-workflows/wf4-email-gen.json, n8n-workflows/sub-domain-discovery.json, docs/architecture.md, docs/operations-manual.md, CLAUDE.md | 2026-03-16 | 2026-03-16 | — |
 
 
