@@ -379,7 +379,7 @@
         },
         "sendBody": true,
         "specifyBody": "json",
-        "jsonBody": "={{ JSON.stringify({ credential_name: 'Burner SMTP', from: $json.outreach_email, to: $json.email_address, subject: $json.smtp_subject, html: $json.body_rendered, replyTo: $json.salesman_email, messageId: $json.generated_message_id, inReplyTo: $json.proxy_in_reply_to || '', references: $json.proxy_references || '' }) }}",
+        "jsonBody": "={{ JSON.stringify({ credential_name: 'Burner SMTP', from: $('Prepare Email').first().json.outreach_email, to: $('Prepare Email').first().json.email_address, subject: $('Prepare Email').first().json.smtp_subject, html: $('Prepare Email').first().json.body_rendered, replyTo: $('Prepare Email').first().json.salesman_email, messageId: $('Prepare Email').first().json.generated_message_id, inReplyTo: $('Prepare Email').first().json.proxy_in_reply_to || '', references: $('Prepare Email').first().json.proxy_references || '' }) }}",
         "options": {
           "timeout": 30000,
           "neverError": true
