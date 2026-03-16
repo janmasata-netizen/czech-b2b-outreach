@@ -288,7 +288,7 @@ CSV import / AddLead dialog (s volbou enrichment level)
    - Ulozi scheduling_report do waves tabulky
         |
         v
-   WF8: Send Cron (cron:every-5min)
+   WF8: Send Cron (cron:every-1min)
    - claim_queued_emails() — atomicke prevzeti emailu z fronty
    - increment_and_check_sends(team_id) — kontrola dennich limitu
    - Odeslani pres SMTP proxy s threading hlavickami
@@ -337,7 +337,7 @@ Kompletni seznam vsech n8n workflow s identifikatory:
 | wf5-seznam-verify | 7JzGHAG24ra3977B | webhook:wf5-seznam | SMTP overeni emailu (get_contacts_for_lead RPC), seznam_status='verified' + is_verified=true, mark_jednatels_email_status, vzdy spousti WF11 |
 | wf6-qev-verify | EbKgRSRr2Poe34vH | webhook:wf6-qev | **DEAKTIVOVANY** — QEV overeni odstraneno, SMTP staci |
 | wf7-wave-schedule | TVNOzjSnaWrmTlqw | webhook:wf7-wave-schedule | Planovani vlny + scheduling_report (contacts nested select) |
-| wf8-send-cron | wJLD5sFxddNNxR7p | cron:every-5min | Odesilani emailu z fronty |
+| wf8-send-cron | wJLD5sFxddNNxR7p | cron:every-1min | Odesilani emailu z fronty |
 | wf9-reply-detection | AaHXknYh9egPDxcG | cron:every-1min | Detekce odpovedi pres IMAP proxy |
 | wf10-daily-reset | 50Odnt5vzIMfSBZE | cron:midnight | Reset dennich pocitadel + cisteni |
 | wf11-website-fallback | E5QzxzZe4JbSv5lU | webhook:wf11-website-fallback | Website email scraper + finalni lead status (vzdy spousten z WF5). Fetch nody bez fullResponse:true (fix 0-items bug). Rozpoznava seznam_status 'verified' i 'likely_valid'. Lenientni SMTP klasifikace: odmitne jen smtp_result='invalid' (viz dual-strictness nize). |
