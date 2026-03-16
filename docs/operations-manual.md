@@ -566,10 +566,12 @@ Zobrazované metriky:
 | Mozna pricina | Jak overit | Reseni |
 |---------------|------------|--------|
 | WF8 (send cron) neni aktivni | Zkontrolujte v n8n admin (`/workflow/wJLD5sFxddNNxR7p`) | Aktivujte workflow |
+| WF8 trigger odpojeny (connection mismatch) | Spustte `node n8n-workflows/diagnose-wave-send.mjs` — pokud executions trvaji ~20ms misto 200ms+, trigger neni propojeny s dalsimi nody | Opravte connection key v `wf8-send-cron.json` (musi odpovidat jmenu trigger nodu) a pushnte pres `update.mjs` |
 | Denni limit vyčerpan | `/system` → Denni limity | Pocejte na reset o pulnoci, nebo zvyste limit v `/nastaveni/tymy` |
 | SMTP proxy nefunguje | SSH na VPS → `docker logs smtp-proxy` | `docker restart smtp-proxy`, zkontrolujte `config.json` |
 | Fronta je prazdna | `/system` → Ve fronte = 0 | Zkontrolujte, ze vlna je ve stavu `scheduled` nebo `sending` |
 | Chyba SMTP credentials | Detail selhanelostho emailu → duvod | Overite SMTP udaje v `smtp-proxy/config.json` na VPS |
+| Vlna zrusena pred casem odeslani | Zkontrolujte `email_queue` status — vsechny `cancelled` | Uzivatel zrusil vlnu pred tim, nez emaily dosahly `scheduled_at`. Preplante znovu. |
 
 ### Odpovedi se nedetekuji
 
