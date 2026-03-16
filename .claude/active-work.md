@@ -18,5 +18,6 @@
 
 | Branch | Agent | Files (exact paths) | Started | Last Updated | PR |
 |---|---|---|---|---|---|
+| claude/fix-wave-reschedule | Claude | n8n-workflows/wf7-wave-schedule.json, outreach-ui/src/pages/WaveDetailPage.tsx, docs/operations-manual.md, n8n-workflows/known-issues/email-send.md | 2026-03-16 | 2026-03-16 | - |
 
 
