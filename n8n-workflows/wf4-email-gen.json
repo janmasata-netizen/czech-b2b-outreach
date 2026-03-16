@@ -13,10 +13,7 @@
       "name": "Webhook Trigger",
       "type": "n8n-nodes-base.webhook",
       "typeVersion": 2,
-      "position": [
-        0,
-        300
-      ],
+      "position": [0, 300],
       "webhookId": "wf4-email-gen",
       "credentials": {
         "httpHeaderAuth": {
@@ -34,10 +31,7 @@
       "name": "Extract Lead ID",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
-      "position": [
-        240,
-        300
-      ]
+      "position": [240, 300]
     },
     {
       "parameters": {
@@ -46,46 +40,57 @@
         "sendHeaders": true,
         "headerParameters": {
           "parameters": [
-            {
-              "name": "apikey",
-              "value": "SUPABASE_SERVICE_ROLE_KEY_PLACEHOLDER"
-            },
-            {
-              "name": "Authorization",
-              "value": "Bearer SUPABASE_SERVICE_ROLE_KEY_PLACEHOLDER"
-            }
+            { "name": "apikey", "value": "SUPABASE_SERVICE_ROLE_KEY_PLACEHOLDER" },
+            { "name": "Authorization", "value": "Bearer SUPABASE_SERVICE_ROLE_KEY_PLACEHOLDER" }
           ]
         },
         "sendQuery": true,
         "queryParameters": {
           "parameters": [
-            {
-              "name": "select",
-              "value": "id,domain,website,company_name"
-            },
-            {
-              "name": "id",
-              "value": "={{ 'eq.' + $json.lead_id }}"
-            },
-            {
-              "name": "limit",
-              "value": "1"
-            }
+            { "name": "select", "value": "id,domain,website,company_name,company_id,ico" },
+            { "name": "id", "value": "={{ 'eq.' + $json.lead_id }}" },
+            { "name": "limit", "value": "1" }
           ]
         },
-        "options": {
-          "timeout": 30000,
-          "neverError": true
-        }
+        "options": { "timeout": 30000, "neverError": true }
       },
       "id": "wf04-0000-0000-0000-000000000003",
       "name": "Get Lead",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
-      "position": [
-        480,
-        300
-      ]
+      "position": [480, 300]
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "jsCode": "const lead = $input.first().json;\nconst lead_id = $('Extract Lead ID').first().json.lead_id;\nlet domain = (lead.domain || lead.website || '').replace(/^https?:\\/\\/(www\\.)?/, '').replace(/\\/.*$/, '').trim();\nconst hasDomain = !!(domain && domain.length > 0);\nreturn [{ json: { lead_id, company_id: lead.company_id || '', company_name: lead.company_name || '', ico: lead.ico || '', domain, has_domain: hasDomain } }];"
+      },
+      "id": "wf04-check-domain",
+      "name": "Check Has Domain",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [720, 300]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {},
+          "conditions": [
+            {
+              "id": "has-domain",
+              "leftValue": "={{ $json.has_domain }}",
+              "rightValue": true,
+              "operator": { "type": "boolean", "operation": "equals" }
+            }
+          ],
+          "combinator": "and"
+        }
+      },
+      "id": "wf04-if-domain",
+      "name": "IF Has Domain",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [960, 300]
     },
     {
       "parameters": {
@@ -94,50 +99,32 @@
         "sendHeaders": true,
         "headerParameters": {
           "parameters": [
-            {
-              "name": "apikey",
-              "value": "SUPABASE_SERVICE_ROLE_KEY_PLACEHOLDER"
-            },
-            {
-              "name": "Authorization",
-              "value": "Bearer SUPABASE_SERVICE_ROLE_KEY_PLACEHOLDER"
-            },
-            {
-              "name": "Content-Type",
-              "value": "application/json"
-            }
+            { "name": "apikey", "value": "SUPABASE_SERVICE_ROLE_KEY_PLACEHOLDER" },
+            { "name": "Authorization", "value": "Bearer SUPABASE_SERVICE_ROLE_KEY_PLACEHOLDER" },
+            { "name": "Content-Type", "value": "application/json" }
           ]
         },
         "sendBody": true,
         "specifyBody": "json",
         "jsonBody": "={{ JSON.stringify({ p_lead_id: $('Extract Lead ID').first().json.lead_id }) }}",
-        "options": {
-          "timeout": 30000,
-          "neverError": true
-        }
+        "options": { "timeout": 30000, "neverError": true }
       },
       "id": "wf04-0000-0000-0000-000000000004",
       "name": "Get Contacts",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
-      "position": [
-        720,
-        300
-      ]
+      "position": [1200, 180]
     },
     {
       "parameters": {
         "mode": "runOnceForAllItems",
-        "jsCode": "function stripDiacritics(str) {\n  return str.normalize('NFD').replace(/[\\u0300-\\u036f]/g, '').toLowerCase().replace(/[^a-z0-9]/g, '');\n}\n\nconst lead      = $('Get Lead').first().json;\nconst rpcResult = $('Get Contacts').first().json;\nconst contacts = rpcResult.contacts ?? [];\nconst lead_id   = $('Extract Lead ID').first().json.lead_id;\n\nlet domain = lead.domain || lead.website || '';\ndomain = domain.replace(/^https?:\\/\\/(www\\.)?/, '').replace(/\\/.*$/, '').trim();\nif (!domain) {\n  return { json: { lead_id, candidates_count: 0, no_candidates_reason: 'no_domain' } };\n}\n\nif (contacts.length === 0) {\n  return { json: { lead_id, candidates_count: 0, no_candidates_reason: 'no_jednatels' } };\n}\n\nconst allCandidates = [];\nfor (const j of contacts) {\n  const first = stripDiacritics(j.first_name || '');\n  const last  = stripDiacritics(j.last_name  || '');\n  if (!first || !last) continue;\n  const combos = [\n    `${first}.${last}`, `${last}.${first}`, `${first[0]}.${last}`,\n    last, first, `${first}${last}`, `${last}${first[0]}`,\n    `${first}.${last[0]}`, `${first[0]}.${last[0]}`, `${first[0]}${last}`,\n  ].map(local => ({ contact_id: j.id, email_address: `${local}@${domain}`, seznam_status: 'pending' }));\n  allCandidates.push(...combos);\n}\n\nreturn { json: {\n  lead_id,\n  candidates:       allCandidates,\n  candidates_count: allCandidates.length,\n  no_candidates_reason: null,\n} };"
+        "jsCode": "function stripDiacritics(str) {\n  return str.normalize('NFD').replace(/[\\u0300-\\u036f]/g, '').toLowerCase().replace(/[^a-z0-9]/g, '');\n}\n\nconst lead      = $('Check Has Domain').first().json;\nconst rpcResult = $('Get Contacts').first().json;\nconst contacts = rpcResult.contacts ?? [];\nconst lead_id   = $('Extract Lead ID').first().json.lead_id;\n\nlet domain = lead.domain || '';\nif (!domain) {\n  return { json: { lead_id, candidates_count: 0, no_candidates_reason: 'no_domain' } };\n}\n\nif (contacts.length === 0) {\n  return { json: { lead_id, candidates_count: 0, no_candidates_reason: 'no_jednatels' } };\n}\n\nconst allCandidates = [];\nfor (const j of contacts) {\n  const first = stripDiacritics(j.first_name || '');\n  const last  = stripDiacritics(j.last_name  || '');\n  if (!first || !last) continue;\n  const combos = [\n    `${first}.${last}`, `${last}.${first}`, `${first[0]}.${last}`,\n    last, first, `${first}${last}`, `${last}${first[0]}`,\n    `${first}.${last[0]}`, `${first[0]}.${last[0]}`, `${first[0]}${last}`,\n  ].map(local => ({ contact_id: j.id, email_address: `${local}@${domain}`, seznam_status: 'pending' }));\n  allCandidates.push(...combos);\n}\n\nreturn { json: {\n  lead_id,\n  candidates:       allCandidates,\n  candidates_count: allCandidates.length,\n  no_candidates_reason: null,\n} };"
       },
       "id": "wf04-0000-0000-0000-000000000006",
       "name": "Generate Combinations",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
-      "position": [
-        960,
-        300
-      ]
+      "position": [1440, 180]
     },
     {
       "parameters": {
@@ -148,10 +135,7 @@
               "id": "has-candidates",
               "leftValue": "={{ $json.candidates_count }}",
               "rightValue": 0,
-              "operator": {
-                "type": "number",
-                "operation": "gt"
-              }
+              "operator": { "type": "number", "operation": "gt" }
             }
           ],
           "combinator": "and"
@@ -161,10 +145,7 @@
       "name": "IF Has Candidates",
       "type": "n8n-nodes-base.if",
       "typeVersion": 2,
-      "position": [
-        1200,
-        300
-      ]
+      "position": [1680, 180]
     },
     {
       "parameters": {
@@ -173,78 +154,45 @@
         "sendHeaders": true,
         "headerParameters": {
           "parameters": [
-            {
-              "name": "apikey",
-              "value": "SUPABASE_SERVICE_ROLE_KEY_PLACEHOLDER"
-            },
-            {
-              "name": "Authorization",
-              "value": "Bearer SUPABASE_SERVICE_ROLE_KEY_PLACEHOLDER"
-            },
-            {
-              "name": "Content-Type",
-              "value": "application/json"
-            }
+            { "name": "apikey", "value": "SUPABASE_SERVICE_ROLE_KEY_PLACEHOLDER" },
+            { "name": "Authorization", "value": "Bearer SUPABASE_SERVICE_ROLE_KEY_PLACEHOLDER" },
+            { "name": "Content-Type", "value": "application/json" }
           ]
         },
         "sendBody": true,
         "specifyBody": "json",
         "jsonBody": "={{ JSON.stringify({ lead_id: $('Extract Lead ID').first().json.lead_id, step: 'email_generation', status: 'started' }) }}",
-        "options": {
-          "timeout": 30000,
-          "neverError": true
-        }
+        "options": { "timeout": 30000, "neverError": true }
       },
       "id": "wf04-0000-0000-0000-000000000005",
       "name": "Log Started",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
-      "position": [
-        1440,
-        120
-      ]
+      "position": [1920, 60]
     },
     {
       "id": "wf04-0000-0000-0000-000000000020",
       "name": "Insert Candidates",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
-      "position": [
-        1680,
-        120
-      ],
+      "position": [2160, 60],
       "parameters": {
         "method": "POST",
         "url": "https://cycapkswtucbucyegdsn.supabase.co/rest/v1/email_candidates",
         "sendHeaders": true,
         "headerParameters": {
           "parameters": [
-            {
-              "name": "apikey",
-              "value": "SUPABASE_SERVICE_ROLE_KEY_PLACEHOLDER"
-            },
-            {
-              "name": "Authorization",
-              "value": "Bearer SUPABASE_SERVICE_ROLE_KEY_PLACEHOLDER"
-            },
-            {
-              "name": "Content-Type",
-              "value": "application/json"
-            },
-            {
-              "name": "Prefer",
-              "value": "resolution=ignore-duplicates,return=minimal"
-            }
+            { "name": "apikey", "value": "SUPABASE_SERVICE_ROLE_KEY_PLACEHOLDER" },
+            { "name": "Authorization", "value": "Bearer SUPABASE_SERVICE_ROLE_KEY_PLACEHOLDER" },
+            { "name": "Content-Type", "value": "application/json" },
+            { "name": "Prefer", "value": "resolution=ignore-duplicates,return=minimal" }
           ]
         },
         "sendBody": true,
         "contentType": "raw",
         "rawContentType": "application/json",
         "body": "={{ JSON.stringify($('Generate Combinations').first().json.candidates) }}",
-        "options": {
-          "timeout": 30000,
-          "neverError": true
-        }
+        "options": { "timeout": 30000, "neverError": true }
       }
     },
     {
@@ -254,45 +202,27 @@
         "sendHeaders": true,
         "headerParameters": {
           "parameters": [
-            {
-              "name": "apikey",
-              "value": "SUPABASE_SERVICE_ROLE_KEY_PLACEHOLDER"
-            },
-            {
-              "name": "Authorization",
-              "value": "Bearer SUPABASE_SERVICE_ROLE_KEY_PLACEHOLDER"
-            },
-            {
-              "name": "Content-Type",
-              "value": "application/json"
-            }
+            { "name": "apikey", "value": "SUPABASE_SERVICE_ROLE_KEY_PLACEHOLDER" },
+            { "name": "Authorization", "value": "Bearer SUPABASE_SERVICE_ROLE_KEY_PLACEHOLDER" },
+            { "name": "Content-Type", "value": "application/json" }
           ]
         },
         "sendQuery": true,
         "queryParameters": {
           "parameters": [
-            {
-              "name": "id",
-              "value": "={{ 'eq.' + $('Extract Lead ID').first().json.lead_id }}"
-            }
+            { "name": "id", "value": "={{ 'eq.' + $('Extract Lead ID').first().json.lead_id }}" }
           ]
         },
         "sendBody": true,
         "specifyBody": "json",
         "jsonBody": "={ \"status\": \"email_discovery\" }",
-        "options": {
-          "timeout": 30000,
-          "neverError": true
-        }
+        "options": { "timeout": 30000, "neverError": true }
       },
       "id": "wf04-0000-0000-0000-000000000009",
       "name": "Update Lead Status",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
-      "position": [
-        1920,
-        120
-      ]
+      "position": [2400, 60]
     },
     {
       "parameters": {
@@ -301,36 +231,21 @@
         "sendHeaders": true,
         "headerParameters": {
           "parameters": [
-            {
-              "name": "apikey",
-              "value": "SUPABASE_SERVICE_ROLE_KEY_PLACEHOLDER"
-            },
-            {
-              "name": "Authorization",
-              "value": "Bearer SUPABASE_SERVICE_ROLE_KEY_PLACEHOLDER"
-            },
-            {
-              "name": "Content-Type",
-              "value": "application/json"
-            }
+            { "name": "apikey", "value": "SUPABASE_SERVICE_ROLE_KEY_PLACEHOLDER" },
+            { "name": "Authorization", "value": "Bearer SUPABASE_SERVICE_ROLE_KEY_PLACEHOLDER" },
+            { "name": "Content-Type", "value": "application/json" }
           ]
         },
         "sendBody": true,
         "specifyBody": "json",
         "jsonBody": "={{ JSON.stringify({ lead_id: $('Extract Lead ID').first().json.lead_id, step: 'email_generation', status: 'success', completed_at: new Date().toISOString() }) }}",
-        "options": {
-          "timeout": 30000,
-          "neverError": true
-        }
+        "options": { "timeout": 30000, "neverError": true }
       },
       "id": "wf04-0000-0000-0000-000000000010",
       "name": "Log Success",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
-      "position": [
-        2160,
-        120
-      ]
+      "position": [2640, 60]
     },
     {
       "parameters": {
@@ -339,32 +254,20 @@
         "sendHeaders": true,
         "headerParameters": {
           "parameters": [
-            {
-              "name": "Content-Type",
-              "value": "application/json"
-            },
-            {
-              "name": "X-Webhook-Secret",
-              "value": "reWDUmcjSRPTv3k-0CKdoASO_KY7Z3ux"
-            }
+            { "name": "Content-Type", "value": "application/json" },
+            { "name": "X-Webhook-Secret", "value": "reWDUmcjSRPTv3k-0CKdoASO_KY7Z3ux" }
           ]
         },
         "sendBody": true,
         "specifyBody": "json",
         "jsonBody": "={{ JSON.stringify({ lead_id: $('Extract Lead ID').first().json.lead_id }) }}",
-        "options": {
-          "timeout": 30000,
-          "neverError": true
-        }
+        "options": { "timeout": 30000, "neverError": true }
       },
       "id": "wf04-0000-0000-0000-000000000011",
       "name": "Trigger WF5",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
-      "position": [
-        2400,
-        120
-      ]
+      "position": [2880, 60]
     },
     {
       "parameters": {
@@ -373,45 +276,27 @@
         "sendHeaders": true,
         "headerParameters": {
           "parameters": [
-            {
-              "name": "apikey",
-              "value": "SUPABASE_SERVICE_ROLE_KEY_PLACEHOLDER"
-            },
-            {
-              "name": "Authorization",
-              "value": "Bearer SUPABASE_SERVICE_ROLE_KEY_PLACEHOLDER"
-            },
-            {
-              "name": "Content-Type",
-              "value": "application/json"
-            }
+            { "name": "apikey", "value": "SUPABASE_SERVICE_ROLE_KEY_PLACEHOLDER" },
+            { "name": "Authorization", "value": "Bearer SUPABASE_SERVICE_ROLE_KEY_PLACEHOLDER" },
+            { "name": "Content-Type", "value": "application/json" }
           ]
         },
         "sendQuery": true,
         "queryParameters": {
           "parameters": [
-            {
-              "name": "id",
-              "value": "={{ 'eq.' + $('Extract Lead ID').first().json.lead_id }}"
-            }
+            { "name": "id", "value": "={{ 'eq.' + $('Extract Lead ID').first().json.lead_id }}" }
           ]
         },
         "sendBody": true,
         "specifyBody": "json",
-        "jsonBody": "={{ JSON.stringify({ status: 'failed', enrichment_error: 'WF4: ' + ($json.no_candidates_reason === 'no_domain' ? 'No domain set for lead' : 'No contacts found — check WF3 scrape') }) }}",
-        "options": {
-          "timeout": 30000,
-          "neverError": true
-        }
+        "jsonBody": "={{ JSON.stringify({ status: 'failed', enrichment_error: 'WF4: ' + ($json.no_candidates_reason === 'no_domain' ? 'No domain found after discovery' : 'No contacts found — check WF3 scrape') }) }}",
+        "options": { "timeout": 30000, "neverError": true }
       },
       "id": "wf04-set-lead-failed",
       "name": "Set Lead Failed",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
-      "position": [
-        1440,
-        480
-      ]
+      "position": [1920, 360]
     },
     {
       "parameters": {
@@ -420,166 +305,526 @@
         "sendHeaders": true,
         "headerParameters": {
           "parameters": [
-            {
-              "name": "apikey",
-              "value": "SUPABASE_SERVICE_ROLE_KEY_PLACEHOLDER"
-            },
-            {
-              "name": "Authorization",
-              "value": "Bearer SUPABASE_SERVICE_ROLE_KEY_PLACEHOLDER"
-            },
-            {
-              "name": "Content-Type",
-              "value": "application/json"
-            }
+            { "name": "apikey", "value": "SUPABASE_SERVICE_ROLE_KEY_PLACEHOLDER" },
+            { "name": "Authorization", "value": "Bearer SUPABASE_SERVICE_ROLE_KEY_PLACEHOLDER" },
+            { "name": "Content-Type", "value": "application/json" }
           ]
         },
         "sendBody": true,
         "specifyBody": "json",
         "jsonBody": "={{ JSON.stringify({ lead_id: $('Extract Lead ID').first().json.lead_id, step: 'email_generation', status: 'failed', error_message: $json.no_candidates_reason, completed_at: new Date().toISOString() }) }}",
-        "options": {
-          "timeout": 30000,
-          "neverError": true
-        }
+        "options": { "timeout": 30000, "neverError": true }
       },
       "id": "wf04-log-failed",
       "name": "Log Failed",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
-      "position": [
-        1680,
-        480
-      ]
+      "position": [2160, 360]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://cycapkswtucbucyegdsn.supabase.co/rest/v1/enrichment_log",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            { "name": "apikey", "value": "SUPABASE_SERVICE_ROLE_KEY_PLACEHOLDER" },
+            { "name": "Authorization", "value": "Bearer SUPABASE_SERVICE_ROLE_KEY_PLACEHOLDER" },
+            { "name": "Content-Type", "value": "application/json" }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ lead_id: $('Check Has Domain').first().json.lead_id, step: 'domain_discovery', status: 'started', details: 'No domain — running sub-domain-discovery' }) }}",
+        "options": { "timeout": 30000, "neverError": true }
+      },
+      "id": "wf04-log-discovery",
+      "name": "Log Discovery Started",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [1200, 540]
+    },
+    {
+      "parameters": {
+        "source": "database",
+        "workflowId": "__SUB_DOMAIN_DISCOVERY_ID__",
+        "waitForSubWorkflow": true
+      },
+      "id": "wf04-exec-discovery",
+      "name": "Execute Domain Discovery",
+      "type": "n8n-nodes-base.executeWorkflow",
+      "typeVersion": 1,
+      "position": [1440, 540]
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForEachItem",
+        "jsCode": "const result = $input.item.json;\nconst prev = $('Check Has Domain').first().json;\nreturn { json: { lead_id: prev.lead_id, company_id: prev.company_id, company_name: prev.company_name, found: result.found || false, domain: result.domain || '', source: result.source || '' } };"
+      },
+      "id": "wf04-parse-discovery",
+      "name": "Parse Discovery Result",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1680, 540]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {},
+          "conditions": [
+            {
+              "id": "discovery-found",
+              "leftValue": "={{ $json.found }}",
+              "rightValue": true,
+              "operator": { "type": "boolean", "operation": "equals" }
+            }
+          ],
+          "combinator": "and"
+        }
+      },
+      "id": "wf04-if-discovery",
+      "name": "IF Discovery Found",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [1920, 540]
+    },
+    {
+      "parameters": {
+        "method": "PATCH",
+        "url": "https://cycapkswtucbucyegdsn.supabase.co/rest/v1/leads",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            { "name": "apikey", "value": "SUPABASE_SERVICE_ROLE_KEY_PLACEHOLDER" },
+            { "name": "Authorization", "value": "Bearer SUPABASE_SERVICE_ROLE_KEY_PLACEHOLDER" },
+            { "name": "Content-Type", "value": "application/json" }
+          ]
+        },
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            { "name": "id", "value": "={{ 'eq.' + $json.lead_id }}" }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ domain: $json.domain, website: 'https://' + $json.domain }) }}",
+        "options": { "timeout": 30000, "neverError": true }
+      },
+      "id": "wf04-update-lead-domain",
+      "name": "Update Lead Domain",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [2160, 480]
+    },
+    {
+      "parameters": {
+        "method": "PATCH",
+        "url": "https://cycapkswtucbucyegdsn.supabase.co/rest/v1/companies",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            { "name": "apikey", "value": "SUPABASE_SERVICE_ROLE_KEY_PLACEHOLDER" },
+            { "name": "Authorization", "value": "Bearer SUPABASE_SERVICE_ROLE_KEY_PLACEHOLDER" },
+            { "name": "Content-Type", "value": "application/json" }
+          ]
+        },
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            { "name": "id", "value": "={{ 'eq.' + $('Parse Discovery Result').first().json.company_id }}" },
+            { "name": "domain", "value": "is.null" }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ domain: $('Parse Discovery Result').first().json.domain, website: 'https://' + $('Parse Discovery Result').first().json.domain }) }}",
+        "options": { "timeout": 30000, "neverError": true }
+      },
+      "id": "wf04-update-company-domain",
+      "name": "Update Company Domain",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [2400, 480]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://cycapkswtucbucyegdsn.supabase.co/rest/v1/enrichment_log",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            { "name": "apikey", "value": "SUPABASE_SERVICE_ROLE_KEY_PLACEHOLDER" },
+            { "name": "Authorization", "value": "Bearer SUPABASE_SERVICE_ROLE_KEY_PLACEHOLDER" },
+            { "name": "Content-Type", "value": "application/json" }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ lead_id: $('Parse Discovery Result').first().json.lead_id, step: 'domain_discovery', status: 'success', completed_at: new Date().toISOString(), details: 'Domain found: ' + $('Parse Discovery Result').first().json.domain + ' (source: ' + $('Parse Discovery Result').first().json.source + ')' }) }}",
+        "options": { "timeout": 30000, "neverError": true }
+      },
+      "id": "wf04-log-discovery-success",
+      "name": "Log Discovery Success",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [2640, 480]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://cycapkswtucbucyegdsn.supabase.co/rest/v1/rpc/get_contacts_for_lead",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            { "name": "apikey", "value": "SUPABASE_SERVICE_ROLE_KEY_PLACEHOLDER" },
+            { "name": "Authorization", "value": "Bearer SUPABASE_SERVICE_ROLE_KEY_PLACEHOLDER" },
+            { "name": "Content-Type", "value": "application/json" }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ p_lead_id: $('Extract Lead ID').first().json.lead_id }) }}",
+        "options": { "timeout": 30000, "neverError": true }
+      },
+      "id": "wf04-get-contacts-retry",
+      "name": "Get Contacts (Retry)",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [2880, 480]
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "jsCode": "function stripDiacritics(str) {\n  return str.normalize('NFD').replace(/[\\u0300-\\u036f]/g, '').toLowerCase().replace(/[^a-z0-9]/g, '');\n}\n\nconst domain = $('Parse Discovery Result').first().json.domain;\nconst rpcResult = $('Get Contacts (Retry)').first().json;\nconst contacts = rpcResult.contacts ?? [];\nconst lead_id = $('Extract Lead ID').first().json.lead_id;\n\nif (!domain) {\n  return { json: { lead_id, candidates_count: 0, no_candidates_reason: 'no_domain' } };\n}\nif (contacts.length === 0) {\n  return { json: { lead_id, candidates_count: 0, no_candidates_reason: 'no_jednatels' } };\n}\n\nconst allCandidates = [];\nfor (const j of contacts) {\n  const first = stripDiacritics(j.first_name || '');\n  const last  = stripDiacritics(j.last_name  || '');\n  if (!first || !last) continue;\n  const combos = [\n    `${first}.${last}`, `${last}.${first}`, `${first[0]}.${last}`,\n    last, first, `${first}${last}`, `${last}${first[0]}`,\n    `${first}.${last[0]}`, `${first[0]}.${last[0]}`, `${first[0]}${last}`,\n  ].map(local => ({ contact_id: j.id, email_address: `${local}@${domain}`, seznam_status: 'pending' }));\n  allCandidates.push(...combos);\n}\n\nreturn { json: {\n  lead_id,\n  candidates: allCandidates,\n  candidates_count: allCandidates.length,\n  no_candidates_reason: null,\n} };"
+      },
+      "id": "wf04-gen-combos-retry",
+      "name": "Generate Combinations (Retry)",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [3120, 480]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {},
+          "conditions": [
+            {
+              "id": "has-candidates-retry",
+              "leftValue": "={{ $json.candidates_count }}",
+              "rightValue": 0,
+              "operator": { "type": "number", "operation": "gt" }
+            }
+          ],
+          "combinator": "and"
+        }
+      },
+      "id": "wf04-if-retry-candidates",
+      "name": "IF Has Candidates (Retry)",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [3360, 480]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://cycapkswtucbucyegdsn.supabase.co/rest/v1/enrichment_log",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            { "name": "apikey", "value": "SUPABASE_SERVICE_ROLE_KEY_PLACEHOLDER" },
+            { "name": "Authorization", "value": "Bearer SUPABASE_SERVICE_ROLE_KEY_PLACEHOLDER" },
+            { "name": "Content-Type", "value": "application/json" }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ lead_id: $('Extract Lead ID').first().json.lead_id, step: 'email_generation', status: 'started', details: 'After domain discovery' }) }}",
+        "options": { "timeout": 30000, "neverError": true }
+      },
+      "id": "wf04-log-started-retry",
+      "name": "Log Started (Retry)",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [3600, 360]
+    },
+    {
+      "id": "wf04-insert-retry",
+      "name": "Insert Candidates (Retry)",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [3840, 360],
+      "parameters": {
+        "method": "POST",
+        "url": "https://cycapkswtucbucyegdsn.supabase.co/rest/v1/email_candidates",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            { "name": "apikey", "value": "SUPABASE_SERVICE_ROLE_KEY_PLACEHOLDER" },
+            { "name": "Authorization", "value": "Bearer SUPABASE_SERVICE_ROLE_KEY_PLACEHOLDER" },
+            { "name": "Content-Type", "value": "application/json" },
+            { "name": "Prefer", "value": "resolution=ignore-duplicates,return=minimal" }
+          ]
+        },
+        "sendBody": true,
+        "contentType": "raw",
+        "rawContentType": "application/json",
+        "body": "={{ JSON.stringify($('Generate Combinations (Retry)').first().json.candidates) }}",
+        "options": { "timeout": 30000, "neverError": true }
+      }
+    },
+    {
+      "parameters": {
+        "method": "PATCH",
+        "url": "https://cycapkswtucbucyegdsn.supabase.co/rest/v1/leads",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            { "name": "apikey", "value": "SUPABASE_SERVICE_ROLE_KEY_PLACEHOLDER" },
+            { "name": "Authorization", "value": "Bearer SUPABASE_SERVICE_ROLE_KEY_PLACEHOLDER" },
+            { "name": "Content-Type", "value": "application/json" }
+          ]
+        },
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            { "name": "id", "value": "={{ 'eq.' + $('Extract Lead ID').first().json.lead_id }}" }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={ \"status\": \"email_discovery\" }",
+        "options": { "timeout": 30000, "neverError": true }
+      },
+      "id": "wf04-update-status-retry",
+      "name": "Update Lead Status (Retry)",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [4080, 360]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://cycapkswtucbucyegdsn.supabase.co/rest/v1/enrichment_log",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            { "name": "apikey", "value": "SUPABASE_SERVICE_ROLE_KEY_PLACEHOLDER" },
+            { "name": "Authorization", "value": "Bearer SUPABASE_SERVICE_ROLE_KEY_PLACEHOLDER" },
+            { "name": "Content-Type", "value": "application/json" }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ lead_id: $('Extract Lead ID').first().json.lead_id, step: 'email_generation', status: 'success', completed_at: new Date().toISOString(), details: 'After domain discovery' }) }}",
+        "options": { "timeout": 30000, "neverError": true }
+      },
+      "id": "wf04-log-success-retry",
+      "name": "Log Success (Retry)",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [4320, 360]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "http://72.62.53.244:32770/webhook/wf5-seznam",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            { "name": "Content-Type", "value": "application/json" },
+            { "name": "X-Webhook-Secret", "value": "reWDUmcjSRPTv3k-0CKdoASO_KY7Z3ux" }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ lead_id: $('Extract Lead ID').first().json.lead_id }) }}",
+        "options": { "timeout": 30000, "neverError": true }
+      },
+      "id": "wf04-trigger-wf5-retry",
+      "name": "Trigger WF5 (Retry)",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [4560, 360]
+    },
+    {
+      "parameters": {
+        "method": "PATCH",
+        "url": "https://cycapkswtucbucyegdsn.supabase.co/rest/v1/leads",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            { "name": "apikey", "value": "SUPABASE_SERVICE_ROLE_KEY_PLACEHOLDER" },
+            { "name": "Authorization", "value": "Bearer SUPABASE_SERVICE_ROLE_KEY_PLACEHOLDER" },
+            { "name": "Content-Type", "value": "application/json" }
+          ]
+        },
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            { "name": "id", "value": "={{ 'eq.' + $('Extract Lead ID').first().json.lead_id }}" }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ status: 'failed', enrichment_error: 'WF4: Domain found (' + $('Parse Discovery Result').first().json.domain + ') but no contacts to generate emails for' }) }}",
+        "options": { "timeout": 30000, "neverError": true }
+      },
+      "id": "wf04-fail-retry",
+      "name": "Set Failed After Discovery",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [3600, 600]
+    },
+    {
+      "parameters": {
+        "method": "PATCH",
+        "url": "https://cycapkswtucbucyegdsn.supabase.co/rest/v1/leads",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            { "name": "apikey", "value": "SUPABASE_SERVICE_ROLE_KEY_PLACEHOLDER" },
+            { "name": "Authorization", "value": "Bearer SUPABASE_SERVICE_ROLE_KEY_PLACEHOLDER" },
+            { "name": "Content-Type", "value": "application/json" }
+          ]
+        },
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            { "name": "id", "value": "={{ 'eq.' + $('Check Has Domain').first().json.lead_id }}" }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ status: 'failed', enrichment_error: 'WF4: No domain found (tried ARES + Firmy.cz + DNS + DuckDuckGo)' }) }}",
+        "options": { "timeout": 30000, "neverError": true }
+      },
+      "id": "wf04-fail-no-discovery",
+      "name": "Set Failed No Discovery",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [2160, 720]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://cycapkswtucbucyegdsn.supabase.co/rest/v1/enrichment_log",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            { "name": "apikey", "value": "SUPABASE_SERVICE_ROLE_KEY_PLACEHOLDER" },
+            { "name": "Authorization", "value": "Bearer SUPABASE_SERVICE_ROLE_KEY_PLACEHOLDER" },
+            { "name": "Content-Type", "value": "application/json" }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ lead_id: $('Check Has Domain').first().json.lead_id, step: 'domain_discovery', status: 'failed', error_message: 'No domain found (ARES + Firmy + DNS + DDG)', completed_at: new Date().toISOString() }) }}",
+        "options": { "timeout": 30000, "neverError": true }
+      },
+      "id": "wf04-log-discovery-fail",
+      "name": "Log Discovery Failed",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [2400, 720]
     }
   ],
   "connections": {
     "Webhook Trigger": {
-      "main": [
-        [
-          {
-            "node": "Extract Lead ID",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
+      "main": [[{ "node": "Extract Lead ID", "type": "main", "index": 0 }]]
     },
     "Extract Lead ID": {
-      "main": [
-        [
-          {
-            "node": "Get Lead",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
+      "main": [[{ "node": "Get Lead", "type": "main", "index": 0 }]]
     },
     "Get Lead": {
+      "main": [[{ "node": "Check Has Domain", "type": "main", "index": 0 }]]
+    },
+    "Check Has Domain": {
+      "main": [[{ "node": "IF Has Domain", "type": "main", "index": 0 }]]
+    },
+    "IF Has Domain": {
       "main": [
-        [
-          {
-            "node": "Get Contacts",
-            "type": "main",
-            "index": 0
-          }
-        ]
+        [{ "node": "Get Contacts", "type": "main", "index": 0 }],
+        [{ "node": "Log Discovery Started", "type": "main", "index": 0 }]
       ]
     },
     "Get Contacts": {
-      "main": [
-        [
-          {
-            "node": "Generate Combinations",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
+      "main": [[{ "node": "Generate Combinations", "type": "main", "index": 0 }]]
     },
     "Generate Combinations": {
-      "main": [
-        [
-          {
-            "node": "IF Has Candidates",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
+      "main": [[{ "node": "IF Has Candidates", "type": "main", "index": 0 }]]
     },
     "IF Has Candidates": {
       "main": [
-        [
-          {
-            "node": "Log Started",
-            "type": "main",
-            "index": 0
-          }
-        ],
-        [
-          {
-            "node": "Set Lead Failed",
-            "type": "main",
-            "index": 0
-          }
-        ]
+        [{ "node": "Log Started", "type": "main", "index": 0 }],
+        [{ "node": "Set Lead Failed", "type": "main", "index": 0 }]
       ]
     },
     "Log Started": {
-      "main": [
-        [
-          {
-            "node": "Insert Candidates",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
+      "main": [[{ "node": "Insert Candidates", "type": "main", "index": 0 }]]
     },
     "Insert Candidates": {
-      "main": [
-        [
-          {
-            "node": "Update Lead Status",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
+      "main": [[{ "node": "Update Lead Status", "type": "main", "index": 0 }]]
     },
     "Update Lead Status": {
-      "main": [
-        [
-          {
-            "node": "Log Success",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
+      "main": [[{ "node": "Log Success", "type": "main", "index": 0 }]]
     },
     "Log Success": {
-      "main": [
-        [
-          {
-            "node": "Trigger WF5",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
+      "main": [[{ "node": "Trigger WF5", "type": "main", "index": 0 }]]
     },
     "Set Lead Failed": {
+      "main": [[{ "node": "Log Failed", "type": "main", "index": 0 }]]
+    },
+    "Log Discovery Started": {
+      "main": [[{ "node": "Execute Domain Discovery", "type": "main", "index": 0 }]]
+    },
+    "Execute Domain Discovery": {
+      "main": [[{ "node": "Parse Discovery Result", "type": "main", "index": 0 }]]
+    },
+    "Parse Discovery Result": {
+      "main": [[{ "node": "IF Discovery Found", "type": "main", "index": 0 }]]
+    },
+    "IF Discovery Found": {
       "main": [
-        [
-          {
-            "node": "Log Failed",
-            "type": "main",
-            "index": 0
-          }
-        ]
+        [{ "node": "Update Lead Domain", "type": "main", "index": 0 }],
+        [{ "node": "Set Failed No Discovery", "type": "main", "index": 0 }]
       ]
+    },
+    "Update Lead Domain": {
+      "main": [[{ "node": "Update Company Domain", "type": "main", "index": 0 }]]
+    },
+    "Update Company Domain": {
+      "main": [[{ "node": "Log Discovery Success", "type": "main", "index": 0 }]]
+    },
+    "Log Discovery Success": {
+      "main": [[{ "node": "Get Contacts (Retry)", "type": "main", "index": 0 }]]
+    },
+    "Get Contacts (Retry)": {
+      "main": [[{ "node": "Generate Combinations (Retry)", "type": "main", "index": 0 }]]
+    },
+    "Generate Combinations (Retry)": {
+      "main": [[{ "node": "IF Has Candidates (Retry)", "type": "main", "index": 0 }]]
+    },
+    "IF Has Candidates (Retry)": {
+      "main": [
+        [{ "node": "Log Started (Retry)", "type": "main", "index": 0 }],
+        [{ "node": "Set Failed After Discovery", "type": "main", "index": 0 }]
+      ]
+    },
+    "Log Started (Retry)": {
+      "main": [[{ "node": "Insert Candidates (Retry)", "type": "main", "index": 0 }]]
+    },
+    "Insert Candidates (Retry)": {
+      "main": [[{ "node": "Update Lead Status (Retry)", "type": "main", "index": 0 }]]
+    },
+    "Update Lead Status (Retry)": {
+      "main": [[{ "node": "Log Success (Retry)", "type": "main", "index": 0 }]]
+    },
+    "Log Success (Retry)": {
+      "main": [[{ "node": "Trigger WF5 (Retry)", "type": "main", "index": 0 }]]
+    },
+    "Set Failed No Discovery": {
+      "main": [[{ "node": "Log Discovery Failed", "type": "main", "index": 0 }]]
     }
   },
   "active": false,

@@ -83,6 +83,7 @@ An automated Czech B2B cold email outreach system built on n8n + Supabase. It en
 | wf-admin-users | JeP8whw3jNtL6VJ1 | webhook:admin-users |
 | wf-email-finder-v3 | KRWLgqTf5ILqSNpk | webhook:wf-email-finder-v3 |
 | sub-clean-domain | 9H3NH7YbR1X2Efgm | executeWorkflowTrigger |
+| sub-domain-discovery | **NEW — deploy needed** | executeWorkflowTrigger |
 | test-reply-detection | q4vUTl37yIJoTeDO | webhook:test-reply-detection |
 
 ## Database schema (Supabase)
@@ -117,6 +118,8 @@ DB trigger: `trg_refresh_salutations_on_wave_add` on `wave_leads` — AFTER INSE
 - **WF5** fetches `seznam_from_email` from `config` table at runtime. SMTP-only verification (no QEV). Sets `seznam_status='verified'` + `is_verified=true` for SMTP-verified emails (previously `'likely_valid'`). Always triggers WF11 after verification. Does NOT set final lead status (WF11 does).
 - **WF6** is **DEACTIVATED** — QEV verification removed. SMTP verification in WF5 produces same results. QEV had a `safe_to_send: "true"` string-vs-boolean bug.
 - **WF11** always runs (triggered by WF5). Scrapes website for additional emails (Fetch nodes use `neverError:true` WITHOUT `fullResponse:true` to avoid 0-items bug). Sets final lead status based on ALL email_candidates (from both WF5 SMTP and WF11 scraping): `ready` > `staff_email` > `info_email` > `failed`. Recognizes both `seznam_status='verified'` and legacy `'likely_valid'`.
+- **Domain Discovery Pipeline**: Leads without website/domain now go through multi-source discovery instead of failing. Sources (in order): (1) ARES BE `www` field in WF2, (2) Kurzy.cz HTML website links in WF3, (3) sub-domain-discovery subworkflow in WF4 (ARES BE → Firmy.cz → DNS probe .cz/.com → DuckDuckGo). WF2 no longer fails leads without ICO+domain — forwards them to WF4 for discovery.
+- **sub-domain-discovery**: Execute Workflow sub-wf. Input: `{ lead_id, company_id, company_name, ico }`. Output: `{ found, domain, source }`. Called from WF4 when lead has no domain. `workflowId` placeholder `__SUB_DOMAIN_DISCOVERY_ID__` must be replaced with actual n8n ID after deployment.
 - **WF8** uses atomic `claim_queued_emails()` RPC + `increment_and_check_sends(p_team_id)` for daily limits (on teams table)
 - **WF8** calls `auto_complete_waves()` on loop done
 - **WF10** calls `reset_daily_sends()` RPC at midnight + deletes old `email_probe_bounces`

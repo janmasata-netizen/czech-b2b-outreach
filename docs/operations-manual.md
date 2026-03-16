@@ -471,6 +471,24 @@ Samostatny nastroj pro vyhledavani a overovani e-mailovych adres. Pristupny na `
 
 > **POZN:** Stare zakladky ICO, Name, Probe a Bulk byly odstraneny. Jejich funkcionalita je nyni soucasti zakladky "Najit emaily" (v3 orchestrator).
 
+### Domain Discovery (sub-domain-discovery)
+
+Automaticky hledani domeny firmy pro leady, ktere nemaji website. Spousti se z WF4 pred selhanim leadu.
+
+**Zdroje (v poradi priority):**
+1. **ARES BE** — `GET /ekonomicke-subjekty/{ico}` → pole `www` (vyzaduje ICO)
+2. **Firmy.cz** — `GET /hledej?dotaz={nazev_firmy}` → extrakce prvni nalezene domeny
+3. **DNS probe** — `HEAD https://{normalizovany_nazev}.cz` a `.com` (5s timeout)
+4. **DuckDuckGo** — `GET html.duckduckgo.com/html/?q={nazev}+website` → prvni vysledek
+
+**Kde se domain discovery pouziva v pipeline:**
+- **WF2:** Po nalezeni ICO provede ARES BE Lookup a extrahuje website (zdroj 1)
+- **WF3:** Pri scraping Kurzy.cz extrahuje website z HTML (pokud lead nema domenu)
+- **WF4:** Pokud lead stale nema domenu → vola sub-domain-discovery (zdroje 1-4)
+- **WF2 (bez ICO):** Misto selhani posle lead do WF4, kde probehne domain discovery
+
+**Vystup sub-workflow:** `{ found: true/false, domain: "example.cz", source: "ares|firmy|dns|ddg" }`
+
 ### Akce s vysledky
 
 | Akce | Popis |

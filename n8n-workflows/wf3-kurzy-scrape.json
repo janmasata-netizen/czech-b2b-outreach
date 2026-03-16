@@ -13,10 +13,7 @@
       "name": "Webhook Trigger",
       "type": "n8n-nodes-base.webhook",
       "typeVersion": 2,
-      "position": [
-        0,
-        300
-      ],
+      "position": [0, 300],
       "webhookId": "wf3-kurzy",
       "credentials": {
         "httpHeaderAuth": {
@@ -34,10 +31,33 @@
       "name": "Extract Params",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
-      "position": [
-        240,
-        300
-      ]
+      "position": [240, 300]
+    },
+    {
+      "parameters": {
+        "method": "GET",
+        "url": "https://cycapkswtucbucyegdsn.supabase.co/rest/v1/leads",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            { "name": "apikey", "value": "SUPABASE_SERVICE_ROLE_KEY_PLACEHOLDER" },
+            { "name": "Authorization", "value": "Bearer SUPABASE_SERVICE_ROLE_KEY_PLACEHOLDER" }
+          ]
+        },
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            { "name": "id", "value": "={{ 'eq.' + $json.lead_id }}" },
+            { "name": "select", "value": "company_id,domain,website" }
+          ]
+        },
+        "options": { "timeout": 30000, "neverError": true }
+      },
+      "id": "wf03-get-lead-company",
+      "name": "Get Lead Company ID",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [480, 300]
     },
     {
       "parameters": {
@@ -46,36 +66,21 @@
         "sendHeaders": true,
         "headerParameters": {
           "parameters": [
-            {
-              "name": "apikey",
-              "value": "SUPABASE_SERVICE_ROLE_KEY_PLACEHOLDER"
-            },
-            {
-              "name": "Authorization",
-              "value": "Bearer SUPABASE_SERVICE_ROLE_KEY_PLACEHOLDER"
-            },
-            {
-              "name": "Content-Type",
-              "value": "application/json"
-            }
+            { "name": "apikey", "value": "SUPABASE_SERVICE_ROLE_KEY_PLACEHOLDER" },
+            { "name": "Authorization", "value": "Bearer SUPABASE_SERVICE_ROLE_KEY_PLACEHOLDER" },
+            { "name": "Content-Type", "value": "application/json" }
           ]
         },
         "sendBody": true,
         "specifyBody": "json",
-        "jsonBody": "={{ JSON.stringify({ lead_id: $json.lead_id, step: 'kurzy_scrape', status: 'started' }) }}",
-        "options": {
-          "timeout": 30000,
-          "neverError": true
-        }
+        "jsonBody": "={{ JSON.stringify({ lead_id: $('Extract Params').first().json.lead_id, step: 'kurzy_scrape', status: 'started' }) }}",
+        "options": { "timeout": 30000, "neverError": true }
       },
       "id": "wf03-0000-0000-0000-000000000003",
       "name": "Log Started",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
-      "position": [
-        480,
-        300
-      ]
+      "position": [720, 300]
     },
     {
       "parameters": {
@@ -84,49 +89,113 @@
         "sendHeaders": true,
         "headerParameters": {
           "parameters": [
-            {
-              "name": "Accept",
-              "value": "text/html,application/xhtml+xml"
-            },
-            {
-              "name": "User-Agent",
-              "value": "Mozilla/5.0 (compatible; bot)"
-            }
+            { "name": "Accept", "value": "text/html,application/xhtml+xml" },
+            { "name": "User-Agent", "value": "Mozilla/5.0 (compatible; bot)" }
           ]
         },
         "options": {
           "timeout": 30000,
           "fullResponse": true,
           "neverError": true,
-          "response": {
-            "response": {
-              "responseFormat": "text"
-            }
-          }
+          "response": { "response": { "responseFormat": "text" } }
         }
       },
       "id": "wf03-0000-0000-0000-000000000004",
       "name": "Fetch Kurzy Page",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
-      "position": [
-        720,
-        300
-      ]
+      "position": [960, 300]
     },
     {
       "parameters": {
         "mode": "runOnceForEachItem",
-        "jsCode": "const lead_id = $('Extract Params').first().json.lead_id;\nconst ico = $('Extract Params').first().json.ico;\n\nconst resp = $input.item.json;\nconst html = (resp.body || resp.data || '') + '';\n\nif (!html || html.length < 100) {\n  return { json: { lead_id, ico, contacts: '[]', has_contacts: false, parse_error: 'Empty or invalid HTML' } };\n}\n\nconst contacts = [];\nconst seen = new Set();\n\n// Strategy 1: Kurzy.cz structure — <b>Jednatel</b> then <a href=\"/osoba/N/\">NAME</a>\nconst kurzyPattern = /<(?:b|strong)[^>]*>[\\s\\n]*Jednatel[\\s\\n]*<\\/(?:b|strong)>[\\s\\S]{0,600}?<a[^>]*href=\"\\/osoba\\/\\d+\\/[^\"]*\"[^>]*>([^<]+)/gi;\nlet m;\nwhile ((m = kurzyPattern.exec(html)) !== null) {\n  const raw = m[1].trim();\n  if (raw.length < 3 || raw.length > 100 || seen.has(raw.toLowerCase())) continue;\n  seen.add(raw.toLowerCase());\n  const cleaned = raw.replace(/^(Ing\\.|Mgr\\.|Bc\\.|JUDr\\.|MUDr\\.|PhDr\\.|Doc\\.|Prof\\.|RNDr\\.|DiS\\.)\\s*/gi, '').trim();\n  const parts = cleaned.split(/\\s+/);\n  if (parts.length < 2) continue;\n  contacts.push({ full_name: raw, first_name: parts[0], last_name: parts[parts.length - 1] });\n}\n\n// Strategy 2: generic TD pattern\nif (contacts.length === 0) {\n  const tdPattern = /<td[^>]*>[^<]*jednatel[^<]*<\\/td>\\s*<td[^>]*>([^<]+)<\\/td>/gi;\n  while ((m = tdPattern.exec(html)) !== null) {\n    const raw = m[1].trim();\n    if (raw.length < 3 || raw.length > 100 || seen.has(raw.toLowerCase())) continue;\n    seen.add(raw.toLowerCase());\n    const cleaned = raw.replace(/^(Ing\\.|Mgr\\.|Bc\\.|JUDr\\.|MUDr\\.|PhDr\\.)\\s*/gi, '').trim();\n    const parts = cleaned.split(/\\s+/);\n    if (parts.length < 2) continue;\n    contacts.push({ full_name: raw, first_name: parts[0], last_name: parts[parts.length - 1] });\n  }\n}\n\n// Strategy 3: Statutární orgán section\nif (contacts.length === 0) {\n  const sectionMatch = html.match(/Statutárn[íi] orgán[\\s\\S]*?(?=<h[1-4]|<\\/section)/i);\n  if (sectionMatch) {\n    const section = sectionMatch[0];\n    // Sub-strategy 3a: <strong>NAME</strong>\n    const namePattern = /<strong>([^<]{5,60})<\\/strong>/g;\n    while ((m = namePattern.exec(section)) !== null) {\n      const raw = m[1].trim();\n      if (seen.has(raw.toLowerCase())) continue;\n      seen.add(raw.toLowerCase());\n      const cleaned = raw.replace(/^(Ing\\.|Mgr\\.|Bc\\.|JUDr\\.|MUDr\\.)\\s*/gi, '').trim();\n      const parts = cleaned.split(/\\s+/);\n      if (parts.length < 2) continue;\n      contacts.push({ full_name: raw, first_name: parts[0], last_name: parts[parts.length - 1] });\n    }\n    // Sub-strategy 3b: <a href=\"/osoba/N/\">NAME</a> within the section\n    if (contacts.length === 0) {\n      const osobaPattern = /<a[^>]*href=\"\\/osoba\\/\\d+\\/[^\"]*\"[^>]*>([^<]+)<\\/a>/gi;\n      while ((m = osobaPattern.exec(section)) !== null) {\n        const raw = m[1].trim();\n        if (raw.length < 3 || raw.length > 100 || seen.has(raw.toLowerCase())) continue;\n        seen.add(raw.toLowerCase());\n        const cleaned = raw.replace(/^(Ing\\.|Mgr\\.|Bc\\.|JUDr\\.|MUDr\\.|PhDr\\.|Doc\\.|Prof\\.|RNDr\\.|DiS\\.)\\s*/gi, '').trim();\n        const parts = cleaned.split(/\\s+/);\n        if (parts.length < 2) continue;\n        contacts.push({ full_name: raw, first_name: parts[0], last_name: parts[parts.length - 1] });\n      }\n    }\n  }\n}\n\nreturn { json: { lead_id, ico, contacts: JSON.stringify(contacts), has_contacts: contacts.length > 0 } };"
+        "jsCode": "const lead_id = $('Extract Params').first().json.lead_id;\nconst ico = $('Extract Params').first().json.ico;\nconst leadData = $('Get Lead Company ID').first().json;\nconst existingDomain = (leadData.domain || leadData.website || '').replace(/^https?:\\/\\/(www\\.)?/, '').replace(/\\/.*$/, '').trim();\n\nconst resp = $input.item.json;\nconst html = (resp.body || resp.data || '') + '';\n\nif (!html || html.length < 100) {\n  return { json: { lead_id, ico, contacts: '[]', has_contacts: false, parse_error: 'Empty or invalid HTML', kurzy_website: '', has_existing_domain: !!existingDomain } };\n}\n\nconst contacts = [];\nconst seen = new Set();\n\n// Strategy 1: Kurzy.cz structure — <b>Jednatel</b> then <a href=\"/osoba/N/\">NAME</a>\nconst kurzyPattern = /<(?:b|strong)[^>]*>[\\s\\n]*Jednatel[\\s\\n]*<\\/(?:b|strong)>[\\s\\S]{0,600}?<a[^>]*href=\"\\/osoba\\/\\d+\\/[^\"]*\"[^>]*>([^<]+)/gi;\nlet m;\nwhile ((m = kurzyPattern.exec(html)) !== null) {\n  const raw = m[1].trim();\n  if (raw.length < 3 || raw.length > 100 || seen.has(raw.toLowerCase())) continue;\n  seen.add(raw.toLowerCase());\n  const cleaned = raw.replace(/^(Ing\\.|Mgr\\.|Bc\\.|JUDr\\.|MUDr\\.|PhDr\\.|Doc\\.|Prof\\.|RNDr\\.|DiS\\.)\\s*/gi, '').trim();\n  const parts = cleaned.split(/\\s+/);\n  if (parts.length < 2) continue;\n  contacts.push({ full_name: raw, first_name: parts[0], last_name: parts[parts.length - 1] });\n}\n\n// Strategy 2: generic TD pattern\nif (contacts.length === 0) {\n  const tdPattern = /<td[^>]*>[^<]*jednatel[^<]*<\\/td>\\s*<td[^>]*>([^<]+)<\\/td>/gi;\n  while ((m = tdPattern.exec(html)) !== null) {\n    const raw = m[1].trim();\n    if (raw.length < 3 || raw.length > 100 || seen.has(raw.toLowerCase())) continue;\n    seen.add(raw.toLowerCase());\n    const cleaned = raw.replace(/^(Ing\\.|Mgr\\.|Bc\\.|JUDr\\.|MUDr\\.|PhDr\\.)\\s*/gi, '').trim();\n    const parts = cleaned.split(/\\s+/);\n    if (parts.length < 2) continue;\n    contacts.push({ full_name: raw, first_name: parts[0], last_name: parts[parts.length - 1] });\n  }\n}\n\n// Strategy 3: Statutární orgán section\nif (contacts.length === 0) {\n  const sectionMatch = html.match(/Statutárn[íi] orgán[\\s\\S]*?(?=<h[1-4]|<\\/section)/i);\n  if (sectionMatch) {\n    const section = sectionMatch[0];\n    const namePattern = /<strong>([^<]{5,60})<\\/strong>/g;\n    while ((m = namePattern.exec(section)) !== null) {\n      const raw = m[1].trim();\n      if (seen.has(raw.toLowerCase())) continue;\n      seen.add(raw.toLowerCase());\n      const cleaned = raw.replace(/^(Ing\\.|Mgr\\.|Bc\\.|JUDr\\.|MUDr\\.)\\s*/gi, '').trim();\n      const parts = cleaned.split(/\\s+/);\n      if (parts.length < 2) continue;\n      contacts.push({ full_name: raw, first_name: parts[0], last_name: parts[parts.length - 1] });\n    }\n    if (contacts.length === 0) {\n      const osobaPattern = /<a[^>]*href=\"\\/osoba\\/\\d+\\/[^\"]*\"[^>]*>([^<]+)<\\/a>/gi;\n      while ((m = osobaPattern.exec(section)) !== null) {\n        const raw = m[1].trim();\n        if (raw.length < 3 || raw.length > 100 || seen.has(raw.toLowerCase())) continue;\n        seen.add(raw.toLowerCase());\n        const cleaned = raw.replace(/^(Ing\\.|Mgr\\.|Bc\\.|JUDr\\.|MUDr\\.|PhDr\\.|Doc\\.|Prof\\.|RNDr\\.|DiS\\.)\\s*/gi, '').trim();\n        const parts = cleaned.split(/\\s+/);\n        if (parts.length < 2) continue;\n        contacts.push({ full_name: raw, first_name: parts[0], last_name: parts[parts.length - 1] });\n      }\n    }\n  }\n}\n\n// Extract website from Kurzy.cz HTML if lead has no domain yet\nlet kurzy_website = '';\nif (!existingDomain) {\n  // Look for website links — typically href with class=\"lnk\" pointing to external URLs\n  const webMatch = html.match(/href=\"(https?:\\/\\/[^\"]+)\"[^>]*class=\"lnk\"/);\n  if (webMatch) {\n    const url = webMatch[1];\n    const d = url.replace(/^https?:\\/\\//i, '').replace(/^www\\./i, '').split(/[\\/?#]/)[0].toLowerCase();\n    if (d && /^[a-z0-9.-]+\\.[a-z]{2,}$/.test(d) && !d.includes('kurzy.cz') && !d.includes('rejstrik')) {\n      kurzy_website = d;\n    }\n  }\n  // Fallback: look for any external URL in the page\n  if (!kurzy_website) {\n    const extMatch = html.match(/href=\"(https?:\\/\\/(?:www\\.)?([a-z0-9.-]+\\.[a-z]{2,}))[^\"]*\"/i);\n    if (extMatch && extMatch[2]) {\n      const d = extMatch[2].toLowerCase();\n      if (!d.includes('kurzy.cz') && !d.includes('rejstrik') && !d.includes('justice.cz') && !d.includes('google') && !d.includes('facebook')) {\n        kurzy_website = d;\n      }\n    }\n  }\n}\n\nreturn { json: { lead_id, ico, contacts: JSON.stringify(contacts), has_contacts: contacts.length > 0, kurzy_website, has_existing_domain: !!existingDomain } };"
       },
       "id": "wf03-0000-0000-0000-000000000005",
       "name": "Parse Contacts",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
-      "position": [
-        960,
-        300
-      ]
+      "position": [1200, 300]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {},
+          "conditions": [
+            {
+              "id": "has-kurzy-website",
+              "leftValue": "={{ $json.kurzy_website || '' }}",
+              "rightValue": "",
+              "operator": { "type": "string", "operation": "notEquals" }
+            }
+          ],
+          "combinator": "and"
+        }
+      },
+      "id": "wf03-if-kurzy-website",
+      "name": "IF Kurzy Found Website",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [1440, 300]
+    },
+    {
+      "parameters": {
+        "method": "PATCH",
+        "url": "https://cycapkswtucbucyegdsn.supabase.co/rest/v1/leads",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            { "name": "apikey", "value": "SUPABASE_SERVICE_ROLE_KEY_PLACEHOLDER" },
+            { "name": "Authorization", "value": "Bearer SUPABASE_SERVICE_ROLE_KEY_PLACEHOLDER" },
+            { "name": "Content-Type", "value": "application/json" }
+          ]
+        },
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            { "name": "id", "value": "={{ 'eq.' + $json.lead_id }}" }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ domain: $json.kurzy_website, website: 'https://' + $json.kurzy_website }) }}",
+        "options": { "timeout": 30000, "neverError": true }
+      },
+      "id": "wf03-update-lead-domain",
+      "name": "Update Lead Domain",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [1680, 240]
+    },
+    {
+      "parameters": {
+        "method": "PATCH",
+        "url": "https://cycapkswtucbucyegdsn.supabase.co/rest/v1/companies",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            { "name": "apikey", "value": "SUPABASE_SERVICE_ROLE_KEY_PLACEHOLDER" },
+            { "name": "Authorization", "value": "Bearer SUPABASE_SERVICE_ROLE_KEY_PLACEHOLDER" },
+            { "name": "Content-Type", "value": "application/json" }
+          ]
+        },
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            { "name": "id", "value": "={{ 'eq.' + $('Get Lead Company ID').first().json.company_id }}" },
+            { "name": "domain", "value": "is.null" }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ domain: $('Parse Contacts').first().json.kurzy_website, website: 'https://' + $('Parse Contacts').first().json.kurzy_website }) }}",
+        "options": { "timeout": 30000, "neverError": true }
+      },
+      "id": "wf03-update-company-domain",
+      "name": "Update Company Domain",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [1920, 240]
     },
     {
       "parameters": {
@@ -135,12 +204,9 @@
           "conditions": [
             {
               "id": "has-contacts",
-              "leftValue": "={{ $json.has_contacts }}",
+              "leftValue": "={{ $json.has_contacts || $('Parse Contacts').first().json.has_contacts }}",
               "rightValue": true,
-              "operator": {
-                "type": "boolean",
-                "operation": "equals"
-              }
+              "operator": { "type": "boolean", "operation": "equals" }
             }
           ],
           "combinator": "and"
@@ -150,455 +216,221 @@
       "name": "IF Has Contacts",
       "type": "n8n-nodes-base.if",
       "typeVersion": 2,
-      "position": [
-        1200,
-        300
-      ]
+      "position": [2160, 300]
     },
     {
       "parameters": {
         "mode": "runOnceForAllItems",
-        "jsCode": "const data = $input.first().json;\nconst contacts = JSON.parse(data.contacts || '[]');\n\n// Pass through names — DB trigger generates salutation automatically\nconst items = contacts.map(j => ({\n  company_id: data.company_id || $('Get Lead Company ID').first().json[0]?.company_id,\n  full_name: j.full_name,\n  first_name: j.first_name,\n  last_name: j.last_name\n}));\n\nreturn { json: { lead_id: data.lead_id, ico: data.ico, contacts_body: JSON.stringify(items), contacts_count: items.length } };"
+        "jsCode": "const data = $('Parse Contacts').first().json;\nconst contacts = JSON.parse(data.contacts || '[]');\n\n// Pass through names — DB trigger generates salutation automatically\nconst items = contacts.map(j => ({\n  company_id: $('Get Lead Company ID').first().json.company_id || $('Get Lead Company ID').first().json[0]?.company_id,\n  full_name: j.full_name,\n  first_name: j.first_name,\n  last_name: j.last_name\n}));\n\nreturn { json: { lead_id: data.lead_id, ico: data.ico, contacts_body: JSON.stringify(items), contacts_count: items.length } };"
       },
       "id": "wf03-0000-0000-0000-000000000007",
       "name": "Generate Salutations",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
-      "position": [
-        1440,
-        180
-      ]
-    },
-    {
-      "parameters": {
-        "method": "PATCH",
-        "url": "https://cycapkswtucbucyegdsn.supabase.co/rest/v1/leads",
-        "sendHeaders": true,
-        "headerParameters": {
-          "parameters": [
-            {
-              "name": "apikey",
-              "value": "SUPABASE_SERVICE_ROLE_KEY_PLACEHOLDER"
-            },
-            {
-              "name": "Authorization",
-              "value": "Bearer SUPABASE_SERVICE_ROLE_KEY_PLACEHOLDER"
-            },
-            {
-              "name": "Content-Type",
-              "value": "application/json"
-            }
-          ]
-        },
-        "sendQuery": true,
-        "queryParameters": {
-          "parameters": [
-            {
-              "name": "id",
-              "value": "={{ 'eq.' + $('Extract Params').first().json.lead_id }}"
-            }
-          ]
-        },
-        "sendBody": true,
-        "specifyBody": "json",
-        "jsonBody": "={ \"status\": \"enriched\" }",
-        "options": {
-          "timeout": 30000,
-          "neverError": true
-        }
-      },
-      "id": "wf03-0000-0000-0000-000000000010",
-      "name": "Update Lead Enriched",
-      "type": "n8n-nodes-base.httpRequest",
-      "typeVersion": 4.2,
-      "position": [
-        2160,
-        180
-      ]
-    },
-    {
-      "parameters": {
-        "method": "POST",
-        "url": "https://cycapkswtucbucyegdsn.supabase.co/rest/v1/enrichment_log",
-        "sendHeaders": true,
-        "headerParameters": {
-          "parameters": [
-            {
-              "name": "apikey",
-              "value": "SUPABASE_SERVICE_ROLE_KEY_PLACEHOLDER"
-            },
-            {
-              "name": "Authorization",
-              "value": "Bearer SUPABASE_SERVICE_ROLE_KEY_PLACEHOLDER"
-            },
-            {
-              "name": "Content-Type",
-              "value": "application/json"
-            }
-          ]
-        },
-        "sendBody": true,
-        "specifyBody": "json",
-        "jsonBody": "={{ JSON.stringify({ lead_id: $('Extract Params').first().json.lead_id, step: 'kurzy_scrape', status: 'success', completed_at: new Date().toISOString() }) }}",
-        "options": {
-          "timeout": 30000,
-          "neverError": true
-        }
-      },
-      "id": "wf03-0000-0000-0000-000000000011",
-      "name": "Log Success",
-      "type": "n8n-nodes-base.httpRequest",
-      "typeVersion": 4.2,
-      "position": [
-        2400,
-        180
-      ]
-    },
-    {
-      "parameters": {
-        "method": "PATCH",
-        "url": "https://cycapkswtucbucyegdsn.supabase.co/rest/v1/leads",
-        "sendHeaders": true,
-        "headerParameters": {
-          "parameters": [
-            {
-              "name": "apikey",
-              "value": "SUPABASE_SERVICE_ROLE_KEY_PLACEHOLDER"
-            },
-            {
-              "name": "Authorization",
-              "value": "Bearer SUPABASE_SERVICE_ROLE_KEY_PLACEHOLDER"
-            },
-            {
-              "name": "Content-Type",
-              "value": "application/json"
-            }
-          ]
-        },
-        "sendQuery": true,
-        "queryParameters": {
-          "parameters": [
-            {
-              "name": "id",
-              "value": "={{ 'eq.' + $json.lead_id }}"
-            }
-          ]
-        },
-        "sendBody": true,
-        "specifyBody": "json",
-        "jsonBody": "={{ JSON.stringify({ status: 'failed', enrichment_error: 'Kurzy: no contacts found for ICO ' + $json.ico }) }}",
-        "options": {
-          "timeout": 30000,
-          "neverError": true
-        }
-      },
-      "id": "wf03-0000-0000-0000-000000000013",
-      "name": "Set Failed No Contacts",
-      "type": "n8n-nodes-base.httpRequest",
-      "typeVersion": 4.2,
-      "position": [
-        1440,
-        420
-      ]
-    },
-    {
-      "parameters": {
-        "method": "POST",
-        "url": "https://cycapkswtucbucyegdsn.supabase.co/rest/v1/enrichment_log",
-        "sendHeaders": true,
-        "headerParameters": {
-          "parameters": [
-            {
-              "name": "apikey",
-              "value": "SUPABASE_SERVICE_ROLE_KEY_PLACEHOLDER"
-            },
-            {
-              "name": "Authorization",
-              "value": "Bearer SUPABASE_SERVICE_ROLE_KEY_PLACEHOLDER"
-            },
-            {
-              "name": "Content-Type",
-              "value": "application/json"
-            }
-          ]
-        },
-        "sendBody": true,
-        "specifyBody": "json",
-        "jsonBody": "={{ JSON.stringify({ lead_id: $json.lead_id, step: 'kurzy_scrape', status: 'failed', error_message: 'No contacts found on kurzy.cz for ICO ' + $json.ico, completed_at: new Date().toISOString() }) }}",
-        "options": {
-          "timeout": 30000,
-          "neverError": true
-        }
-      },
-      "id": "wf03-0000-0000-0000-000000000014",
-      "name": "Log Failed",
-      "type": "n8n-nodes-base.httpRequest",
-      "typeVersion": 4.2,
-      "position": [
-        1680,
-        420
-      ]
-    },
-    {
-      "id": "wf03-trigger-wf4-0000000000001",
-      "name": "Trigger WF4",
-      "type": "n8n-nodes-base.httpRequest",
-      "typeVersion": 4.2,
-      "position": [
-        2640,
-        180
-      ],
-      "parameters": {
-        "method": "POST",
-        "url": "http://72.62.53.244:32770/webhook/wf4-email-gen",
-        "sendHeaders": true,
-        "headerParameters": {
-          "parameters": [
-            {
-              "name": "Content-Type",
-              "value": "application/json"
-            },
-            {
-              "name": "X-Webhook-Secret",
-              "value": "reWDUmcjSRPTv3k-0CKdoASO_KY7Z3ux"
-            }
-          ]
-        },
-        "sendBody": true,
-        "specifyBody": "json",
-        "jsonBody": "={{ JSON.stringify({ lead_id: $('Extract Params').first().json.lead_id }) }}",
-        "options": {
-          "timeout": 30000,
-          "neverError": true
-        }
-      }
+      "position": [2400, 180]
     },
     {
       "id": "wf03-0000-0000-0000-000000000015",
       "name": "Insert Contacts",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
-      "position": [
-        1660,
-        180
-      ],
+      "position": [2640, 180],
       "parameters": {
         "method": "POST",
         "url": "https://cycapkswtucbucyegdsn.supabase.co/rest/v1/contacts",
         "sendHeaders": true,
         "headerParameters": {
           "parameters": [
-            {
-              "name": "apikey",
-              "value": "SUPABASE_SERVICE_ROLE_KEY_PLACEHOLDER"
-            },
-            {
-              "name": "Authorization",
-              "value": "Bearer SUPABASE_SERVICE_ROLE_KEY_PLACEHOLDER"
-            },
-            {
-              "name": "Content-Type",
-              "value": "application/json"
-            },
-            {
-              "name": "Prefer",
-              "value": "resolution=ignore-duplicates,return=minimal"
-            }
+            { "name": "apikey", "value": "SUPABASE_SERVICE_ROLE_KEY_PLACEHOLDER" },
+            { "name": "Authorization", "value": "Bearer SUPABASE_SERVICE_ROLE_KEY_PLACEHOLDER" },
+            { "name": "Content-Type", "value": "application/json" },
+            { "name": "Prefer", "value": "resolution=ignore-duplicates,return=minimal" }
           ]
         },
         "sendBody": true,
         "specifyBody": "json",
         "jsonBody": "={{ $json.contacts_body }}",
-        "options": {
-          "timeout": 30000,
-          "neverError": true
-        }
+        "options": { "timeout": 30000, "neverError": true }
       }
     },
     {
       "parameters": {
-        "method": "GET",
+        "method": "PATCH",
         "url": "https://cycapkswtucbucyegdsn.supabase.co/rest/v1/leads",
         "sendHeaders": true,
         "headerParameters": {
           "parameters": [
-            {
-              "name": "apikey",
-              "value": "SUPABASE_SERVICE_ROLE_KEY_PLACEHOLDER"
-            },
-            {
-              "name": "Authorization",
-              "value": "Bearer SUPABASE_SERVICE_ROLE_KEY_PLACEHOLDER"
-            }
+            { "name": "apikey", "value": "SUPABASE_SERVICE_ROLE_KEY_PLACEHOLDER" },
+            { "name": "Authorization", "value": "Bearer SUPABASE_SERVICE_ROLE_KEY_PLACEHOLDER" },
+            { "name": "Content-Type", "value": "application/json" }
           ]
         },
         "sendQuery": true,
         "queryParameters": {
           "parameters": [
-            {
-              "name": "id",
-              "value": "={{ 'eq.' + $json.lead_id }}"
-            },
-            {
-              "name": "select",
-              "value": "company_id"
-            }
+            { "name": "id", "value": "={{ 'eq.' + $('Extract Params').first().json.lead_id }}" }
           ]
         },
-        "options": {
-          "timeout": 30000,
-          "neverError": true
-        }
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={ \"status\": \"enriched\" }",
+        "options": { "timeout": 30000, "neverError": true }
       },
-      "id": "wf03-get-lead-company",
-      "name": "Get Lead Company ID",
+      "id": "wf03-0000-0000-0000-000000000010",
+      "name": "Update Lead Enriched",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
-      "position": [
-        300,
-        300
-      ]
+      "position": [2880, 180]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://cycapkswtucbucyegdsn.supabase.co/rest/v1/enrichment_log",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            { "name": "apikey", "value": "SUPABASE_SERVICE_ROLE_KEY_PLACEHOLDER" },
+            { "name": "Authorization", "value": "Bearer SUPABASE_SERVICE_ROLE_KEY_PLACEHOLDER" },
+            { "name": "Content-Type", "value": "application/json" }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ lead_id: $('Extract Params').first().json.lead_id, step: 'kurzy_scrape', status: 'success', completed_at: new Date().toISOString() }) }}",
+        "options": { "timeout": 30000, "neverError": true }
+      },
+      "id": "wf03-0000-0000-0000-000000000011",
+      "name": "Log Success",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [3120, 180]
+    },
+    {
+      "id": "wf03-trigger-wf4-0000000000001",
+      "name": "Trigger WF4",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [3360, 180],
+      "parameters": {
+        "method": "POST",
+        "url": "http://72.62.53.244:32770/webhook/wf4-email-gen",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            { "name": "Content-Type", "value": "application/json" },
+            { "name": "X-Webhook-Secret", "value": "reWDUmcjSRPTv3k-0CKdoASO_KY7Z3ux" }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ lead_id: $('Extract Params').first().json.lead_id }) }}",
+        "options": { "timeout": 30000, "neverError": true }
+      }
+    },
+    {
+      "parameters": {
+        "method": "PATCH",
+        "url": "https://cycapkswtucbucyegdsn.supabase.co/rest/v1/leads",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            { "name": "apikey", "value": "SUPABASE_SERVICE_ROLE_KEY_PLACEHOLDER" },
+            { "name": "Authorization", "value": "Bearer SUPABASE_SERVICE_ROLE_KEY_PLACEHOLDER" },
+            { "name": "Content-Type", "value": "application/json" }
+          ]
+        },
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            { "name": "id", "value": "={{ 'eq.' + $('Parse Contacts').first().json.lead_id }}" }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ status: 'failed', enrichment_error: 'Kurzy: no contacts found for ICO ' + $('Parse Contacts').first().json.ico }) }}",
+        "options": { "timeout": 30000, "neverError": true }
+      },
+      "id": "wf03-0000-0000-0000-000000000013",
+      "name": "Set Failed No Contacts",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [2400, 420]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://cycapkswtucbucyegdsn.supabase.co/rest/v1/enrichment_log",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            { "name": "apikey", "value": "SUPABASE_SERVICE_ROLE_KEY_PLACEHOLDER" },
+            { "name": "Authorization", "value": "Bearer SUPABASE_SERVICE_ROLE_KEY_PLACEHOLDER" },
+            { "name": "Content-Type", "value": "application/json" }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ lead_id: $('Parse Contacts').first().json.lead_id, step: 'kurzy_scrape', status: 'failed', error_message: 'No contacts found on kurzy.cz for ICO ' + $('Parse Contacts').first().json.ico, completed_at: new Date().toISOString() }) }}",
+        "options": { "timeout": 30000, "neverError": true }
+      },
+      "id": "wf03-0000-0000-0000-000000000014",
+      "name": "Log Failed",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [2640, 420]
     }
   ],
   "connections": {
     "Webhook Trigger": {
-      "main": [
-        [
-          {
-            "node": "Extract Params",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
+      "main": [[{ "node": "Extract Params", "type": "main", "index": 0 }]]
     },
     "Extract Params": {
-      "main": [
-        [
-          {
-            "node": "Get Lead Company ID",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
+      "main": [[{ "node": "Get Lead Company ID", "type": "main", "index": 0 }]]
+    },
+    "Get Lead Company ID": {
+      "main": [[{ "node": "Log Started", "type": "main", "index": 0 }]]
     },
     "Log Started": {
-      "main": [
-        [
-          {
-            "node": "Fetch Kurzy Page",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
+      "main": [[{ "node": "Fetch Kurzy Page", "type": "main", "index": 0 }]]
     },
     "Fetch Kurzy Page": {
-      "main": [
-        [
-          {
-            "node": "Parse Contacts",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
+      "main": [[{ "node": "Parse Contacts", "type": "main", "index": 0 }]]
     },
     "Parse Contacts": {
+      "main": [[{ "node": "IF Kurzy Found Website", "type": "main", "index": 0 }]]
+    },
+    "IF Kurzy Found Website": {
       "main": [
-        [
-          {
-            "node": "IF Has Contacts",
-            "type": "main",
-            "index": 0
-          }
-        ]
+        [{ "node": "Update Lead Domain", "type": "main", "index": 0 }],
+        [{ "node": "IF Has Contacts", "type": "main", "index": 0 }]
       ]
+    },
+    "Update Lead Domain": {
+      "main": [[{ "node": "Update Company Domain", "type": "main", "index": 0 }]]
+    },
+    "Update Company Domain": {
+      "main": [[{ "node": "IF Has Contacts", "type": "main", "index": 0 }]]
     },
     "IF Has Contacts": {
       "main": [
-        [
-          {
-            "node": "Generate Salutations",
-            "type": "main",
-            "index": 0
-          }
-        ],
-        [
-          {
-            "node": "Set Failed No Contacts",
-            "type": "main",
-            "index": 0
-          }
-        ]
+        [{ "node": "Generate Salutations", "type": "main", "index": 0 }],
+        [{ "node": "Set Failed No Contacts", "type": "main", "index": 0 }]
       ]
     },
     "Generate Salutations": {
-      "main": [
-        [
-          {
-            "node": "Insert Contacts",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
-    "Update Lead Enriched": {
-      "main": [
-        [
-          {
-            "node": "Log Success",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
-    "Set Failed No Contacts": {
-      "main": [
-        [
-          {
-            "node": "Log Failed",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
+      "main": [[{ "node": "Insert Contacts", "type": "main", "index": 0 }]]
     },
     "Insert Contacts": {
-      "main": [
-        [
-          {
-            "node": "Update Lead Enriched",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
+      "main": [[{ "node": "Update Lead Enriched", "type": "main", "index": 0 }]]
+    },
+    "Update Lead Enriched": {
+      "main": [[{ "node": "Log Success", "type": "main", "index": 0 }]]
     },
     "Log Success": {
-      "main": [
-        [
-          {
-            "node": "Trigger WF4",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
+      "main": [[{ "node": "Trigger WF4", "type": "main", "index": 0 }]]
     },
-    "Get Lead Company ID": {
-      "main": [
-        [
-          {
-            "node": "Log Started",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
+    "Set Failed No Contacts": {
+      "main": [[{ "node": "Log Failed", "type": "main", "index": 0 }]]
     }
   },
   "active": false,

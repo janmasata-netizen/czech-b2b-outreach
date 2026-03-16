@@ -232,16 +232,24 @@ CSV import / AddLead dialog (s volbou enrichment level)
    WF2: ARES Lookup (webhook:wf2-ares)
    - ICO → nazev firmy, adresa, pravni forma
    - Vola BE i VR endpoint (merge kontaktu do contacts tabulky)
+   - **ARES BE Lookup** — extrahuje website (www) z ARES BE odpovedi
+   - Pokud ARES najde domenu a lead zadnou nema → zapise do leads + companies
    - Pokud neni ICO ale lead ma domenu → preskoci WF3, spusti WF4 primo
+   - **Pokud neni ICO a neni domena → posle do WF4** (misto fail, WF4 ma domain discovery)
         |
-        v (s ICO)              v (bez ICO, s domenou)
-   WF3: Kurzy Scrape           WF4: Email Gen (primo)
+        v (s ICO)              v (bez ICO)
+   WF3: Kurzy Scrape           WF4: Email Gen (primo/fallback)
    (webhook:wf3-kurzy)
    - Scraping kontaktnich osob z kurzy.cz
+   - **Extrahuje website z Kurzy HTML** pokud lead nema domenu
+   - Zapisuje domain do leads + companies
    - Uklada do contacts tabulky (pres company_id)
         |
         v
    WF4: Email Gen (webhook:wf4-email-gen)
+   - Kontroluje, zda lead ma domenu
+   - **Pokud ne → spusti sub-domain-discovery** (ARES BE → Firmy.cz → DNS probe → DuckDuckGo)
+   - Po nalezeni domeny zapise do leads + companies, pokracuje s generovanim
    - Nacita kontakty pres get_contacts_for_lead() RPC
    - Generuje emailove adresy z jmena + domeny
    - Uklada do email_candidates
@@ -278,6 +286,7 @@ CSV import / AddLead dialog (s volbou enrichment level)
 - **wf-email-finder / v2** — starsi verze Email Finderu (v2 pouziva se pro overeni jednotliveho emailu z UI)
 - **wf-email-finder-v3** — novy firemni orchestrator pro hledani emailu (pouziva se z UI zakladky "Najit emaily"). Resolves company (domain lookup, ARES, firmy.cz fallback), fetches contacts, generates email patterns, SMTP checks, catch-all probe, website scraping pro backup emaily, upsert do email_candidates.
 - **sub-clean-domain** — sub-workflow pro cisteni a validaci domenoveho vstupu (Execute Workflow trigger)
+- **sub-domain-discovery** — sub-workflow pro hledani domeny firmy. Vstupy: lead_id, company_id, company_name, ico. Zkouzi 4 zdroje v poradi: ARES BE (pokud je ICO), Firmy.cz (hledani dle nazvu), DNS probe (.cz/.com), DuckDuckGo. Vraci `{ found, domain, source }`. Pouziva se z WF4 pro leady bez domeny.
 
 ### 2. Sending pipeline
 

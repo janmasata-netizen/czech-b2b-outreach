@@ -1,0 +1,367 @@
+{
+  "name": "SUB — Domain Discovery",
+  "nodes": [
+    {
+      "parameters": {
+        "content": "## SUB — Domain Discovery\n**Trigger:** Execute Workflow\n**Input:** `{ lead_id, company_id, company_name, ico }`\n**Output:** `{ found: true/false, domain: \"example.cz\", source: \"ares|firmy|dns|ddg\" }`\n\nTries 4 sources in order: ARES BE (if ICO), Firmy.cz, DNS probe (.cz/.com), DuckDuckGo.\nStops at first success.",
+        "height": 200,
+        "width": 600,
+        "color": 4
+      },
+      "id": "sdd-sticky",
+      "name": "Sticky Note",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [-200, 100]
+    },
+    {
+      "parameters": {},
+      "id": "sdd-0001",
+      "name": "Execute Workflow Trigger",
+      "type": "n8n-nodes-base.executeWorkflowTrigger",
+      "typeVersion": 1,
+      "position": [0, 400]
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForEachItem",
+        "jsCode": "const d = $input.item.json;\nreturn { json: {\n  lead_id: d.lead_id || '',\n  company_id: d.company_id || '',\n  company_name: d.company_name || '',\n  ico: d.ico || '',\n  found: false,\n  domain: '',\n  source: ''\n} };"
+      },
+      "id": "sdd-0002",
+      "name": "Extract Input",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [240, 400]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {},
+          "conditions": [
+            {
+              "id": "has-ico",
+              "leftValue": "={{ $json.ico }}",
+              "rightValue": "",
+              "operator": {
+                "type": "string",
+                "operation": "notEquals"
+              }
+            }
+          ],
+          "combinator": "and"
+        }
+      },
+      "id": "sdd-0010",
+      "name": "IF Has ICO",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [480, 400]
+    },
+    {
+      "parameters": {
+        "method": "GET",
+        "url": "={{ 'https://ares.gov.cz/ekonomicke-subjekty-v-be/rest/ekonomicke-subjekty/' + $json.ico }}",
+        "options": { "neverError": true, "timeout": 15000 }
+      },
+      "id": "sdd-0011",
+      "name": "ARES BE Lookup",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [720, 300]
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForEachItem",
+        "jsCode": "const be = $input.item.json || {};\nconst prev = $('Extract Input').first().json;\nlet website = '';\nif (be.www) website = be.www;\nelse if (be.sidlo && be.sidlo.www) website = be.sidlo.www;\n\nif (!website) {\n  return { json: { ...prev, found: false } };\n}\n\nlet domain = website.replace(/^https?:\\/\\//i, '').replace(/^www\\./i, '').split(/[\\/?#]/)[0].trim().toLowerCase();\nif (!domain || !/^[a-z0-9.-]+\\.[a-z]{2,}$/.test(domain)) {\n  return { json: { ...prev, found: false } };\n}\n\nreturn { json: { ...prev, found: true, domain: domain, source: 'ares' } };"
+      },
+      "id": "sdd-0012",
+      "name": "Extract ARES Domain",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [960, 300]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {},
+          "conditions": [
+            {
+              "id": "ares-found",
+              "leftValue": "={{ $json.found }}",
+              "rightValue": true,
+              "operator": {
+                "type": "boolean",
+                "operation": "equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        }
+      },
+      "id": "sdd-0013",
+      "name": "IF ARES Found",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [1200, 300]
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForEachItem",
+        "jsCode": "const prev = $('Extract Input').first().json;\nconst searchQuery = encodeURIComponent(prev.company_name);\nreturn { json: { ...prev, _search_url: 'https://www.firmy.cz/hledej?dotaz=' + searchQuery } };"
+      },
+      "id": "sdd-0020",
+      "name": "Prepare Firmy Search",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1440, 500]
+    },
+    {
+      "parameters": {
+        "method": "GET",
+        "url": "={{ $json._search_url }}",
+        "options": { "neverError": true, "timeout": 15000 }
+      },
+      "id": "sdd-0021",
+      "name": "Search Firmy.cz",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [1680, 500]
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "jsCode": "const prev = $('Prepare Firmy Search').first().json;\nconst html = ($input.first().json.data || $input.first().json || '').toString();\n\nlet domain = '';\nconst urlMatch = html.match(/href=\"(https?:\\/\\/(?:www\\.)?([a-z0-9.-]+\\.[a-z]{2,}))[^\"]*\"[^>]*class=\"[^\"]*web/i)\n  || html.match(/href=\"(https?:\\/\\/(?:www\\.)?([a-z0-9.-]+\\.[a-z]{2,}))\"/i);\n\nif (urlMatch && urlMatch[2]) {\n  domain = urlMatch[2].toLowerCase();\n}\n\nif (!domain) {\n  return [{ json: { ...prev, found: false, _search_url: undefined } }];\n}\n\nreturn [{ json: { ...prev, found: true, domain: domain, source: 'firmy', _search_url: undefined } }];"
+      },
+      "id": "sdd-0022",
+      "name": "Extract Firmy Domain",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1920, 500]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {},
+          "conditions": [
+            {
+              "id": "firmy-found",
+              "leftValue": "={{ $json.found }}",
+              "rightValue": true,
+              "operator": {
+                "type": "boolean",
+                "operation": "equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        }
+      },
+      "id": "sdd-0023",
+      "name": "IF Firmy Found",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [2160, 500]
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForEachItem",
+        "jsCode": "const prev = $('Extract Input').first().json;\nfunction stripDiacritics(s) {\n  return s.normalize('NFD').replace(/[\\u0300-\\u036f]/g, '').toLowerCase();\n}\nconst name = stripDiacritics(prev.company_name)\n  .replace(/\\b(s\\.?r\\.?o\\.?|a\\.?s\\.?|spol\\.?\\s*s\\s*r\\.?\\s*o\\.?|v\\.?o\\.?s\\.?)\\b/gi, '')\n  .replace(/[^a-z0-9]/g, '')\n  .trim();\nif (!name || name.length < 2) {\n  return { json: { ...prev, found: false, _dns_candidates: [] } };\n}\nreturn { json: { ...prev, _dns_candidates: [name + '.cz', name + '.com'], _dns_index: 0 } };"
+      },
+      "id": "sdd-0030",
+      "name": "Generate DNS Candidates",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [2400, 700]
+    },
+    {
+      "parameters": {
+        "method": "HEAD",
+        "url": "={{ 'https://' + ($json._dns_candidates[0] || 'invalid.invalid') }}",
+        "options": { "neverError": true, "timeout": 5000, "redirect": { "redirect": { "followRedirects": false } } }
+      },
+      "id": "sdd-0031",
+      "name": "Probe .cz Domain",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [2640, 620]
+    },
+    {
+      "parameters": {
+        "method": "HEAD",
+        "url": "={{ 'https://' + ($('Generate DNS Candidates').first().json._dns_candidates[1] || 'invalid.invalid') }}",
+        "options": { "neverError": true, "timeout": 5000, "redirect": { "redirect": { "followRedirects": false } } }
+      },
+      "id": "sdd-0032",
+      "name": "Probe .com Domain",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [2640, 780]
+    },
+    {
+      "parameters": { "mode": "append" },
+      "id": "sdd-0033",
+      "name": "Merge DNS Results",
+      "type": "n8n-nodes-base.merge",
+      "typeVersion": 3,
+      "position": [2880, 700]
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "jsCode": "const prev = $('Generate DNS Candidates').first().json;\nconst candidates = prev._dns_candidates || [];\nconst results = $input.all().map(i => i.json);\n\n// Check .cz probe (index 0)\nconst czStatus = results[0] && results[0].statusCode ? results[0].statusCode : (results[0] && !results[0].error ? 200 : 0);\nconst comStatus = results[1] && results[1].statusCode ? results[1].statusCode : (results[1] && !results[1].error ? 200 : 0);\n\n// A successful probe: got any HTTP response (even 403/301) means server exists\n// Only network errors (timeout, DNS fail) produce no status code\nif (czStatus > 0 && czStatus < 500 && candidates[0]) {\n  return [{ json: { lead_id: prev.lead_id, company_id: prev.company_id, company_name: prev.company_name, ico: prev.ico, found: true, domain: candidates[0], source: 'dns' } }];\n}\nif (comStatus > 0 && comStatus < 500 && candidates[1]) {\n  return [{ json: { lead_id: prev.lead_id, company_id: prev.company_id, company_name: prev.company_name, ico: prev.ico, found: true, domain: candidates[1], source: 'dns' } }];\n}\n\nreturn [{ json: { lead_id: prev.lead_id, company_id: prev.company_id, company_name: prev.company_name, ico: prev.ico, found: false, domain: '', source: '' } }];"
+      },
+      "id": "sdd-0034",
+      "name": "Check DNS Results",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [3120, 700]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {},
+          "conditions": [
+            {
+              "id": "dns-found",
+              "leftValue": "={{ $json.found }}",
+              "rightValue": true,
+              "operator": {
+                "type": "boolean",
+                "operation": "equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        }
+      },
+      "id": "sdd-0035",
+      "name": "IF DNS Found",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [3360, 700]
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForEachItem",
+        "jsCode": "const prev = $('Extract Input').first().json;\nconst searchQuery = encodeURIComponent(prev.company_name + ' website');\nreturn { json: { ...prev, _ddg_url: 'https://html.duckduckgo.com/html/?q=' + searchQuery } };"
+      },
+      "id": "sdd-0040",
+      "name": "Prepare DDG Search",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [3600, 900]
+    },
+    {
+      "parameters": {
+        "method": "GET",
+        "url": "={{ $json._ddg_url }}",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "User-Agent",
+              "value": "Mozilla/5.0 (compatible; bot)"
+            }
+          ]
+        },
+        "options": { "neverError": true, "timeout": 15000 }
+      },
+      "id": "sdd-0041",
+      "name": "Search DuckDuckGo",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [3840, 900]
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "jsCode": "const prev = $('Prepare DDG Search').first().json;\nconst html = ($input.first().json.data || $input.first().json || '').toString();\n\n// Extract result URLs from DuckDuckGo HTML results\n// DDG wraps results in <a class=\"result__a\" href=\"...\">\nlet domain = '';\nconst resultPattern = /class=\"result__a\"[^>]*href=\"([^\"]+)\"/g;\nlet match;\nwhile ((match = resultPattern.exec(html)) !== null) {\n  const url = match[1];\n  // Skip DDG internal links\n  if (url.includes('duckduckgo.com')) continue;\n  // Extract domain\n  const domainMatch = url.match(/https?:\\/\\/(?:www\\.)?([a-z0-9.-]+\\.[a-z]{2,})/i);\n  if (domainMatch && domainMatch[1]) {\n    const d = domainMatch[1].toLowerCase();\n    // Skip search engines and social media\n    if (['google.com','facebook.com','twitter.com','linkedin.com','instagram.com','youtube.com','wikipedia.org','firmy.cz','kurzy.cz','rejstrik.penize.cz','or.justice.cz'].includes(d)) continue;\n    domain = d;\n    break;\n  }\n}\n\n// Also try generic URL extraction if class-based didn't work\nif (!domain) {\n  const genericMatch = html.match(/href=\"(https?:\\/\\/(?:www\\.)?([a-z0-9.-]+\\.[a-z]{2,}))[^\"]*\"/i);\n  if (genericMatch && genericMatch[2]) {\n    const d = genericMatch[2].toLowerCase();\n    if (!['duckduckgo.com','google.com','facebook.com','twitter.com','linkedin.com'].includes(d)) {\n      domain = d;\n    }\n  }\n}\n\nif (!domain) {\n  return [{ json: { lead_id: prev.lead_id, company_id: prev.company_id, company_name: prev.company_name, ico: prev.ico, found: false, domain: '', source: '' } }];\n}\n\nreturn [{ json: { lead_id: prev.lead_id, company_id: prev.company_id, company_name: prev.company_name, ico: prev.ico, found: true, domain: domain, source: 'ddg' } }];"
+      },
+      "id": "sdd-0042",
+      "name": "Extract DDG Domain",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [4080, 900]
+    }
+  ],
+  "connections": {
+    "Execute Workflow Trigger": {
+      "main": [[{ "node": "Extract Input", "type": "main", "index": 0 }]]
+    },
+    "Extract Input": {
+      "main": [[{ "node": "IF Has ICO", "type": "main", "index": 0 }]]
+    },
+    "IF Has ICO": {
+      "main": [
+        [{ "node": "ARES BE Lookup", "type": "main", "index": 0 }],
+        [{ "node": "Prepare Firmy Search", "type": "main", "index": 0 }]
+      ]
+    },
+    "ARES BE Lookup": {
+      "main": [[{ "node": "Extract ARES Domain", "type": "main", "index": 0 }]]
+    },
+    "Extract ARES Domain": {
+      "main": [[{ "node": "IF ARES Found", "type": "main", "index": 0 }]]
+    },
+    "IF ARES Found": {
+      "main": [
+        [],
+        [{ "node": "Prepare Firmy Search", "type": "main", "index": 0 }]
+      ]
+    },
+    "Prepare Firmy Search": {
+      "main": [[{ "node": "Search Firmy.cz", "type": "main", "index": 0 }]]
+    },
+    "Search Firmy.cz": {
+      "main": [[{ "node": "Extract Firmy Domain", "type": "main", "index": 0 }]]
+    },
+    "Extract Firmy Domain": {
+      "main": [[{ "node": "IF Firmy Found", "type": "main", "index": 0 }]]
+    },
+    "IF Firmy Found": {
+      "main": [
+        [],
+        [{ "node": "Generate DNS Candidates", "type": "main", "index": 0 }]
+      ]
+    },
+    "Generate DNS Candidates": {
+      "main": [
+        [
+          { "node": "Probe .cz Domain", "type": "main", "index": 0 },
+          { "node": "Probe .com Domain", "type": "main", "index": 0 }
+        ]
+      ]
+    },
+    "Probe .cz Domain": {
+      "main": [[{ "node": "Merge DNS Results", "type": "main", "index": 0 }]]
+    },
+    "Probe .com Domain": {
+      "main": [[{ "node": "Merge DNS Results", "type": "main", "index": 1 }]]
+    },
+    "Merge DNS Results": {
+      "main": [[{ "node": "Check DNS Results", "type": "main", "index": 0 }]]
+    },
+    "Check DNS Results": {
+      "main": [[{ "node": "IF DNS Found", "type": "main", "index": 0 }]]
+    },
+    "IF DNS Found": {
+      "main": [
+        [],
+        [{ "node": "Prepare DDG Search", "type": "main", "index": 0 }]
+      ]
+    },
+    "Prepare DDG Search": {
+      "main": [[{ "node": "Search DuckDuckGo", "type": "main", "index": 0 }]]
+    },
+    "Search DuckDuckGo": {
+      "main": [[{ "node": "Extract DDG Domain", "type": "main", "index": 0 }]]
+    }
+  },
+  "pinData": {},
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "staticData": null,
+  "tags": [],
+  "triggerCount": 0
+}
