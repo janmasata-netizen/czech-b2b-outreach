@@ -572,6 +572,7 @@ Zobrazované metriky:
 | Fronta je prazdna | `/system` → Ve fronte = 0 | Zkontrolujte, ze vlna je ve stavu `scheduled` nebo `sending` |
 | Chyba SMTP credentials | Detail selhanelostho emailu → duvod | Overite SMTP udaje v `smtp-proxy/config.json` na VPS |
 | Vlna zrusena pred casem odeslani | Zkontrolujte `email_queue` status — vsechny `cancelled` | Uzivatel zrusil vlnu pred tim, nez emaily dosahly `scheduled_at`. Preplante znovu. |
+| WF7 odmita preplanovani ("Wave already in status: scheduled") | Zkontrolujte WF7 executions v n8n — posledni bezi s chybou? | Vlna ma stav 'scheduled' po zastaveni. Preplante znovu (UI nyni resetuje stav na 'draft' pred volanim WF7). |
 
 ### Odpovedi se nedetekuji
 
