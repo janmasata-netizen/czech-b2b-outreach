@@ -18,4 +18,5 @@
 
 | Branch | Agent | Files (exact paths) | Started | Last Updated | PR |
 |---|---|---|---|---|---|
+| claude/fix-smtp-send-ref | Claude | n8n-workflows/wf8-send-cron.json | 2026-03-16 | 2026-03-16 | - |
 
