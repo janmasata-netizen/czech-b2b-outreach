@@ -67,8 +67,8 @@ export default function SentEmailsAreaChart({ teamId }: { teamId?: string }) {
                 const color = CHART_COLORS[i % CHART_COLORS.length];
                 return (
                   <linearGradient key={key} id={`grad_${key}_${rawId}`} x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="0%" stopColor={color} stopOpacity={0.2} />
-                    <stop offset="100%" stopColor={color} stopOpacity={0} />
+                    <stop offset="0%" stopColor={color} stopOpacity={0.6} />
+                    <stop offset="100%" stopColor={color} stopOpacity={0.15} />
                   </linearGradient>
                 );
               })}

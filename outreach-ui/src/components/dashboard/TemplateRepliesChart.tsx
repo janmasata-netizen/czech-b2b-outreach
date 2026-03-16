@@ -1,15 +1,16 @@
-import { useMemo } from 'react';
-import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell } from 'recharts';
+import { useMemo, useId } from 'react';
+import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
 import { useWaves } from '@/hooks/useWaves';
 import { formatPercent } from '@/lib/utils';
 import { Skeleton } from '@/components/shared/LoadingSkeleton';
 import EmptyState from '@/components/shared/EmptyState';
 
-const COLORS = ['#3ECF8E', '#a78bfa', '#22d3ee', '#fb923c', '#f87171', '#fbbf24', '#34d399', '#818cf8'];
+const COLOR = '#3ECF8E';
 
 export default function TemplateRepliesChart({ teamId }: { teamId?: string }) {
   const { data: allWaves = [], isLoading } = useWaves();
   const waves = teamId ? allWaves.filter(w => w.team_id === teamId) : allWaves;
+  const rawId = useId().replace(/:/g, '_');
 
   const chartData = useMemo(() => {
     const map = new Map<string, { sent: number; replies: number }>();
@@ -34,8 +35,6 @@ export default function TemplateRepliesChart({ teamId }: { teamId?: string }) {
       .sort((a, b) => b.replyRate - a.replyRate);
   }, [waves]);
 
-  const chartHeight = Math.max(200, chartData.length * 40 + 40);
-
   return (
     <div style={{ padding: '20px 20px 12px', background: 'var(--bg-surface)', border: '1px solid var(--border)', borderRadius: 8 }}>
       <h3 style={{ fontSize: 13, fontWeight: 600, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 20 }}>
@@ -48,45 +47,54 @@ export default function TemplateRepliesChart({ teamId }: { teamId?: string }) {
         <EmptyState icon="📊" title="Žádná data" />
       ) : (
         <>
-          <ResponsiveContainer width="100%" height={chartHeight}>
-            <BarChart data={chartData} layout="vertical" margin={{ top: 0, right: 40, left: 0, bottom: 0 }}>
-              <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" horizontal={false} />
+          <ResponsiveContainer width="100%" height={280}>
+            <AreaChart data={chartData} margin={{ top: 0, right: 0, left: -20, bottom: 0 }}>
+              <defs>
+                <linearGradient id={`grad_tpl_${rawId}`} x1="0" y1="0" x2="0" y2="1">
+                  <stop offset="0%" stopColor={COLOR} stopOpacity={0.6} />
+                  <stop offset="100%" stopColor={COLOR} stopOpacity={0.15} />
+                </linearGradient>
+              </defs>
+              <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" />
               <XAxis
-                type="number"
+                dataKey="name"
+                tick={{ fill: 'var(--text-muted)', fontSize: 11 }}
+                axisLine={false}
+                tickLine={false}
+                interval={0}
+                angle={chartData.length > 5 ? -30 : 0}
+                textAnchor={chartData.length > 5 ? 'end' : 'middle'}
+                height={chartData.length > 5 ? 60 : 30}
+              />
+              <YAxis
                 domain={[0, 100]}
                 tickFormatter={v => `${v}%`}
                 tick={{ fill: 'var(--text-muted)', fontSize: 11 }}
                 axisLine={false}
                 tickLine={false}
               />
-              <YAxis
-                type="category"
-                dataKey="name"
-                width={130}
-                tick={{ fill: 'var(--text-dim)', fontSize: 12 }}
-                axisLine={false}
-                tickLine={false}
-              />
               <Tooltip
                 contentStyle={{ background: 'var(--bg-surface)', border: '1px solid var(--border-strong)', borderRadius: 8, color: 'var(--text)', fontSize: 12 }}
-                cursor={{ fill: 'rgba(255,255,255,0.03)' }}
+                cursor={{ stroke: 'var(--text-muted)', strokeDasharray: '4 4' }}
                 formatter={(value: number | undefined) => [formatPercent(value ?? 0), 'Reply rate']}
               />
-              <Bar dataKey="replyRate" name="replyRate" radius={[0, 4, 4, 0]}>
-                {chartData.map((_, i) => (
-                  <Cell key={i} fill={COLORS[i % COLORS.length]} fillOpacity={0.85} />
-                ))}
-              </Bar>
-            </BarChart>
+              <Area
+                type="monotone"
+                dataKey="replyRate"
+                name="Reply rate"
+                stroke={COLOR}
+                fill={`url(#grad_tpl_${rawId})`}
+              />
+            </AreaChart>
           </ResponsiveContainer>
 
           <div style={{ marginTop: 14, display: 'flex', flexDirection: 'column', gap: 5 }}>
-            {chartData.map((d, i) => (
+            {chartData.map(d => (
               <div key={d.name} style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 12 }}>
-                <span style={{ width: 8, height: 8, borderRadius: '50%', background: COLORS[i % COLORS.length], flexShrink: 0 }} />
+                <span style={{ width: 8, height: 8, borderRadius: '50%', background: COLOR, flexShrink: 0 }} />
                 <span style={{ flex: 1, color: 'var(--text-dim)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{d.name}</span>
                 <span style={{ color: 'var(--text-muted)', fontFamily: 'JetBrains Mono, monospace' }}>{d.replies} / {d.sent}</span>
-                <span style={{ color: COLORS[i % COLORS.length], fontFamily: 'JetBrains Mono, monospace', fontWeight: 700, width: 48, textAlign: 'right' }}>
+                <span style={{ color: COLOR, fontFamily: 'JetBrains Mono, monospace', fontWeight: 700, width: 48, textAlign: 'right' }}>
                   {formatPercent(d.replyRate)}
                 </span>
               </div>
