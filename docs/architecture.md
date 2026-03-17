@@ -316,7 +316,14 @@ CSV import / AddLead dialog (s volbou enrichment level)
    WF7: Wave Schedule (webhook:wf7-wave-schedule)
    - Prirazeni leadu do vlny → email_queue
    - Tracking preskacenych leadu v scheduling_report
-   - Ulozi scheduling_report do waves tabulky
+   - Ulozi scheduling_report + sequence_schedule do waves tabulky
+   - **Drip mode:** waves.daily_lead_count (nullable int)
+     - NULL = vsechny leady na den 1 (default, zpetne kompatibilni)
+     - Kladne cislo = pocet novych leadu denne (napr. 50)
+     - Leady se davkuji: lead_index / daily_lead_count = cislo davky (den)
+     - seq2/seq3 datumy jsou relativni k seq1 daneho leadu (ne globalni)
+     - Pouziva delay_seq1_to_seq2_days a delay_seq2_to_seq3_days
+   - sequence_schedule JSONB obsahuje send_date + send_date_end (rozsah pro drip)
         |
         v
    WF8: Send Cron (cron:every-1min)
@@ -367,7 +374,7 @@ Kompletni seznam vsech n8n workflow s identifikatory:
 | wf4-email-gen | RNuSFAtwoEAkb9rA | webhook:wf4-email-gen | Generovani emailovych adres (get_contacts_for_lead RPC) |
 | wf5-seznam-verify | 7JzGHAG24ra3977B | webhook:wf5-seznam | SMTP overeni emailu (get_contacts_for_lead RPC), seznam_status='verified' + is_verified=true, mark_jednatels_email_status, vzdy spousti WF11 |
 | wf6-qev-verify | EbKgRSRr2Poe34vH | webhook:wf6-qev | **DEAKTIVOVANY** — QEV overeni odstraneno, SMTP staci |
-| wf7-wave-schedule | TVNOzjSnaWrmTlqw | webhook:wf7-wave-schedule | Planovani vlny + scheduling_report (contacts nested select) |
+| wf7-wave-schedule | TVNOzjSnaWrmTlqw | webhook:wf7-wave-schedule | Planovani vlny + scheduling_report (contacts nested select). Podporuje drip mode (daily_lead_count) — davkovani leadu po dnech s relativnimi seq delay. |
 | wf8-send-cron | wJLD5sFxddNNxR7p | cron:every-1min | Odesilani emailu z fronty |
 | wf9-reply-detection | AaHXknYh9egPDxcG | cron:every-1min | Detekce odpovedi pres IMAP proxy |
 | wf10-daily-reset | 50Odnt5vzIMfSBZE | cron:midnight | Reset dennich pocitadel + cisteni |
@@ -421,7 +428,7 @@ Kompletni seznam vsech n8n workflow s identifikatory:
 
 | Tabulka | Popis |
 |---|---|
-| `waves` | Vlny odesilani (from_email, scheduling_report) |
+| `waves` | Vlny odesilani (from_email, scheduling_report, daily_lead_count, delay_seq1_to_seq2_days, delay_seq2_to_seq3_days) |
 | `wave_leads` | Prirazeni leadu do vln |
 | `template_sets` | Sady sablon |
 | `email_templates` | Jednotlive sablony (sequence v ramci sady) |
@@ -591,6 +598,8 @@ Vsechna muzska jmena se sklonovani — zadna vyjimka pro cizi jmena.
 | **SMTP proxy** | Mikrosluzba umoznujici spravne threading hlavicky, ktere n8n emailSend nepodporuje |
 | **Retarget** | Opetovne osloveni leadu, kteri neodpovedeli — s nastavitelnym `retarget_lockout_days` per tym |
 | **scheduling_report** | JSON report z WF7 o planovanem odeslani vlny vcetne preskacenych leadu |
+| **Drip mode** | Rezim planovani vlny s `daily_lead_count` — leady se davkuji po dnech misto odeslani vsech najednou. Seq2/seq3 jsou relativni ke kazdemu leadu. |
+| **sequence_schedule** | JSONB v `waves` — casovy rozvrh sekvenci vcetne `send_date` a `send_date_end` (rozsah pro drip mode) |
 | **Email Finder v3** | Novy firemni orchestrator (wf-email-finder-v3) — resolves firmu, nacte kontakty, generuje emaily, SMTP check, catch-all probe, website scraping, upsert do email_candidates |
 | **sub-clean-domain** | Sub-workflow pro cisteni a validaci domenoveho vstupu (odebira protokol, cestu, bile znaky) |
 | **cleanDomainInput()** | Frontendova utility funkce v `outreach-ui/src/lib/dedup.ts` pro cisteni domenoveho vstupu pred odeslanim na backend |

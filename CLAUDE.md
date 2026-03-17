@@ -84,6 +84,7 @@ An automated Czech B2B cold email outreach system built on n8n + Supabase. It en
 | wf-email-finder-v3 | KRWLgqTf5ILqSNpk | webhook:wf-email-finder-v3 |
 | sub-clean-domain | 9H3NH7YbR1X2Efgm | executeWorkflowTrigger |
 | sub-domain-discovery | KdaIVaNnqj8eDx8D | executeWorkflowTrigger |
+| wf-domain-discovery-test | RtnhuFUdeyXfUxDC | webhook:wf-domain-discovery-test |
 | test-reply-detection | q4vUTl37yIJoTeDO | webhook:test-reply-detection |
 
 ## Database schema (Supabase)
@@ -120,6 +121,7 @@ DB trigger: `trg_refresh_salutations_on_wave_add` on `wave_leads` — AFTER INSE
 - **WF11** always runs (triggered by WF5). Scrapes website for additional emails (Fetch nodes use `neverError:true` WITHOUT `fullResponse:true` to avoid 0-items bug). Sets final lead status based on ALL email_candidates (from both WF5 SMTP and WF11 scraping): `ready` > `staff_email` > `info_email` > `failed`. Recognizes both `seznam_status='verified'` and legacy `'likely_valid'`.
 - **Domain Discovery Pipeline**: Leads without website/domain now go through multi-source discovery instead of failing. Sources (in order): (1) ARES BE `www` field in WF2, (2) Kurzy.cz HTML website links in WF3, (3) sub-domain-discovery subworkflow in WF4 (ARES BE → Firmy.cz → DNS probe .cz/.com → DuckDuckGo). WF2 no longer fails leads without ICO+domain — forwards them to WF4 for discovery.
 - **sub-domain-discovery**: Execute Workflow sub-wf. Input: `{ lead_id, company_id, company_name, ico }`. Output: `{ found, domain, source }`. Called from WF4 when lead has no domain. n8n ID: `KdaIVaNnqj8eDx8D`.
+- **Drip mode**: `waves.daily_lead_count` (integer, nullable). NULL = all leads on day 1. Positive integer = spread seq1 across multiple days (e.g., 50/day). WF7 computes `dayOffset = floor(leadIdx / leadsPerDay)` per lead; each lead's seq2/seq3 dates are relative to their own seq1 date. `delay_seq1_to_seq2_days` / `delay_seq2_to_seq3_days` columns now used by WF7 for inter-sequence gaps. WF8 unchanged.
 - **WF8** uses atomic `claim_queued_emails()` RPC + `increment_and_check_sends(p_team_id)` for daily limits (on teams table)
 - **WF8** calls `auto_complete_waves()` on loop done
 - **WF10** calls `reset_daily_sends()` RPC at midnight + deletes old `email_probe_bounces`
