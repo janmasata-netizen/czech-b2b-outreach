@@ -240,38 +240,49 @@ export default function WaveDetailPage() {
   const { data: templateSets } = useTemplateSets();
   const deleteWave = useDeleteWave();
   const updateWave = useUpdateWave();
-  const [seqDates, setSeqDates] = useState<Record<number, string>>({});
+  const [startDate, setStartDate] = useState('');
+  const [startTime, setStartTime] = useState('08:00');
+  const [leadsPerDay, setLeadsPerDay] = useState<number | null>(null);
+  const [seqDelays, setSeqDelays] = useState<Record<string, number>>({});
   const [seqTimes, setSeqTimes] = useState<Record<number, string>>({});
-  // Hydrate dates/times when wave data loads (useState init runs before useWave resolves)
+  // Hydrate scheduling state when wave data loads
   useEffect(() => {
     if (!data?.wave) return;
     const w = data.wave;
-    const dates: Record<number, string> = {};
-    const times: Record<number, string> = {};
+    // Read start date from seq1
+    let d1 = '';
+    let t1 = '08:00';
     if (w.sequence_schedule?.length) {
-      for (const e of w.sequence_schedule) {
-        dates[e.seq] = e.send_date?.slice(0, 10) ?? '';
-        times[e.seq] = e.send_time?.slice(0, 5) ?? '08:00';
-      }
-    } else {
-      // Legacy fallback for seq 1-3
-      dates[1] = w.send_date_seq1?.slice(0, 10) || '';
-      dates[2] = w.send_date_seq2?.slice(0, 10) || '';
-      dates[3] = w.send_date_seq3?.slice(0, 10) || '';
-      times[1] = w.send_time_seq1?.slice(0, 5) || '08:00';
-      times[2] = w.send_time_seq2?.slice(0, 5) || '08:00';
-      times[3] = w.send_time_seq3?.slice(0, 5) || '08:00';
+      const s1 = w.sequence_schedule.find(e => e.seq === (w.sequence_schedule![0]?.seq ?? 1));
+      if (s1) { d1 = s1.send_date?.slice(0, 10) ?? ''; t1 = s1.send_time?.slice(0, 5) ?? '08:00'; }
+    } else if (w.send_date_seq1) {
+      d1 = w.send_date_seq1.slice(0, 10);
+      t1 = w.send_time_seq1?.slice(0, 5) || '08:00';
     }
-    setSeqDates(prev => {
-      const next = { ...dates };
-      // Keep user edits if already set
-      for (const k of Object.keys(prev)) { if (prev[+k]) next[+k] = prev[+k]; }
-      return next;
+    setStartDate(prev => prev || d1);
+    setStartTime(prev => prev !== '08:00' ? prev : t1);
+    setLeadsPerDay(prev => prev ?? (w.daily_lead_count ?? null));
+    // Read delays from wave columns
+    setSeqDelays(prev => {
+      if (Object.keys(prev).length > 0) return prev;
+      const delays: Record<string, number> = {};
+      if (w.delay_seq1_to_seq2_days) delays['1→2'] = w.delay_seq1_to_seq2_days;
+      if (w.delay_seq2_to_seq3_days) delays['2→3'] = w.delay_seq2_to_seq3_days;
+      return delays;
     });
+    // Read per-sequence times (seq2+ may differ from seq1)
     setSeqTimes(prev => {
-      const next = { ...times };
-      for (const k of Object.keys(prev)) { if (prev[+k] && prev[+k] !== '08:00') next[+k] = prev[+k]; }
-      return next;
+      if (Object.keys(prev).length > 0) return prev;
+      const times: Record<number, string> = {};
+      if (w.sequence_schedule?.length) {
+        for (const e of w.sequence_schedule) {
+          if (e.send_time) times[e.seq] = e.send_time.slice(0, 5);
+        }
+      } else {
+        if (w.send_time_seq2) times[2] = w.send_time_seq2.slice(0, 5);
+        if (w.send_time_seq3) times[3] = w.send_time_seq3.slice(0, 5);
+      }
+      return times;
     });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [data?.wave?.id]);
@@ -321,7 +332,7 @@ export default function WaveDetailPage() {
     && waveLeads.length > 0
     && availableSeqs.length > 0
     && !!wave.from_email
-    && availableSeqs.every(seq => !!seqDates[seq]);
+    && !!startDate;
 
   // Gap button options and defaults
   const GAP_OPTIONS = [1, 2, 3, 5, 7];
@@ -333,31 +344,63 @@ export default function WaveDetailPage() {
     return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
   }
 
-  function applyGap(fromSeq: number, toSeq: number, days: number, mode: 'schedule' | 'rerun' = 'schedule') {
-    const dates = mode === 'schedule' ? seqDates : rerunSeqDates;
-    const times = mode === 'schedule' ? seqTimes : rerunSeqTimes;
-    const setDates = mode === 'schedule' ? setSeqDates : setRerunSeqDates;
-    const setTimes = mode === 'schedule' ? setSeqTimes : setRerunSeqTimes;
-    if (!dates[fromSeq]) return;
-    const newDate = addDays(dates[fromSeq], days);
-    setDates(prev => ({ ...prev, [toSeq]: newDate }));
-    setTimes(prev => ({ ...prev, [toSeq]: times[fromSeq] }));
+  // Compute delay for gap between two consecutive sequences
+  function getDelay(fromSeq: number, toSeq: number): number {
+    return seqDelays[`${fromSeq}→${toSeq}`] ?? DEFAULT_GAP;
   }
 
-  function handleSeqDateChange(seq: number, value: string, mode: 'schedule' | 'rerun' = 'schedule') {
-    const setDates = mode === 'schedule' ? setSeqDates : setRerunSeqDates;
-    const setTimes = mode === 'schedule' ? setSeqTimes : setRerunSeqTimes;
-    const dates = mode === 'schedule' ? seqDates : rerunSeqDates;
-    const times = mode === 'schedule' ? seqTimes : rerunSeqTimes;
+  // Get effective time for a sequence (falls back to startTime)
+  function getSeqTime(seq: number): string {
+    return seqTimes[seq] || startTime || '08:00';
+  }
+
+  // Compute per-sequence dates from start date + delays + drip offset
+  function computeSeqDates(): Record<number, string> {
+    if (!startDate) return {};
+    const dates: Record<number, string> = {};
+    dates[availableSeqs[0]] = startDate;
+    let cumulativeDelay = 0;
+    for (let i = 1; i < availableSeqs.length; i++) {
+      cumulativeDelay += getDelay(availableSeqs[i - 1], availableSeqs[i]);
+      dates[availableSeqs[i]] = addDays(startDate, cumulativeDelay);
+    }
+    return dates;
+  }
+
+  // Compute drip summary stats
+  const dripStats = (() => {
+    if (!startDate || !availableSeqs.length) return null;
+    const leadCount = waveLeads.length;
+    const effectivePerDay = leadsPerDay ?? leadCount;
+    const dripDays = effectivePerDay > 0 ? Math.ceil(leadCount / effectivePerDay) : 1;
+    const lastDripDayOffset = dripDays - 1;
+    const seqDatesComputed = computeSeqDates();
+
+    const seqRanges = availableSeqs.map((seq, idx) => {
+      const baseDate = seqDatesComputed[seq] || startDate;
+      const endDate = addDays(baseDate, lastDripDayOffset);
+      const delayFromPrev = idx > 0 ? getDelay(availableSeqs[idx - 1], seq) : 0;
+      const time = getSeqTime(seq);
+      return { seq, startDate: baseDate, endDate, delayFromPrev, time };
+    });
+
+    return { leadCount, effectivePerDay, dripDays, seqRanges, totalEmails: leadCount * availableSeqs.length };
+  })();
+
+  // Rerun-specific helpers (keep old per-seq behavior for paused waves)
+  function handleSeqDateChange(seq: number, value: string) {
+    const setDates = setRerunSeqDates;
+    const setTimes = setRerunSeqTimes;
+    const dates = rerunSeqDates;
+    const times = rerunSeqTimes;
     setDates(prev => {
       const next = { ...prev, [seq]: value };
-      // Auto-fill subsequent empty seqs with default gaps
       const seqIdx = availableSeqs.indexOf(seq);
       if (value && seqIdx >= 0) {
         let prevDate = value;
         for (let i = seqIdx + 1; i < availableSeqs.length; i++) {
           const target = availableSeqs[i];
-          if (dates[target]) break; // stop at first manually-set date
+          if (dates[target]) break;
           prevDate = addDays(prevDate, DEFAULT_GAP);
           next[target] = prevDate;
           setTimes(t => ({ ...t, [target]: times[seq] }));
@@ -365,6 +408,13 @@ export default function WaveDetailPage() {
       }
       return next;
     });
+  }
+
+  function applyGap(fromSeq: number, toSeq: number, days: number) {
+    if (!rerunSeqDates[fromSeq]) return;
+    const newDate = addDays(rerunSeqDates[fromSeq], days);
+    setRerunSeqDates(prev => ({ ...prev, [toSeq]: newDate }));
+    setRerunSeqTimes(prev => ({ ...prev, [toSeq]: rerunSeqTimes[fromSeq] }));
   }
 
   // Compute force-send eligible items: pending_prev where previous seq is sent
@@ -416,19 +466,28 @@ export default function WaveDetailPage() {
     if (!canLaunch) return;
     setScheduling(true);
     try {
+      const seqDatesComputed = computeSeqDates();
       const schedule: SequenceScheduleEntry[] = availableSeqs.map(seq => ({
-        seq, send_date: seqDates[seq] || null, send_time: seqTimes[seq] || '08:00',
+        seq, send_date: seqDatesComputed[seq] || null, send_time: getSeqTime(seq),
       }));
+
+      // Compute delay values for DB columns
+      const delay12 = availableSeqs.length >= 2 ? getDelay(availableSeqs[0], availableSeqs[1]) : undefined;
+      const delay23 = availableSeqs.length >= 3 ? getDelay(availableSeqs[1], availableSeqs[2]) : undefined;
+
       await updateWave.mutateAsync({
         id: wave.id,
         updates: {
-          status: 'draft', // Reset status so WF7 guard allows (re)scheduling
+          status: 'draft',
           sequence_schedule: schedule,
+          daily_lead_count: leadsPerDay,
+          delay_seq1_to_seq2_days: delay12,
+          delay_seq2_to_seq3_days: delay23,
           // Legacy compat: first 3 seqs
           ...(schedule[0] ? { send_date_seq1: schedule[0].send_date, send_time_seq1: schedule[0].send_time } : {}),
           ...(schedule[1] ? { send_date_seq2: schedule[1].send_date, send_time_seq2: schedule[1].send_time } : {}),
           ...(schedule[2] ? { send_date_seq3: schedule[2].send_date, send_time_seq3: schedule[2].send_time } : {}),
-          send_window_start: seqTimes[availableSeqs[0]] || '08:00',
+          send_window_start: startTime || '08:00',
         } as Partial<Wave>,
       });
       const res = await fetch(n8nWebhookUrl('wf7-wave-schedule'), {
@@ -437,7 +496,6 @@ export default function WaveDetailPage() {
         body: JSON.stringify({ wave_id: wave.id }),
       });
       if (!res.ok) throw new Error(`WF7 vrátil ${res.status}`);
-      // Parse WF7 response for scheduling report
       let reportMsg = '';
       try {
         const wf7Data = await res.json();
@@ -445,8 +503,7 @@ export default function WaveDetailPage() {
           reportMsg = t('waves.scheduledSkipped', { count: wf7Data.scheduling_report.skipped });
         }
       } catch { /* response may not be JSON */ }
-      const firstSeq = availableSeqs[0];
-      toast.success(t('waves.scheduled', { date: fmtDate(seqDates[firstSeq] || ''), time: seqTimes[firstSeq] || '08:00', report: reportMsg }));
+      toast.success(t('waves.scheduled', { date: fmtDate(startDate), time: startTime || '08:00', report: reportMsg }));
       qc.invalidateQueries({ queryKey: ['waves', id] });
       qc.invalidateQueries({ queryKey: ['waves'] });
     } catch (e: unknown) {
@@ -548,6 +605,7 @@ export default function WaveDetailPage() {
         id: wave.id,
         updates: {
           sequence_schedule: nowSchedule,
+          daily_lead_count: null, // no drip for test sends
           ...(nowSchedule[0] ? { send_date_seq1: nowSchedule[0].send_date, send_time_seq1: nowSchedule[0].send_time } : {}),
           ...(nowSchedule[1] ? { send_date_seq2: nowSchedule[1].send_date, send_time_seq2: nowSchedule[1].send_time } : {}),
           ...(nowSchedule[2] ? { send_date_seq3: nowSchedule[2].send_date, send_time_seq3: nowSchedule[2].send_time } : {}),
@@ -805,7 +863,7 @@ export default function WaveDetailPage() {
         </GlassCard>
       )}
 
-      {/* ── Draft: per-sequence schedule card ── */}
+      {/* ── Draft: scheduling card ── */}
       {wave.status === 'draft' && (
         <GlassCard padding={20}>
           <div style={{ fontSize: 14, fontWeight: 600, color: 'var(--text)', marginBottom: 4 }}>{t('waves.scheduleWave')}</div>
@@ -819,92 +877,138 @@ export default function WaveDetailPage() {
             </div>
           )}
 
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 0 }}>
-            {availableSeqs.map((seq, idx) => (
-              <div key={seq}>
-                {/* Sequence row */}
-                <div style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '10px 0' }}>
-                  <span style={{
-                    fontSize: 11, fontFamily: 'JetBrains Mono, monospace', fontWeight: 700,
-                    color: 'var(--green)', background: 'rgba(62,207,142,0.1)',
-                    padding: '2px 8px', borderRadius: 4, minWidth: 44, textAlign: 'center',
-                  }}>
-                    SEQ{seq}
-                  </span>
-                  <input
-                    className="glass-input"
-                    type="date"
-                    value={seqDates[seq] || ''}
-                    min={today}
-                    onChange={e => handleSeqDateChange(seq, e.target.value, 'schedule')}
-                    style={{ fontFamily: 'JetBrains Mono, monospace', maxWidth: 170 }}
-                  />
-                  <TimeInput24h value={seqTimes[seq] || '08:00'} onChange={v => setSeqTimes(prev => ({ ...prev, [seq]: v }))} />
-                </div>
-
-                {/* Gap buttons between sequences */}
-                {idx < availableSeqs.length - 1 && (() => {
-                  const fromSeq = seq;
-                  const toSeq = availableSeqs[idx + 1];
-                  const defaultGap = DEFAULT_GAP;
-                  return (
-                    <div style={{
-                      display: 'flex', alignItems: 'center', gap: 6, padding: '4px 0 4px 56px',
-                    }}>
-                      <div style={{ width: 24, height: 1, background: 'var(--border)' }} />
-                      {GAP_OPTIONS.map(days => (
-                        <button
-                          key={days}
-                          onClick={() => applyGap(fromSeq, toSeq, days, 'schedule')}
-                          disabled={!seqDates[fromSeq]}
-                          style={{
-                            fontSize: 11, fontFamily: 'JetBrains Mono, monospace',
-                            padding: '2px 8px', borderRadius: 4, cursor: seqDates[fromSeq] ? 'pointer' : 'default',
-                            border: days === defaultGap
-                              ? '1px solid rgba(62,207,142,0.5)'
-                              : '1px solid var(--border)',
-                            background: days === defaultGap
-                              ? 'rgba(62,207,142,0.1)'
-                              : 'var(--bg-subtle)',
-                            color: days === defaultGap ? 'var(--green)' : 'var(--text-muted)',
-                            opacity: seqDates[fromSeq] ? 1 : 0.4,
-                          }}
-                        >
-                          +{days}d
-                        </button>
-                      ))}
-                      <div style={{ width: 24, height: 1, background: 'var(--border)' }} />
-                    </div>
-                  );
-                })()}
-              </div>
-            ))}
+          {/* Start date + time */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '10px 0' }}>
+            <span style={{
+              fontSize: 11, fontFamily: 'JetBrains Mono, monospace', fontWeight: 700,
+              color: 'var(--green)', background: 'rgba(62,207,142,0.1)',
+              padding: '2px 8px', borderRadius: 4,
+            }}>
+              Start
+            </span>
+            <input
+              className="glass-input"
+              type="date"
+              value={startDate}
+              min={today}
+              onChange={e => setStartDate(e.target.value)}
+              style={{ fontFamily: 'JetBrains Mono, monospace', maxWidth: 170 }}
+            />
+            <TimeInput24h value={startTime} onChange={setStartTime} />
           </div>
 
-          {/* Scheduling summary */}
-          {canLaunch && (
-            <div style={{
-              marginTop: 14, padding: '12px 16px', borderRadius: 8,
-              background: 'rgba(62,207,142,0.04)', border: '1px solid rgba(62,207,142,0.15)',
-              display: 'flex', gap: 24, flexWrap: 'wrap',
+          {/* Leads per day (drip) */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '6px 0 10px' }}>
+            <span style={{
+              fontSize: 11, fontFamily: 'JetBrains Mono, monospace', fontWeight: 600,
+              color: 'var(--text-dim)', minWidth: 90,
             }}>
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
-                <span style={{ fontSize: 10, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>{t('waves.leads')}</span>
-                <span style={{ fontSize: 15, fontFamily: 'JetBrains Mono, monospace', color: 'var(--green)', fontWeight: 600 }}>{waveLeads.length}</span>
+              {t('waves.leadsPerDay')}
+            </span>
+            <input
+              className="glass-input"
+              type="number"
+              min={1}
+              placeholder={String(waveLeads.length)}
+              value={leadsPerDay ?? ''}
+              onChange={e => {
+                const v = e.target.value;
+                setLeadsPerDay(v === '' ? null : Math.max(1, parseInt(v) || 1));
+              }}
+              style={{ fontFamily: 'JetBrains Mono, monospace', maxWidth: 90, textAlign: 'center' }}
+            />
+            <span style={{ fontSize: 11, color: 'var(--text-muted)' }}>
+              ({t('waves.leadsPerDayHint')})
+            </span>
+          </div>
+
+          {/* Sequence delay buttons + time pickers */}
+          {availableSeqs.length > 1 && (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 6, padding: '4px 0 10px' }}>
+              {availableSeqs.slice(0, -1).map((fromSeq, idx) => {
+                const toSeq = availableSeqs[idx + 1];
+                const key = `${fromSeq}→${toSeq}`;
+                const current = seqDelays[key] ?? DEFAULT_GAP;
+                return (
+                  <div key={key} style={{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
+                    <span style={{
+                      fontSize: 11, fontFamily: 'JetBrains Mono, monospace', fontWeight: 600,
+                      color: 'var(--text-dim)', minWidth: 90,
+                    }}>
+                      SEQ{fromSeq} → SEQ{toSeq}
+                    </span>
+                    <div style={{ width: 16, height: 1, background: 'var(--border)' }} />
+                    {GAP_OPTIONS.map(days => (
+                      <button
+                        key={days}
+                        onClick={() => setSeqDelays(prev => ({ ...prev, [key]: days }))}
+                        style={{
+                          fontSize: 11, fontFamily: 'JetBrains Mono, monospace',
+                          padding: '2px 8px', borderRadius: 4, cursor: 'pointer',
+                          border: days === current
+                            ? '1px solid rgba(62,207,142,0.5)'
+                            : '1px solid var(--border)',
+                          background: days === current
+                            ? 'rgba(62,207,142,0.1)'
+                            : 'var(--bg-subtle)',
+                          color: days === current ? 'var(--green)' : 'var(--text-muted)',
+                        }}
+                      >
+                        +{days}d
+                      </button>
+                    ))}
+                    <div style={{ width: 8 }} />
+                    <TimeInput24h
+                      value={getSeqTime(toSeq)}
+                      onChange={v => setSeqTimes(prev => ({ ...prev, [toSeq]: v }))}
+                    />
+                  </div>
+                );
+              })}
+            </div>
+          )}
+
+          {/* Drip summary */}
+          {canLaunch && dripStats && (
+            <div style={{
+              marginTop: 6, padding: '12px 16px', borderRadius: 8,
+              background: 'rgba(62,207,142,0.04)', border: '1px solid rgba(62,207,142,0.15)',
+            }}>
+              <div style={{ fontSize: 11, fontWeight: 600, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: 10 }}>
+                {t('waves.dripSummaryTitle')}
               </div>
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
-                <span style={{ fontSize: 10, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>{t('waves.totalEmails')}</span>
-                <span style={{ fontSize: 15, fontFamily: 'JetBrains Mono, monospace', color: 'var(--text)', fontWeight: 600 }}>{waveLeads.length * availableSeqs.length}</span>
+              {leadsPerDay && leadsPerDay < waveLeads.length && (
+                <div style={{ fontSize: 12, fontFamily: 'JetBrains Mono, monospace', color: 'var(--text)', marginBottom: 8 }}>
+                  {dripStats.leadCount} {t('waves.leads').toLowerCase()} × {dripStats.effectivePerDay}/{t('waves.leadsPerDay').toLowerCase().split(' ').pop()} = {dripStats.dripDays} {t('waves.dripDays', { count: dripStats.dripDays }).split(' ').pop()}
+                </div>
+              )}
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+                {dripStats.seqRanges.map(({ seq, startDate: sd, endDate, delayFromPrev, time }) => (
+                  <div key={seq} style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 12, fontFamily: 'JetBrains Mono, monospace' }}>
+                    <span style={{
+                      fontWeight: 700, color: 'var(--green)', background: 'rgba(62,207,142,0.1)',
+                      padding: '1px 6px', borderRadius: 3, minWidth: 38, textAlign: 'center', fontSize: 11,
+                    }}>SEQ{seq}</span>
+                    <span style={{ color: 'var(--text)' }}>
+                      {fmtDate(sd)}{sd !== endDate ? ` – ${fmtDate(endDate)}` : ''} {time}
+                    </span>
+                    {delayFromPrev > 0 && (
+                      <span style={{ color: 'var(--text-muted)', fontSize: 11 }}>
+                        (+{delayFromPrev}d)
+                      </span>
+                    )}
+                  </div>
+                ))}
               </div>
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
-                <span style={{ fontSize: 10, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>{t('waves.sequences')}</span>
-                <span style={{ fontSize: 15, fontFamily: 'JetBrains Mono, monospace', color: 'var(--text)', fontWeight: 600 }}>{availableSeqs.length}</span>
-              </div>
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
-                <span style={{ fontSize: 10, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>{t('waves.period')}</span>
-                <span style={{ fontSize: 13, fontFamily: 'JetBrains Mono, monospace', color: 'var(--text)' }}>
-                  {fmtDate(seqDates[availableSeqs[0]] || '')} — {fmtDate(seqDates[availableSeqs[availableSeqs.length - 1]] || '')}
-                </span>
+              <div style={{ display: 'flex', gap: 20, marginTop: 10 }}>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+                  <span style={{ fontSize: 10, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>{t('waves.totalEmails')}</span>
+                  <span style={{ fontSize: 14, fontFamily: 'JetBrains Mono, monospace', color: 'var(--text)', fontWeight: 600 }}>{dripStats.totalEmails}</span>
+                </div>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+                  <span style={{ fontSize: 10, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>{t('waves.sequences')}</span>
+                  <span style={{ fontSize: 14, fontFamily: 'JetBrains Mono, monospace', color: 'var(--text)', fontWeight: 600 }}>{availableSeqs.length}</span>
+                </div>
               </div>
             </div>
           )}
@@ -966,7 +1070,7 @@ export default function WaveDetailPage() {
                     type="date"
                     value={rerunSeqDates[seq] || ''}
                     min={today}
-                    onChange={e => handleSeqDateChange(seq, e.target.value, 'rerun')}
+                    onChange={e => handleSeqDateChange(seq, e.target.value)}
                     style={{ fontFamily: 'JetBrains Mono, monospace', maxWidth: 170 }}
                   />
                   <TimeInput24h value={rerunSeqTimes[seq] || '08:00'} onChange={v => setRerunSeqTimes(prev => ({ ...prev, [seq]: v }))} />
@@ -984,7 +1088,7 @@ export default function WaveDetailPage() {
                       {GAP_OPTIONS.map(days => (
                         <button
                           key={days}
-                          onClick={() => applyGap(fromSeq, toSeq, days, 'rerun')}
+                          onClick={() => applyGap(fromSeq, toSeq, days)}
                           disabled={!rerunSeqDates[fromSeq]}
                           style={{
                             fontSize: 11, fontFamily: 'JetBrains Mono, monospace',
@@ -1092,21 +1196,30 @@ export default function WaveDetailPage() {
           <div style={{ fontSize: 13, color: 'var(--text-dim)', lineHeight: 1.5 }}>
             {t('waves.confirmLaunchPrefix')} <strong style={{ color: 'var(--text)' }}>{wave.name}</strong>?
           </div>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-            {availableSeqs.map(seq => (
-              <div key={seq} style={{ display: 'flex', gap: 12, alignItems: 'center' }}>
-                <span style={{ fontSize: 11, fontFamily: 'JetBrains Mono, monospace', fontWeight: 700, color: 'var(--green)', minWidth: 38 }}>SEQ{seq}</span>
-                <span style={{ fontSize: 13, fontFamily: 'JetBrains Mono, monospace', color: 'var(--text)' }}>
-                  {fmtDate(seqDates[seq] || '')} {seqTimes[seq] || '08:00'}
-                </span>
-              </div>
-            ))}
-          </div>
+          {dripStats && (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+              {dripStats.seqRanges.map(({ seq, startDate: sd, endDate, delayFromPrev, time }) => (
+                <div key={seq} style={{ display: 'flex', gap: 12, alignItems: 'center' }}>
+                  <span style={{ fontSize: 11, fontFamily: 'JetBrains Mono, monospace', fontWeight: 700, color: 'var(--green)', minWidth: 38 }}>SEQ{seq}</span>
+                  <span style={{ fontSize: 13, fontFamily: 'JetBrains Mono, monospace', color: 'var(--text)' }}>
+                    {fmtDate(sd)}{sd !== endDate ? ` – ${fmtDate(endDate)}` : ''} {time}
+                  </span>
+                  {delayFromPrev > 0 && <span style={{ fontSize: 11, color: 'var(--text-muted)' }}>(+{delayFromPrev}d)</span>}
+                </div>
+              ))}
+            </div>
+          )}
           <div style={{ display: 'flex', gap: 16 }}>
             <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
               <span style={{ fontSize: 11, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>{t('waves.leads')}</span>
               <span style={{ fontSize: 14, fontFamily: 'JetBrains Mono, monospace', color: 'var(--green)' }}>{waveLeads.length}</span>
             </div>
+            {leadsPerDay && leadsPerDay < waveLeads.length && dripStats && (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+                <span style={{ fontSize: 11, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>{t('waves.leadsPerDay')}</span>
+                <span style={{ fontSize: 14, fontFamily: 'JetBrains Mono, monospace', color: 'var(--text)' }}>{leadsPerDay} ({dripStats.dripDays}d)</span>
+              </div>
+            )}
           </div>
           <div style={{ fontSize: 12, color: 'var(--text-muted)', lineHeight: 1.5 }}>
             {t('waves.confirmScheduleNote')}
