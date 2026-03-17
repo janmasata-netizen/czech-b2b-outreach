@@ -771,6 +771,33 @@
     },
     {
       "parameters": {
+        "conditions": {
+          "options": {},
+          "conditions": [
+            {
+              "id": "not-already-replied",
+              "leftValue": "={{ $json.lead_status }}",
+              "rightValue": "replied",
+              "operator": {
+                "type": "string",
+                "operation": "notEquals"
+              }
+            }
+          ],
+          "combinator": "and"
+        }
+      },
+      "id": "src-0000-0000-0000-000000000082",
+      "name": "IF Not Already Replied",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [
+        4920,
+        0
+      ]
+    },
+    {
+      "parameters": {
         "method": "GET",
         "url": "https://cycapkswtucbucyegdsn.supabase.co/rest/v1/wave_leads",
         "sendHeaders": true,
@@ -1495,7 +1522,25 @@
       "main": [
         [
           {
+            "node": "IF Not Already Replied",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "IF Not Already Replied": {
+      "main": [
+        [
+          {
             "node": "Get Wave Lead",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Loop Emails",
             "type": "main",
             "index": 0
           }
@@ -2457,6 +2502,33 @@
       },
       {
         "parameters": {
+          "conditions": {
+            "options": {},
+            "conditions": [
+              {
+                "id": "not-already-replied",
+                "leftValue": "={{ $json.lead_status }}",
+                "rightValue": "replied",
+                "operator": {
+                  "type": "string",
+                  "operation": "notEquals"
+                }
+              }
+            ],
+            "combinator": "and"
+          }
+        },
+        "id": "src-0000-0000-0000-000000000082",
+        "name": "IF Not Already Replied",
+        "type": "n8n-nodes-base.if",
+        "typeVersion": 2,
+        "position": [
+          4920,
+          0
+        ]
+      },
+      {
+        "parameters": {
           "method": "GET",
           "url": "https://cycapkswtucbucyegdsn.supabase.co/rest/v1/wave_leads",
           "sendHeaders": true,
@@ -3092,7 +3164,25 @@
         "main": [
           [
             {
+              "node": "IF Not Already Replied",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "IF Not Already Replied": {
+        "main": [
+          [
+            {
               "node": "Get Wave Lead",
+              "type": "main",
+              "index": 0
+            }
+          ],
+          [
+            {
+              "node": "Loop Emails",
               "type": "main",
               "index": 0
             }

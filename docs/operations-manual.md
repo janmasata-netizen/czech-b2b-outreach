@@ -555,6 +555,7 @@ Stav demo rezimu se uklada do `localStorage` pod klicem `demo-mode`. Rezim prezi
   - Odpoved se ulozi do `lead_replies`
   - E-mail se oznaci v `processed_reply_emails` (neopakuje se)
   - Neparovane odpovedi jdou do `unmatched_replies`
+  - **Duplicate skip:** Pokud lead uz ma `status = 'replied'`, dalsi emaily ve vlakne se preskoci (node "IF Not Already Replied" v sub-reply-check). Pouze prvni odpoved vytvori `lead_reply` zaznam.
 
 ### 9.2 NDR monitoring
 
