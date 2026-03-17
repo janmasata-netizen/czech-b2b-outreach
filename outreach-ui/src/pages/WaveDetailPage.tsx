@@ -244,6 +244,7 @@ export default function WaveDetailPage() {
   const [startTime, setStartTime] = useState('08:00');
   const [leadsPerDay, setLeadsPerDay] = useState<number | null>(null);
   const [seqDelays, setSeqDelays] = useState<Record<string, number>>({});
+  const [seqTimes, setSeqTimes] = useState<Record<number, string>>({});
   // Hydrate scheduling state when wave data loads
   useEffect(() => {
     if (!data?.wave) return;
@@ -268,6 +269,20 @@ export default function WaveDetailPage() {
       if (w.delay_seq1_to_seq2_days) delays['1→2'] = w.delay_seq1_to_seq2_days;
       if (w.delay_seq2_to_seq3_days) delays['2→3'] = w.delay_seq2_to_seq3_days;
       return delays;
+    });
+    // Read per-sequence times (seq2+ may differ from seq1)
+    setSeqTimes(prev => {
+      if (Object.keys(prev).length > 0) return prev;
+      const times: Record<number, string> = {};
+      if (w.sequence_schedule?.length) {
+        for (const e of w.sequence_schedule) {
+          if (e.send_time) times[e.seq] = e.send_time.slice(0, 5);
+        }
+      } else {
+        if (w.send_time_seq2) times[2] = w.send_time_seq2.slice(0, 5);
+        if (w.send_time_seq3) times[3] = w.send_time_seq3.slice(0, 5);
+      }
+      return times;
     });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [data?.wave?.id]);
@@ -334,6 +349,11 @@ export default function WaveDetailPage() {
     return seqDelays[`${fromSeq}→${toSeq}`] ?? DEFAULT_GAP;
   }
 
+  // Get effective time for a sequence (falls back to startTime)
+  function getSeqTime(seq: number): string {
+    return seqTimes[seq] || startTime || '08:00';
+  }
+
   // Compute per-sequence dates from start date + delays + drip offset
   function computeSeqDates(): Record<number, string> {
     if (!startDate) return {};
@@ -360,7 +380,8 @@ export default function WaveDetailPage() {
       const baseDate = seqDatesComputed[seq] || startDate;
       const endDate = addDays(baseDate, lastDripDayOffset);
       const delayFromPrev = idx > 0 ? getDelay(availableSeqs[idx - 1], seq) : 0;
-      return { seq, startDate: baseDate, endDate, delayFromPrev };
+      const time = getSeqTime(seq);
+      return { seq, startDate: baseDate, endDate, delayFromPrev, time };
     });
 
     return { leadCount, effectivePerDay, dripDays, seqRanges, totalEmails: leadCount * availableSeqs.length };
@@ -447,7 +468,7 @@ export default function WaveDetailPage() {
     try {
       const seqDatesComputed = computeSeqDates();
       const schedule: SequenceScheduleEntry[] = availableSeqs.map(seq => ({
-        seq, send_date: seqDatesComputed[seq] || null, send_time: startTime || '08:00',
+        seq, send_date: seqDatesComputed[seq] || null, send_time: getSeqTime(seq),
       }));
 
       // Compute delay values for DB columns
@@ -901,15 +922,15 @@ export default function WaveDetailPage() {
             </span>
           </div>
 
-          {/* Sequence delay buttons */}
+          {/* Sequence delay buttons + time pickers */}
           {availableSeqs.length > 1 && (
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 4, padding: '4px 0 10px' }}>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 6, padding: '4px 0 10px' }}>
               {availableSeqs.slice(0, -1).map((fromSeq, idx) => {
                 const toSeq = availableSeqs[idx + 1];
                 const key = `${fromSeq}→${toSeq}`;
                 const current = seqDelays[key] ?? DEFAULT_GAP;
                 return (
-                  <div key={key} style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                  <div key={key} style={{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
                     <span style={{
                       fontSize: 11, fontFamily: 'JetBrains Mono, monospace', fontWeight: 600,
                       color: 'var(--text-dim)', minWidth: 90,
@@ -936,6 +957,11 @@ export default function WaveDetailPage() {
                         +{days}d
                       </button>
                     ))}
+                    <div style={{ width: 8 }} />
+                    <TimeInput24h
+                      value={getSeqTime(toSeq)}
+                      onChange={v => setSeqTimes(prev => ({ ...prev, [toSeq]: v }))}
+                    />
                   </div>
                 );
               })}
@@ -957,14 +983,14 @@ export default function WaveDetailPage() {
                 </div>
               )}
               <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
-                {dripStats.seqRanges.map(({ seq, startDate: sd, endDate, delayFromPrev }) => (
+                {dripStats.seqRanges.map(({ seq, startDate: sd, endDate, delayFromPrev, time }) => (
                   <div key={seq} style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 12, fontFamily: 'JetBrains Mono, monospace' }}>
                     <span style={{
                       fontWeight: 700, color: 'var(--green)', background: 'rgba(62,207,142,0.1)',
                       padding: '1px 6px', borderRadius: 3, minWidth: 38, textAlign: 'center', fontSize: 11,
                     }}>SEQ{seq}</span>
                     <span style={{ color: 'var(--text)' }}>
-                      {fmtDate(sd)}{sd !== endDate ? ` – ${fmtDate(endDate)}` : ''}
+                      {fmtDate(sd)}{sd !== endDate ? ` – ${fmtDate(endDate)}` : ''} {time}
                     </span>
                     {delayFromPrev > 0 && (
                       <span style={{ color: 'var(--text-muted)', fontSize: 11 }}>
@@ -1172,11 +1198,11 @@ export default function WaveDetailPage() {
           </div>
           {dripStats && (
             <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
-              {dripStats.seqRanges.map(({ seq, startDate: sd, endDate, delayFromPrev }) => (
+              {dripStats.seqRanges.map(({ seq, startDate: sd, endDate, delayFromPrev, time }) => (
                 <div key={seq} style={{ display: 'flex', gap: 12, alignItems: 'center' }}>
                   <span style={{ fontSize: 11, fontFamily: 'JetBrains Mono, monospace', fontWeight: 700, color: 'var(--green)', minWidth: 38 }}>SEQ{seq}</span>
                   <span style={{ fontSize: 13, fontFamily: 'JetBrains Mono, monospace', color: 'var(--text)' }}>
-                    {fmtDate(sd)}{sd !== endDate ? ` – ${fmtDate(endDate)}` : ''} {startTime}
+                    {fmtDate(sd)}{sd !== endDate ? ` – ${fmtDate(endDate)}` : ''} {time}
                   </span>
                   {delayFromPrev > 0 && <span style={{ fontSize: 11, color: 'var(--text-muted)' }}>(+{delayFromPrev}d)</span>}
                 </div>
