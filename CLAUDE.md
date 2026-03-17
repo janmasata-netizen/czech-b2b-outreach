@@ -4,7 +4,7 @@
 
 > **Setup:** Clone this repo, copy `.env.example` to `.env.local` and fill in secrets. Run `npm install` in `outreach-ui/`. Run `git config core.hooksPath .githooks`. Open Claude Code from the repo root.
 
-> **Git hooks:** Pre-commit blocks code on main (only `active-work.md` allowed); pre-push verifies build on feature branches.
+> **Git hooks:** Post-checkout warns about dirty files carried across branches; pre-commit blocks code on main (only `active-work.md` allowed); pre-push verifies build on feature branches.
 
 ## Branch-Based Workflow
 
@@ -12,7 +12,7 @@
 2. Run `/preflight` to verify clean state
 3. Read `.claude/active-work.md` — check for **exact file path conflicts**. If ANY file you plan to touch appears in another agent's row, STOP.
 4. Create feature branch: `git checkout -b claude/[short-description]`
-5. **Register immediately (NON-NEGOTIABLE):** `git checkout main && git pull` → add your row to `.claude/active-work.md` with **exact file paths** → `git add .claude/active-work.md && git commit -m "Register claude/[branch]" && git push origin main` → `git checkout claude/[short-description]`
+5. **Register immediately (NON-NEGOTIABLE):** First, commit any WIP on your branch. Then: `git checkout main && git pull` → add your row to `.claude/active-work.md` with **exact file paths** → `git add .claude/active-work.md && git commit -m "Register claude/[branch]" && git push origin main` → `git checkout claude/[short-description]`
 6. Do the work
 7. Commit and push: `git push -u origin claude/[short-description]`
 8. Create PR: `gh pr create --title "[short description]" --body "..."`
@@ -26,10 +26,11 @@
 2. **List exact file paths** in `active-work.md` (e.g. `outreach-ui/src/lib/supabase.ts`).
 3. **File-level conflict check.** Grep `active-work.md` for every file you plan to touch.
 4. **Never work directly on main.** Only `active-work.md` metadata commits.
-5. **Never use `git stash`.** Commit WIP to your feature branch.
+5. **Never use `git stash`. Never switch branches with uncommitted changes.** Commit WIP to your feature branch first.
 6. **Cleanup is atomic with merge.** Remove your row immediately after `gh pr merge`.
 7. **Always use `--delete-branch`** with `gh pr merge`.
 8. **Abandoned work:** Entries >24h old with no recent commits can be removed by any agent.
+9. **Never switch branches with a dirty tree.** Before ANY `git checkout`, run `git status`. If dirty, commit WIP first. The post-checkout hook will catch violations.
 
 ## What this project is
 An automated Czech B2B cold email outreach system built on n8n + Supabase. It enriches company leads (ARES IČO lookup, kurzy.cz jednatel scraping, email generation, bounce/QEV verification), then runs email waves via SMTP with reply detection.

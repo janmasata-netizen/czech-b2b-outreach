@@ -30,7 +30,7 @@ git rev-parse --abbrev-ref HEAD
 git status --porcelain
 ```
 - If output is empty → `[PASS] Working tree clean`
-- Otherwise → `[WARN] Uncommitted changes detected` and list the files
+- Otherwise → `[FAIL] DIRTY WORKING TREE — uncommitted changes will be lost on branch switch` and list the files. Include fix: `git add -A && git commit -m 'WIP: save state'`
 
 ### 3. Stash Check
 ```bash
@@ -73,12 +73,19 @@ cd outreach-ui && npm run build
 - If build fails → `[FAIL] Build broken — fix before pushing`
 If no `outreach-ui/`, skip with `[SKIP] No outreach-ui/ directory`
 
-### 9. Hooks Check
+### 9. Hooks Path Check
 ```bash
 git config core.hooksPath
 ```
-- If output is `.githooks` → `[PASS] Git hooks configured`
-- Otherwise → `[WARN] Git hooks not configured. Run: git config core.hooksPath .githooks`
+- If output is `.githooks` → `[PASS] Git hooks path configured`
+- Otherwise → `[FAIL] Git hooks not configured. Run: git config core.hooksPath .githooks`
+
+### 10. Hook Files Check
+```bash
+ls .githooks/post-checkout .githooks/pre-commit .githooks/pre-push 2>/dev/null
+```
+- If all three files exist → `[PASS] All hook files present (post-checkout, pre-commit, pre-push)`
+- If any missing → `[FAIL] Missing hook files in .githooks/. Expected: post-checkout, pre-commit, pre-push`. List which are missing.
 
 ## Output Format
 
@@ -94,7 +101,8 @@ Pre-Flight Check Results:
   [PASS] No merged branches to clean up
   [PASS] All branches track valid remotes
   [PASS] Build passes
-  [PASS] Git hooks configured
+  [PASS] Git hooks path configured
+  [PASS] All hook files present (post-checkout, pre-commit, pre-push)
 
 1 warning found. Fix before proceeding.
 ```
