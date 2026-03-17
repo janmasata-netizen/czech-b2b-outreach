@@ -347,7 +347,7 @@
     {
       "parameters": {
         "source": "database",
-        "workflowId": "__SUB_DOMAIN_DISCOVERY_ID__",
+        "workflowId": "KdaIVaNnqj8eDx8D",
         "waitForSubWorkflow": true
       },
       "id": "wf04-exec-discovery",
