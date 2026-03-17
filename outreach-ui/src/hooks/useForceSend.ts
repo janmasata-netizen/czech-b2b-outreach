@@ -1,5 +1,6 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { n8nWebhookUrl, n8nHeaders } from '@/lib/n8n';
+import { useDemoMode } from '@/contexts/DemoModeContext';
 
 interface ForceSendResult {
   success: boolean;
@@ -9,8 +10,10 @@ interface ForceSendResult {
 
 export function useForceSendSequence(waveId: string) {
   const qc = useQueryClient();
+  const { isDemoMode } = useDemoMode();
   return useMutation<ForceSendResult, Error, { queueIds: string[] }>({
     mutationFn: async ({ queueIds }) => {
+      if (isDemoMode) return { success: true, message: 'Demo mode' };
       const res = await fetch(n8nWebhookUrl('wf-force-send'), {
         method: 'POST',
         headers: n8nHeaders(),
@@ -25,9 +28,11 @@ export function useForceSendSequence(waveId: string) {
       return res.json();
     },
     onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ['waves', waveId] });
-      qc.invalidateQueries({ queryKey: ['waves'] });
-      qc.invalidateQueries({ queryKey: ['settings', 'teams'] });
+      if (!isDemoMode) {
+        qc.invalidateQueries({ queryKey: ['waves', waveId] });
+        qc.invalidateQueries({ queryKey: ['waves'] });
+        qc.invalidateQueries({ queryKey: ['settings', 'teams'] });
+      }
     },
   });
 }

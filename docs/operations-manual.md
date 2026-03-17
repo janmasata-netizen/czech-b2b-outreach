@@ -15,9 +15,10 @@
 | Operator | Pouzit retarget pool | [Retarget pool](#4-retarget-pool) |
 | Operator | Importovat leady | [Import leadu](#6-import-leadu) |
 | Operator | Hledat e-maily | [Email Finder](#7-email-finder) |
+| Operator | Zapnout demo rezim | [Demo rezim](#8-demo-rezim-prezentacni-rezim) |
 | Admin | Spravovat uzivatele | [Sprava uzivatelu](#5-sprava-uzivatelu) |
-| Admin | Sledovat stav systemu | [Monitoring](#8-monitoring) |
-| Kdokoliv | Resit problem | [Reseni problemu](#9-reseni-problemu-faq) |
+| Admin | Sledovat stav systemu | [Monitoring](#9-monitoring) |
+| Kdokoliv | Resit problem | [Reseni problemu](#10-reseni-problemu-faq) |
 | Kdokoliv | Vysvetleni pojmu | [Slovnicek](#slovnicek) |
 
 ---
@@ -471,6 +472,24 @@ Samostatny nastroj pro vyhledavani a overovani e-mailovych adres. Pristupny na `
 
 > **POZN:** Stare zakladky ICO, Name, Probe a Bulk byly odstraneny. Jejich funkcionalita je nyni soucasti zakladky "Najit emaily" (v3 orchestrator).
 
+### Domain Discovery (sub-domain-discovery)
+
+Automaticky hledani domeny firmy pro leady, ktere nemaji website. Spousti se z WF4 pred selhanim leadu.
+
+**Zdroje (v poradi priority):**
+1. **ARES BE** — `GET /ekonomicke-subjekty/{ico}` → pole `www` (vyzaduje ICO)
+2. **Firmy.cz** — `GET /hledej?dotaz={nazev_firmy}` → extrakce prvni nalezene domeny
+3. **DNS probe** — `HEAD https://{normalizovany_nazev}.cz` a `.com` (5s timeout)
+4. **DuckDuckGo** — `GET html.duckduckgo.com/html/?q={nazev}+website` → prvni vysledek
+
+**Kde se domain discovery pouziva v pipeline:**
+- **WF2:** Po nalezeni ICO provede ARES BE Lookup a extrahuje website (zdroj 1)
+- **WF3:** Pri scraping Kurzy.cz extrahuje website z HTML (pokud lead nema domenu)
+- **WF4:** Pokud lead stale nema domenu → vola sub-domain-discovery (zdroje 1-4)
+- **WF2 (bez ICO):** Misto selhani posle lead do WF4, kde probehne domain discovery
+
+**Vystup sub-workflow:** `{ found: true/false, domain: "example.cz", source: "ares|firmy|dns|ddg" }`
+
 ### Akce s vysledky
 
 | Akce | Popis |
@@ -481,9 +500,53 @@ Samostatny nastroj pro vyhledavani a overovani e-mailovych adres. Pristupny na `
 
 ---
 
-## 8. Monitoring
+## 8. Demo rezim (prezentacni rezim)
 
-### 8.1 Detekce odpovedi (WF9)
+### Co to je
+
+Vestaveny rezim pro prezentace, skoleni a demo ucelovy. Kdyz je aktivni, cele UI zobrazuje fiktivni ceska B2B data (firmy, kontakty, leady, vlny, sablony, dashboard statistiky) misto realnych dat ze Supabase. Zadna mutace (vytvareni, editace, mazani) se neprovede — tlacitka tichy no-opuji.
+
+### Jak aktivovat
+
+1. Kliknete na **ikonu oka** (Eye) v **TopBar** — nachazi se mezi tlacitkem bug reportu a uzivatelskeho avataru
+2. Po kliknuti se rezim aktivuje — ikona oka se zbarvi **zlute**
+3. Opetovnym kliknutim na ikonu oka se demo rezim **deaktivuje**
+
+### Co se deje v demo rezimu
+
+| Oblast | Chovani |
+|--------|---------|
+| **Dashboard** (`/prehled`) | Fiktivni statistiky, grafy (area chart, bar charty), aktivni vlny |
+| **Databaze** (`/databaze`) | 15 fiktivnich firem s ceskymi nazvy |
+| **Leady** (`/leady`) | Fiktivni leady s ruznymi stavy |
+| **Vlny** (`/vlny`) | 4 fiktivni vlny s analytiky, odpovedi, casovou osou |
+| **Sablony** (`/sablony`) | 2 fiktivni sady sablon |
+| **Retarget** (`/retarget`) | Fiktivni retarget pool |
+| **System** (`/system`) | Fiktivni health metriky, logy, workflow statistiky |
+| **Vsechny mutace** | Tichy no-op — vytvareni, editace, mazani, planovani nic nedelaji |
+| **Realtime subscriptions** | Preskoceny — zadne WebSocket spojeni |
+
+### Persistence
+
+Stav demo rezimu se uklada do `localStorage` pod klicem `demo-mode`. Rezim prezije reload stranky i zavreni prohlizece. Odhlaseni a prihlaseni stav nemeni.
+
+### Pouziti
+
+| Scenar | Postup |
+|--------|--------|
+| **Prezentace klientovi** | Zapnete demo rezim → projdete stranky s fiktivnimi daty → po prezentaci vypnete |
+| **Skoleni noveho uzivatele** | Zapnete demo rezim → uzivatel si muze bezpecne klikat po cele aplikaci bez rizika zmeny dat |
+| **Screenshot / video** | Zapnete demo rezim → poridite screenshoty s profesionalnimi fiktivnimi daty |
+
+> **TIP:** Demo rezim funguje i bez pripojeni k Supabase — hookky vrati fiktivni data primo z pameti. To je uzitecne pro offline prezentace.
+
+> **POZOR:** V demo rezimu se nezobrazuji toast notifikace o uspesnych mutacich, protoze mutace se ve skutecnosti neprovadeji.
+
+---
+
+## 9. Monitoring
+
+### 9.1 Detekce odpovedi (WF9)
 
 - **Workflow:** WF9 (reply detection), bezi kazdou minutu
 - **Jak funguje:** Kontroluje IMAP schranky vsech aktivnich obchodniku pres IMAP proxy
@@ -493,7 +556,7 @@ Samostatny nastroj pro vyhledavani a overovani e-mailovych adres. Pristupny na `
   - E-mail se oznaci v `processed_reply_emails` (neopakuje se)
   - Neparovane odpovedi jdou do `unmatched_replies`
 
-### 8.2 NDR monitoring
+### 9.2 NDR monitoring
 
 - **Workflow:** wf-ndr-monitor + wf-ndr-monitor-spam
 - **Jak funguje:** Sleduje INBOX a spam slozku pro NDR (Non-Delivery Reports)
@@ -501,14 +564,14 @@ Samostatny nastroj pro vyhledavani a overovani e-mailovych adres. Pristupny na `
   - Lead se prepne do stavu `bounced`
   - Bounce se zaznmena do `email_probe_bounces`
 
-### 8.3 Denni reset (WF10)
+### 9.3 Denni reset (WF10)
 
 - **Workflow:** WF10, spousti se o pulnoci
 - **Co dela:**
   - Resetuje `teams.sends_today` na 0 (pres RPC `reset_daily_sends()`)
   - Maze stare zaznamy z `email_probe_bounces`
 
-### 8.4 Stranka stavu systemu (`/system`)
+### 9.4 Stranka stavu systemu (`/system`)
 
 Pristupna na `/system`. Zobrazuje:
 
@@ -530,14 +593,14 @@ Pristupna na `/system`. Zobrazuje:
 
 Data se automaticky obnovuji kazdych 15 sekund. Tlacitko **Obnovit** vynuti okamzitou aktualizaci.
 
-### 8.5 Selhanelost — Failed emails
+### 9.5 Selhanelost — Failed emails
 
 V detailu vlny (`/vlny/{id}`) najdete:
 - Tabulku selhalych emailu
 - Kazdy radek ma tlacitko **Opakovat** (retry) pro opetovne zarazeni do fronty
 - Informace o duvodu selhani
 
-### 8.6 Dashboard filtrování
+### 9.6 Dashboard filtrování
 
 Na dashboardu (`/prehled`) je prepinac casoveho rozsahu:
 
@@ -559,7 +622,7 @@ Zobrazované metriky:
 
 ---
 
-## 9. Reseni problemu (FAQ)
+## 10. Reseni problemu (FAQ)
 
 ### Emaily se neodesılaji
 
@@ -661,7 +724,8 @@ Zobrazované metriky:
 | **Daily send limit** | Maximalni pocet emailu, ktere muze tym odeslat za den. Resetuje se o pulnoci. |
 | **FROM email** | Adresa odesilatele nastavena primo na vlne (volny text). |
 | **Reply-To** | Adresa pro odpovedi — nastavuje se automaticky na email obchodnika z tymu. |
+| **Demo Mode** | Prezentacni rezim UI — zobrazuje fiktivni ceska B2B data. Prepina se ikonou Eye v TopBar. Stav v localStorage. Admin stranky neovlivneny. |
 
 ---
 
-> **Posledni aktualizace:** 2026-03-15
+> **Posledni aktualizace:** 2026-03-17

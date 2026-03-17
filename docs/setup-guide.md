@@ -131,6 +131,8 @@ npm run dev
 
 > **TIP:** UI cte promenne prostredi z `../.env.local` (nadrazeny adresar) pres Vite konfiguraci. Import alias `@` ukazuje na `./src` — napr. `@/hooks/useLeads` odpovida `src/hooks/useLeads.ts`.
 
+> **TIP:** UI obsahuje **Demo Mode** (prezentacni rezim) — po prihlaseni kliknete na ikonu oka v TopBar a cele UI zobrazi fiktivni ceska B2B data misto realnych. Uzitecne pro prezentace, skoleni nebo offline praci bez Supabase pripojeni. Stav se uklada do localStorage. Podrobnosti viz [Provozni prirucka — Demo rezim](operations-manual.md#8-demo-rezim-prezentacni-rezim).
+
 ### Krok 2.2 — Spustit testy
 
 **Cil:** Overit, ze codebase je v poradku.
@@ -590,4 +592,4 @@ Projekt obsahuje GitHub Actions workflow v `.github/workflows/ci.yml`. Pipeline 
 
 ---
 
-*Posledni aktualizace: 2026-03-13*
+*Posledni aktualizace: 2026-03-17*

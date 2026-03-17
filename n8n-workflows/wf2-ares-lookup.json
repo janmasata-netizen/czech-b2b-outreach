@@ -13,10 +13,7 @@
       "name": "Webhook Trigger",
       "type": "n8n-nodes-base.webhook",
       "typeVersion": 2,
-      "position": [
-        0,
-        300
-      ],
+      "position": [0, 300],
       "webhookId": "wf2-ares",
       "credentials": {
         "httpHeaderAuth": {
@@ -32,46 +29,25 @@
         "sendHeaders": true,
         "headerParameters": {
           "parameters": [
-            {
-              "name": "apikey",
-              "value": "SUPABASE_SERVICE_ROLE_KEY_PLACEHOLDER"
-            },
-            {
-              "name": "Authorization",
-              "value": "Bearer SUPABASE_SERVICE_ROLE_KEY_PLACEHOLDER"
-            }
+            { "name": "apikey", "value": "SUPABASE_SERVICE_ROLE_KEY_PLACEHOLDER" },
+            { "name": "Authorization", "value": "Bearer SUPABASE_SERVICE_ROLE_KEY_PLACEHOLDER" }
           ]
         },
         "sendQuery": true,
         "queryParameters": {
           "parameters": [
-            {
-              "name": "select",
-              "value": "*"
-            },
-            {
-              "name": "id",
-              "value": "={{ 'eq.' + $json.body.lead_id }}"
-            },
-            {
-              "name": "limit",
-              "value": "1"
-            }
+            { "name": "select", "value": "*" },
+            { "name": "id", "value": "={{ 'eq.' + $json.body.lead_id }}" },
+            { "name": "limit", "value": "1" }
           ]
         },
-        "options": {
-          "timeout": 30000,
-          "neverError": true
-        }
+        "options": { "timeout": 30000, "neverError": true }
       },
       "id": "wf02-0000-0000-0000-000000000002",
       "name": "Get Lead",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
-      "position": [
-        240,
-        300
-      ]
+      "position": [240, 300]
     },
     {
       "parameters": {
@@ -82,10 +58,7 @@
       "name": "Extract Lead",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
-      "position": [
-        480,
-        300
-      ]
+      "position": [480, 300]
     },
     {
       "parameters": {
@@ -94,36 +67,21 @@
         "sendHeaders": true,
         "headerParameters": {
           "parameters": [
-            {
-              "name": "apikey",
-              "value": "SUPABASE_SERVICE_ROLE_KEY_PLACEHOLDER"
-            },
-            {
-              "name": "Authorization",
-              "value": "Bearer SUPABASE_SERVICE_ROLE_KEY_PLACEHOLDER"
-            },
-            {
-              "name": "Content-Type",
-              "value": "application/json"
-            }
+            { "name": "apikey", "value": "SUPABASE_SERVICE_ROLE_KEY_PLACEHOLDER" },
+            { "name": "Authorization", "value": "Bearer SUPABASE_SERVICE_ROLE_KEY_PLACEHOLDER" },
+            { "name": "Content-Type", "value": "application/json" }
           ]
         },
         "sendBody": true,
         "specifyBody": "json",
         "jsonBody": "={{ JSON.stringify({ lead_id: $json.lead_id, step: 'ares_lookup', status: 'started' }) }}",
-        "options": {
-          "timeout": 30000,
-          "neverError": true
-        }
+        "options": { "timeout": 30000, "neverError": true }
       },
       "id": "wf02-0000-0000-0000-000000000004",
       "name": "Log Started",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
-      "position": [
-        720,
-        300
-      ]
+      "position": [720, 300]
     },
     {
       "parameters": {
@@ -132,45 +90,27 @@
         "sendHeaders": true,
         "headerParameters": {
           "parameters": [
-            {
-              "name": "apikey",
-              "value": "SUPABASE_SERVICE_ROLE_KEY_PLACEHOLDER"
-            },
-            {
-              "name": "Authorization",
-              "value": "Bearer SUPABASE_SERVICE_ROLE_KEY_PLACEHOLDER"
-            },
-            {
-              "name": "Content-Type",
-              "value": "application/json"
-            }
+            { "name": "apikey", "value": "SUPABASE_SERVICE_ROLE_KEY_PLACEHOLDER" },
+            { "name": "Authorization", "value": "Bearer SUPABASE_SERVICE_ROLE_KEY_PLACEHOLDER" },
+            { "name": "Content-Type", "value": "application/json" }
           ]
         },
         "sendQuery": true,
         "queryParameters": {
           "parameters": [
-            {
-              "name": "id",
-              "value": "={{ 'eq.' + $('Extract Lead').first().json.lead_id }}"
-            }
+            { "name": "id", "value": "={{ 'eq.' + $('Extract Lead').first().json.lead_id }}" }
           ]
         },
         "sendBody": true,
         "specifyBody": "json",
         "jsonBody": "={ \"status\": \"enriching\" }",
-        "options": {
-          "timeout": 30000,
-          "neverError": true
-        }
+        "options": { "timeout": 30000, "neverError": true }
       },
       "id": "wf02-0000-0000-0000-000000000005",
       "name": "Set Status Enriching",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
-      "position": [
-        960,
-        300
-      ]
+      "position": [960, 300]
     },
     {
       "parameters": {
@@ -179,29 +119,19 @@
         "sendHeaders": true,
         "headerParameters": {
           "parameters": [
-            {
-              "name": "Content-Type",
-              "value": "application/json"
-            }
+            { "name": "Content-Type", "value": "application/json" }
           ]
         },
         "sendBody": true,
         "specifyBody": "json",
         "jsonBody": "={{ JSON.stringify({ obchodniJmeno: $('Extract Lead').first().json.company_name, pocet: 5 }) }}",
-        "options": {
-          "timeout": 30000,
-          "fullResponse": true,
-          "neverError": true
-        }
+        "options": { "timeout": 30000, "fullResponse": true, "neverError": true }
       },
       "id": "wf02-0000-0000-0000-000000000006",
       "name": "ARES API Search",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
-      "position": [
-        1200,
-        300
-      ]
+      "position": [1200, 300]
     },
     {
       "parameters": {
@@ -212,10 +142,7 @@
       "name": "Parse ARES Response",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
-      "position": [
-        1440,
-        300
-      ]
+      "position": [1440, 300]
     },
     {
       "parameters": {
@@ -226,10 +153,7 @@
               "id": "has-results",
               "leftValue": "={{ $json.has_results }}",
               "rightValue": true,
-              "operator": {
-                "type": "boolean",
-                "operation": "equals"
-              }
+              "operator": { "type": "boolean", "operation": "equals" }
             }
           ],
           "combinator": "and"
@@ -239,10 +163,7 @@
       "name": "IF Has Results",
       "type": "n8n-nodes-base.if",
       "typeVersion": 2,
-      "position": [
-        1680,
-        300
-      ]
+      "position": [1680, 300]
     },
     {
       "parameters": {
@@ -253,10 +174,30 @@
       "name": "Best Match ICO",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
-      "position": [
-        1920,
-        180
-      ]
+      "position": [1920, 180]
+    },
+    {
+      "parameters": {
+        "method": "GET",
+        "url": "={{ 'https://ares.gov.cz/ekonomicke-subjekty-v-be/rest/ekonomicke-subjekty/' + $json.ico }}",
+        "options": { "neverError": true, "timeout": 15000 }
+      },
+      "id": "wf02-ares-be",
+      "name": "ARES BE Lookup",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [2160, 180]
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForEachItem",
+        "jsCode": "const be = $input.item.json || {};\nconst prev = $('Best Match ICO').first().json;\n\n// Extract website from ARES BE\nlet website = '';\nif (be.www) website = be.www;\nelse if (be.sidlo && be.sidlo.www) website = be.sidlo.www;\n\nlet domain = '';\nif (website) {\n  domain = website.replace(/^https?:\\/\\//i, '').replace(/^www\\./i, '').split(/[\\/?#]/)[0].trim().toLowerCase();\n  if (!/^[a-z0-9.-]+\\.[a-z]{2,}$/.test(domain)) domain = '';\n}\n\nreturn { json: { ...prev, ares_domain: domain, ares_website: website } };"
+      },
+      "id": "wf02-extract-www",
+      "name": "Extract ARES Website",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [2400, 180]
     },
     {
       "parameters": {
@@ -265,39 +206,27 @@
         "sendHeaders": true,
         "headerParameters": {
           "parameters": [
-            {
-              "name": "Accept",
-              "value": "application/json"
-            }
+            { "name": "Accept", "value": "application/json" }
           ]
         },
-        "options": {
-          "timeout": 30000,
-          "neverError": true
-        }
+        "options": { "timeout": 30000, "neverError": true }
       },
       "id": "wf02-0000-0000-0000-000000000015",
       "name": "ARES VR Lookup",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
-      "position": [
-        2160,
-        180
-      ]
+      "position": [2640, 180]
     },
     {
       "parameters": {
         "mode": "runOnceForEachItem",
-        "jsCode": "const vrResp = $input.item.json;\nconst lead = $('Best Match ICO').first().json;\nconst contacts = [];\nconst seen = new Set();\n\ntry {\n  const data = vrResp || {};\n  const organs = data.statutarniOrgan || [];\n  for (const organ of organs) {\n    const members = organ.clenove || [];\n    for (const member of members) {\n      const fo = member.fyzickaOsoba || {};\n      const jmeno = (fo.jmeno || '').trim();\n      const prijmeni = (fo.prijmeni || '').trim();\n      if (!jmeno || !prijmeni) continue;\n      const fullName = jmeno + ' ' + prijmeni;\n      const key = fullName.toLowerCase();\n      if (seen.has(key)) continue;\n      seen.add(key);\n      contacts.push({\n        company_id: lead.company_id,\n    company_id: lead.company_id,\n        full_name: fullName,\n        source: 'ares_vr'\n      });\n    }\n  }\n} catch(e) {\n  // VR returned error/404 — no contacts to extract\n}\n\nreturn { json: { contacts, company_id: lead.company_id,\n    company_id: lead.company_id, ico: lead.ico, company_name: lead.company_name } };"
+        "jsCode": "const vrResp = $input.item.json;\nconst lead = $('Extract ARES Website').first().json;\nconst contacts = [];\nconst seen = new Set();\n\ntry {\n  const data = vrResp || {};\n  const organs = data.statutarniOrgan || [];\n  for (const organ of organs) {\n    const members = organ.clenove || [];\n    for (const member of members) {\n      const fo = member.fyzickaOsoba || {};\n      const jmeno = (fo.jmeno || '').trim();\n      const prijmeni = (fo.prijmeni || '').trim();\n      if (!jmeno || !prijmeni) continue;\n      const fullName = jmeno + ' ' + prijmeni;\n      const key = fullName.toLowerCase();\n      if (seen.has(key)) continue;\n      seen.add(key);\n      contacts.push({\n        company_id: lead.company_id,\n        full_name: fullName,\n        source: 'ares_vr'\n      });\n    }\n  }\n} catch(e) {\n  // VR returned error/404 — no contacts to extract\n}\n\nreturn { json: { contacts, company_id: lead.company_id, ico: lead.ico, company_name: lead.company_name, lead_id: lead.lead_id, ares_domain: lead.ares_domain, ares_website: lead.ares_website } };"
       },
       "id": "wf02-0000-0000-0000-000000000016",
       "name": "Parse VR Contacts",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
-      "position": [
-        2400,
-        180
-      ]
+      "position": [2880, 180]
     },
     {
       "parameters": {
@@ -306,41 +235,34 @@
         "sendHeaders": true,
         "headerParameters": {
           "parameters": [
-            {
-              "name": "apikey",
-              "value": "SUPABASE_SERVICE_ROLE_KEY_PLACEHOLDER"
-            },
-            {
-              "name": "Authorization",
-              "value": "Bearer SUPABASE_SERVICE_ROLE_KEY_PLACEHOLDER"
-            },
-            {
-              "name": "Content-Type",
-              "value": "application/json"
-            },
-            {
-              "name": "Prefer",
-              "value": "return=minimal"
-            }
+            { "name": "apikey", "value": "SUPABASE_SERVICE_ROLE_KEY_PLACEHOLDER" },
+            { "name": "Authorization", "value": "Bearer SUPABASE_SERVICE_ROLE_KEY_PLACEHOLDER" },
+            { "name": "Content-Type", "value": "application/json" },
+            { "name": "Prefer", "value": "return=minimal" }
           ]
         },
         "sendBody": true,
         "contentType": "raw",
         "rawContentType": "application/json",
         "body": "={{ $json.contacts.length > 0 ? JSON.stringify($json.contacts) : '[]' }}",
-        "options": {
-          "timeout": 30000,
-          "neverError": true
-        }
+        "options": { "timeout": 30000, "neverError": true }
       },
       "id": "wf02-0000-0000-0000-000000000017",
       "name": "Insert ARES Contacts",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
-      "position": [
-        2640,
-        180
-      ]
+      "position": [3120, 180]
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForEachItem",
+        "jsCode": "const prev = $('Parse VR Contacts').first().json;\nconst lead = $('Extract Lead').first().json;\nconst update = { ico: prev.ico };\n// If ARES found a domain and lead has none, add it\nif (prev.ares_domain && !(lead.domain && lead.domain.trim())) {\n  update.domain = prev.ares_domain;\n  update.website = prev.ares_website || ('https://' + prev.ares_domain);\n}\nreturn { json: { lead_id: prev.lead_id, company_id: prev.company_id, company_name: prev.company_name, ico: prev.ico, ares_domain: prev.ares_domain, ares_website: prev.ares_website, update_body: JSON.stringify(update) } };"
+      },
+      "id": "wf02-prepare-update",
+      "name": "Prepare Lead Update",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [3360, 180]
     },
     {
       "parameters": {
@@ -349,45 +271,78 @@
         "sendHeaders": true,
         "headerParameters": {
           "parameters": [
-            {
-              "name": "apikey",
-              "value": "SUPABASE_SERVICE_ROLE_KEY_PLACEHOLDER"
-            },
-            {
-              "name": "Authorization",
-              "value": "Bearer SUPABASE_SERVICE_ROLE_KEY_PLACEHOLDER"
-            },
-            {
-              "name": "Content-Type",
-              "value": "application/json"
-            }
+            { "name": "apikey", "value": "SUPABASE_SERVICE_ROLE_KEY_PLACEHOLDER" },
+            { "name": "Authorization", "value": "Bearer SUPABASE_SERVICE_ROLE_KEY_PLACEHOLDER" },
+            { "name": "Content-Type", "value": "application/json" }
           ]
         },
         "sendQuery": true,
         "queryParameters": {
           "parameters": [
-            {
-              "name": "id",
-              "value": "={{ 'eq.' + $('Best Match ICO').first().json.lead_id }}"
-            }
+            { "name": "id", "value": "={{ 'eq.' + $json.lead_id }}" }
           ]
         },
         "sendBody": true,
         "specifyBody": "json",
-        "jsonBody": "={{ JSON.stringify({ ico: $('Best Match ICO').first().json.ico }) }}",
-        "options": {
-          "timeout": 30000,
-          "neverError": true
-        }
+        "jsonBody": "={{ $json.update_body }}",
+        "options": { "timeout": 30000, "neverError": true }
       },
       "id": "wf02-0000-0000-0000-000000000010",
       "name": "Update Lead ICO",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
-      "position": [
-        2880,
-        180
-      ]
+      "position": [3600, 180]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {},
+          "conditions": [
+            {
+              "id": "has-ares-domain",
+              "leftValue": "={{ $('Prepare Lead Update').first().json.ares_domain || '' }}",
+              "rightValue": "",
+              "operator": { "type": "string", "operation": "notEquals" }
+            }
+          ],
+          "combinator": "and"
+        }
+      },
+      "id": "wf02-if-ares-domain",
+      "name": "IF ARES Has Domain",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [3840, 180]
+    },
+    {
+      "parameters": {
+        "method": "PATCH",
+        "url": "https://cycapkswtucbucyegdsn.supabase.co/rest/v1/companies",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            { "name": "apikey", "value": "SUPABASE_SERVICE_ROLE_KEY_PLACEHOLDER" },
+            { "name": "Authorization", "value": "Bearer SUPABASE_SERVICE_ROLE_KEY_PLACEHOLDER" },
+            { "name": "Content-Type", "value": "application/json" }
+          ]
+        },
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            { "name": "id", "value": "={{ 'eq.' + $('Prepare Lead Update').first().json.company_id }}" },
+            { "name": "domain", "value": "is.null" }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ domain: $('Prepare Lead Update').first().json.ares_domain, website: $('Prepare Lead Update').first().json.ares_website || ('https://' + $('Prepare Lead Update').first().json.ares_domain) }) }}",
+        "options": { "timeout": 30000, "neverError": true }
+      },
+      "id": "wf02-update-company-domain",
+      "name": "Update Company Domain",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [4080, 120]
     },
     {
       "parameters": {
@@ -396,36 +351,21 @@
         "sendHeaders": true,
         "headerParameters": {
           "parameters": [
-            {
-              "name": "apikey",
-              "value": "SUPABASE_SERVICE_ROLE_KEY_PLACEHOLDER"
-            },
-            {
-              "name": "Authorization",
-              "value": "Bearer SUPABASE_SERVICE_ROLE_KEY_PLACEHOLDER"
-            },
-            {
-              "name": "Content-Type",
-              "value": "application/json"
-            }
+            { "name": "apikey", "value": "SUPABASE_SERVICE_ROLE_KEY_PLACEHOLDER" },
+            { "name": "Authorization", "value": "Bearer SUPABASE_SERVICE_ROLE_KEY_PLACEHOLDER" },
+            { "name": "Content-Type", "value": "application/json" }
           ]
         },
         "sendBody": true,
         "specifyBody": "json",
-        "jsonBody": "={{ JSON.stringify({ lead_id: $('Best Match ICO').first().json.lead_id, step: 'ares_lookup', status: 'success', completed_at: new Date().toISOString(), details: JSON.stringify({ ico: $('Best Match ICO').first().json.ico }) }) }}",
-        "options": {
-          "timeout": 30000,
-          "neverError": true
-        }
+        "jsonBody": "={{ JSON.stringify({ lead_id: $('Prepare Lead Update').first().json.lead_id, step: 'ares_lookup', status: 'success', completed_at: new Date().toISOString(), details: JSON.stringify({ ico: $('Prepare Lead Update').first().json.ico, ares_domain: $('Prepare Lead Update').first().json.ares_domain || null }) }) }}",
+        "options": { "timeout": 30000, "neverError": true }
       },
       "id": "wf02-0000-0000-0000-000000000011",
       "name": "Log Success",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
-      "position": [
-        3120,
-        180
-      ]
+      "position": [4320, 180]
     },
     {
       "parameters": {
@@ -434,32 +374,20 @@
         "sendHeaders": true,
         "headerParameters": {
           "parameters": [
-            {
-              "name": "Content-Type",
-              "value": "application/json"
-            },
-            {
-              "name": "X-Webhook-Secret",
-              "value": "reWDUmcjSRPTv3k-0CKdoASO_KY7Z3ux"
-            }
+            { "name": "Content-Type", "value": "application/json" },
+            { "name": "X-Webhook-Secret", "value": "reWDUmcjSRPTv3k-0CKdoASO_KY7Z3ux" }
           ]
         },
         "sendBody": true,
         "specifyBody": "json",
-        "jsonBody": "={{ JSON.stringify({ lead_id: $('Best Match ICO').first().json.lead_id, ico: $('Best Match ICO').first().json.ico }) }}",
-        "options": {
-          "timeout": 30000,
-          "neverError": true
-        }
+        "jsonBody": "={{ JSON.stringify({ lead_id: $('Prepare Lead Update').first().json.lead_id, ico: $('Prepare Lead Update').first().json.ico }) }}",
+        "options": { "timeout": 30000, "neverError": true }
       },
       "id": "wf02-0000-0000-0000-000000000012",
       "name": "Trigger WF3",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
-      "position": [
-        3360,
-        180
-      ]
+      "position": [4560, 180]
     },
     {
       "parameters": {
@@ -470,10 +398,7 @@
       "name": "Check Has Domain",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
-      "position": [
-        1920,
-        480
-      ]
+      "position": [1920, 480]
     },
     {
       "parameters": {
@@ -484,10 +409,7 @@
               "id": "has-domain",
               "leftValue": "={{ $json.has_domain }}",
               "rightValue": true,
-              "operator": {
-                "type": "boolean",
-                "operation": "equals"
-              }
+              "operator": { "type": "boolean", "operation": "equals" }
             }
           ],
           "combinator": "and"
@@ -497,10 +419,7 @@
       "name": "IF Can Skip to WF4",
       "type": "n8n-nodes-base.if",
       "typeVersion": 2,
-      "position": [
-        2160,
-        480
-      ]
+      "position": [2160, 480]
     },
     {
       "parameters": {
@@ -509,45 +428,27 @@
         "sendHeaders": true,
         "headerParameters": {
           "parameters": [
-            {
-              "name": "apikey",
-              "value": "SUPABASE_SERVICE_ROLE_KEY_PLACEHOLDER"
-            },
-            {
-              "name": "Authorization",
-              "value": "Bearer SUPABASE_SERVICE_ROLE_KEY_PLACEHOLDER"
-            },
-            {
-              "name": "Content-Type",
-              "value": "application/json"
-            }
+            { "name": "apikey", "value": "SUPABASE_SERVICE_ROLE_KEY_PLACEHOLDER" },
+            { "name": "Authorization", "value": "Bearer SUPABASE_SERVICE_ROLE_KEY_PLACEHOLDER" },
+            { "name": "Content-Type", "value": "application/json" }
           ]
         },
         "sendQuery": true,
         "queryParameters": {
           "parameters": [
-            {
-              "name": "id",
-              "value": "={{ 'eq.' + $json.lead_id }}"
-            }
+            { "name": "id", "value": "={{ 'eq.' + $json.lead_id }}" }
           ]
         },
         "sendBody": true,
         "specifyBody": "json",
         "jsonBody": "={{ JSON.stringify({ status: 'enriched', enrichment_error: null }) }}",
-        "options": {
-          "timeout": 30000,
-          "neverError": true
-        }
+        "options": { "timeout": 30000, "neverError": true }
       },
       "id": "wf02-ses",
       "name": "Set Enriched Skip",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
-      "position": [
-        2400,
-        420
-      ]
+      "position": [2400, 420]
     },
     {
       "parameters": {
@@ -556,36 +457,21 @@
         "sendHeaders": true,
         "headerParameters": {
           "parameters": [
-            {
-              "name": "apikey",
-              "value": "SUPABASE_SERVICE_ROLE_KEY_PLACEHOLDER"
-            },
-            {
-              "name": "Authorization",
-              "value": "Bearer SUPABASE_SERVICE_ROLE_KEY_PLACEHOLDER"
-            },
-            {
-              "name": "Content-Type",
-              "value": "application/json"
-            }
+            { "name": "apikey", "value": "SUPABASE_SERVICE_ROLE_KEY_PLACEHOLDER" },
+            { "name": "Authorization", "value": "Bearer SUPABASE_SERVICE_ROLE_KEY_PLACEHOLDER" },
+            { "name": "Content-Type", "value": "application/json" }
           ]
         },
         "sendBody": true,
         "specifyBody": "json",
         "jsonBody": "={{ JSON.stringify({ lead_id: $('Check Has Domain').first().json.lead_id, step: 'ares_lookup', status: 'skipped', completed_at: new Date().toISOString(), details: 'No IČO found, skipping to WF4 (has domain + contact)' }) }}",
-        "options": {
-          "timeout": 30000,
-          "neverError": true
-        }
+        "options": { "timeout": 30000, "neverError": true }
       },
       "id": "wf02-lsa",
       "name": "Log Skip ARES",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
-      "position": [
-        2640,
-        420
-      ]
+      "position": [2640, 420]
     },
     {
       "parameters": {
@@ -594,79 +480,20 @@
         "sendHeaders": true,
         "headerParameters": {
           "parameters": [
-            {
-              "name": "Content-Type",
-              "value": "application/json"
-            },
-            {
-              "name": "X-Webhook-Secret",
-              "value": "reWDUmcjSRPTv3k-0CKdoASO_KY7Z3ux"
-            }
+            { "name": "Content-Type", "value": "application/json" },
+            { "name": "X-Webhook-Secret", "value": "reWDUmcjSRPTv3k-0CKdoASO_KY7Z3ux" }
           ]
         },
         "sendBody": true,
         "specifyBody": "json",
         "jsonBody": "={{ JSON.stringify({ lead_id: $('Check Has Domain').first().json.lead_id }) }}",
-        "options": {
-          "timeout": 30000,
-          "neverError": true
-        }
+        "options": { "timeout": 30000, "neverError": true }
       },
       "id": "wf02-tw4",
       "name": "Trigger WF4 Direct",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
-      "position": [
-        2880,
-        420
-      ]
-    },
-    {
-      "parameters": {
-        "method": "PATCH",
-        "url": "https://cycapkswtucbucyegdsn.supabase.co/rest/v1/leads",
-        "sendHeaders": true,
-        "headerParameters": {
-          "parameters": [
-            {
-              "name": "apikey",
-              "value": "SUPABASE_SERVICE_ROLE_KEY_PLACEHOLDER"
-            },
-            {
-              "name": "Authorization",
-              "value": "Bearer SUPABASE_SERVICE_ROLE_KEY_PLACEHOLDER"
-            },
-            {
-              "name": "Content-Type",
-              "value": "application/json"
-            }
-          ]
-        },
-        "sendQuery": true,
-        "queryParameters": {
-          "parameters": [
-            {
-              "name": "id",
-              "value": "={{ 'eq.' + $json.lead_id }}"
-            }
-          ]
-        },
-        "sendBody": true,
-        "specifyBody": "json",
-        "jsonBody": "={{ JSON.stringify({ status: 'failed', enrichment_error: 'ARES: IČO not found for company: ' + $json.company_name }) }}",
-        "options": {
-          "timeout": 30000,
-          "neverError": true
-        }
-      },
-      "id": "wf02-0000-0000-0000-000000000013",
-      "name": "Set Failed No ICO",
-      "type": "n8n-nodes-base.httpRequest",
-      "typeVersion": 4.2,
-      "position": [
-        2400,
-        660
-      ]
+      "position": [2880, 420]
     },
     {
       "parameters": {
@@ -675,261 +502,126 @@
         "sendHeaders": true,
         "headerParameters": {
           "parameters": [
-            {
-              "name": "apikey",
-              "value": "SUPABASE_SERVICE_ROLE_KEY_PLACEHOLDER"
-            },
-            {
-              "name": "Authorization",
-              "value": "Bearer SUPABASE_SERVICE_ROLE_KEY_PLACEHOLDER"
-            },
-            {
-              "name": "Content-Type",
-              "value": "application/json"
-            }
+            { "name": "apikey", "value": "SUPABASE_SERVICE_ROLE_KEY_PLACEHOLDER" },
+            { "name": "Authorization", "value": "Bearer SUPABASE_SERVICE_ROLE_KEY_PLACEHOLDER" },
+            { "name": "Content-Type", "value": "application/json" }
           ]
         },
         "sendBody": true,
         "specifyBody": "json",
-        "jsonBody": "={{ JSON.stringify({ lead_id: $json.lead_id, step: 'ares_lookup', status: 'failed', error_message: 'IČO not found in ARES results and no domain available', completed_at: new Date().toISOString() }) }}",
-        "options": {
-          "timeout": 30000,
-          "neverError": true
-        }
+        "jsonBody": "={{ JSON.stringify({ lead_id: $json.lead_id, step: 'ares_lookup', status: 'skipped', completed_at: new Date().toISOString(), details: 'No IČO found, no domain — forwarding to WF4 for domain discovery' }) }}",
+        "options": { "timeout": 30000, "neverError": true }
       },
-      "id": "wf02-0000-0000-0000-000000000014",
-      "name": "Log Failed",
+      "id": "wf02-log-forward",
+      "name": "Log Forward to WF4",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
-      "position": [
-        2640,
-        660
-      ]
+      "position": [2400, 660]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "http://72.62.53.244:32770/webhook/wf4-email-gen",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            { "name": "Content-Type", "value": "application/json" },
+            { "name": "X-Webhook-Secret", "value": "reWDUmcjSRPTv3k-0CKdoASO_KY7Z3ux" }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ lead_id: $('Check Has Domain').first().json.lead_id }) }}",
+        "options": { "timeout": 30000, "neverError": true }
+      },
+      "id": "wf02-tw4-fallback",
+      "name": "Trigger WF4 Fallback",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [2640, 660]
     }
   ],
   "connections": {
     "Webhook Trigger": {
-      "main": [
-        [
-          {
-            "node": "Get Lead",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
+      "main": [[{ "node": "Get Lead", "type": "main", "index": 0 }]]
     },
     "Get Lead": {
-      "main": [
-        [
-          {
-            "node": "Extract Lead",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
+      "main": [[{ "node": "Extract Lead", "type": "main", "index": 0 }]]
     },
     "Extract Lead": {
-      "main": [
-        [
-          {
-            "node": "Log Started",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
+      "main": [[{ "node": "Log Started", "type": "main", "index": 0 }]]
     },
     "Log Started": {
-      "main": [
-        [
-          {
-            "node": "Set Status Enriching",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
+      "main": [[{ "node": "Set Status Enriching", "type": "main", "index": 0 }]]
     },
     "Set Status Enriching": {
-      "main": [
-        [
-          {
-            "node": "ARES API Search",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
+      "main": [[{ "node": "ARES API Search", "type": "main", "index": 0 }]]
     },
     "ARES API Search": {
-      "main": [
-        [
-          {
-            "node": "Parse ARES Response",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
+      "main": [[{ "node": "Parse ARES Response", "type": "main", "index": 0 }]]
     },
     "Parse ARES Response": {
-      "main": [
-        [
-          {
-            "node": "IF Has Results",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
+      "main": [[{ "node": "IF Has Results", "type": "main", "index": 0 }]]
     },
     "IF Has Results": {
       "main": [
-        [
-          {
-            "node": "Best Match ICO",
-            "type": "main",
-            "index": 0
-          }
-        ],
-        [
-          {
-            "node": "Check Has Domain",
-            "type": "main",
-            "index": 0
-          }
-        ]
+        [{ "node": "Best Match ICO", "type": "main", "index": 0 }],
+        [{ "node": "Check Has Domain", "type": "main", "index": 0 }]
       ]
     },
     "Best Match ICO": {
-      "main": [
-        [
-          {
-            "node": "ARES VR Lookup",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
+      "main": [[{ "node": "ARES BE Lookup", "type": "main", "index": 0 }]]
+    },
+    "ARES BE Lookup": {
+      "main": [[{ "node": "Extract ARES Website", "type": "main", "index": 0 }]]
+    },
+    "Extract ARES Website": {
+      "main": [[{ "node": "ARES VR Lookup", "type": "main", "index": 0 }]]
     },
     "ARES VR Lookup": {
-      "main": [
-        [
-          {
-            "node": "Parse VR Contacts",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
+      "main": [[{ "node": "Parse VR Contacts", "type": "main", "index": 0 }]]
     },
     "Parse VR Contacts": {
-      "main": [
-        [
-          {
-            "node": "Insert ARES Contacts",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
+      "main": [[{ "node": "Insert ARES Contacts", "type": "main", "index": 0 }]]
     },
     "Insert ARES Contacts": {
-      "main": [
-        [
-          {
-            "node": "Update Lead ICO",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
+      "main": [[{ "node": "Prepare Lead Update", "type": "main", "index": 0 }]]
+    },
+    "Prepare Lead Update": {
+      "main": [[{ "node": "Update Lead ICO", "type": "main", "index": 0 }]]
     },
     "Update Lead ICO": {
+      "main": [[{ "node": "IF ARES Has Domain", "type": "main", "index": 0 }]]
+    },
+    "IF ARES Has Domain": {
       "main": [
-        [
-          {
-            "node": "Log Success",
-            "type": "main",
-            "index": 0
-          }
-        ]
+        [{ "node": "Update Company Domain", "type": "main", "index": 0 }],
+        [{ "node": "Log Success", "type": "main", "index": 0 }]
       ]
+    },
+    "Update Company Domain": {
+      "main": [[{ "node": "Log Success", "type": "main", "index": 0 }]]
     },
     "Log Success": {
-      "main": [
-        [
-          {
-            "node": "Trigger WF3",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
+      "main": [[{ "node": "Trigger WF3", "type": "main", "index": 0 }]]
     },
     "Check Has Domain": {
-      "main": [
-        [
-          {
-            "node": "IF Can Skip to WF4",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
+      "main": [[{ "node": "IF Can Skip to WF4", "type": "main", "index": 0 }]]
     },
     "IF Can Skip to WF4": {
       "main": [
-        [
-          {
-            "node": "Set Enriched Skip",
-            "type": "main",
-            "index": 0
-          }
-        ],
-        [
-          {
-            "node": "Set Failed No ICO",
-            "type": "main",
-            "index": 0
-          }
-        ]
+        [{ "node": "Set Enriched Skip", "type": "main", "index": 0 }],
+        [{ "node": "Log Forward to WF4", "type": "main", "index": 0 }]
       ]
     },
     "Set Enriched Skip": {
-      "main": [
-        [
-          {
-            "node": "Log Skip ARES",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
+      "main": [[{ "node": "Log Skip ARES", "type": "main", "index": 0 }]]
     },
     "Log Skip ARES": {
-      "main": [
-        [
-          {
-            "node": "Trigger WF4 Direct",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
+      "main": [[{ "node": "Trigger WF4 Direct", "type": "main", "index": 0 }]]
     },
-    "Set Failed No ICO": {
-      "main": [
-        [
-          {
-            "node": "Log Failed",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
+    "Log Forward to WF4": {
+      "main": [[{ "node": "Trigger WF4 Fallback", "type": "main", "index": 0 }]]
     }
   },
   "active": false,

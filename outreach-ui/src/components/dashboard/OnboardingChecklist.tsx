@@ -4,11 +4,15 @@ import { supabase } from '@/lib/supabase';
 import GlassCard from '@/components/glass/GlassCard';
 import GlassButton from '@/components/glass/GlassButton';
 import { Check, ArrowRight } from 'lucide-react';
+import { useDemoMode } from '@/contexts/DemoModeContext';
+import { DEMO_ONBOARDING_STATUS } from '@/lib/demo-data';
 
 function useOnboardingStatus() {
+  const { isDemoMode } = useDemoMode();
   return useQuery({
     queryKey: ['onboarding-status'],
     queryFn: async () => {
+      if (isDemoMode) return DEMO_ONBOARDING_STATUS;
       const [teams, templateSets, leads, waves] = await Promise.all([
         supabase.from('teams').select('id', { count: 'exact', head: true }),
         supabase.from('template_sets').select('id', { count: 'exact', head: true }),

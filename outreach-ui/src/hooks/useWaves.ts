@@ -1,11 +1,21 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/lib/supabase';
 import type { Wave, WaveAnalytics } from '@/types/database';
+import { useDemoMode } from '@/contexts/DemoModeContext';
+import {
+  DEMO_WAVES,
+  DEMO_TEMPLATE_SETS,
+  DEMO_FROM_EMAILS,
+  DEMO_FAILED_EMAILS,
+  getDemoWaveDetail,
+} from '@/lib/demo-data';
 
 export function useWaves() {
+  const { isDemoMode } = useDemoMode();
   return useQuery<WaveAnalytics[]>({
     queryKey: ['waves'],
     queryFn: async () => {
+      if (isDemoMode) return DEMO_WAVES;
       const { data, error } = await supabase
         .from('wave_analytics')
         .select('*')
@@ -17,11 +27,13 @@ export function useWaves() {
 }
 
 export function useWave(id: string | undefined) {
+  const { isDemoMode } = useDemoMode();
   return useQuery({
     queryKey: ['waves', id],
     enabled: !!id,
-    refetchInterval: 30_000,
+    refetchInterval: isDemoMode ? false : 10_000,
     queryFn: async () => {
+      if (isDemoMode) return getDemoWaveDetail(id!);
       const [waveRes, leadsRes, waveRowRes] = await Promise.all([
         supabase
           .from('wave_analytics')
@@ -54,9 +66,11 @@ export function useWave(id: string | undefined) {
 }
 
 export function useFromEmailSuggestions() {
+  const { isDemoMode } = useDemoMode();
   return useQuery<string[]>({
     queryKey: ['from-email-suggestions'],
     queryFn: async () => {
+      if (isDemoMode) return DEMO_FROM_EMAILS;
       const { data, error } = await supabase
         .from('waves')
         .select('from_email')
@@ -70,9 +84,11 @@ export function useFromEmailSuggestions() {
 }
 
 export function useTemplateSets(teamId?: string) {
+  const { isDemoMode } = useDemoMode();
   return useQuery({
     queryKey: ['template-sets', teamId ?? 'all'],
     queryFn: async () => {
+      if (isDemoMode) return DEMO_TEMPLATE_SETS;
       let q = supabase
         .from('template_sets')
         .select('*, email_templates(*)')
@@ -87,45 +103,55 @@ export function useTemplateSets(teamId?: string) {
 
 export function useCreateWave() {
   const qc = useQueryClient();
+  const { isDemoMode } = useDemoMode();
   return useMutation({
     mutationFn: async (wave: Partial<Wave>) => {
+      if (isDemoMode) return {} as Wave;
       const { data, error } = await supabase.from('waves').insert(wave).select().single();
       if (error) throw error;
       return data;
     },
-    onSuccess: () => qc.invalidateQueries({ queryKey: ['waves'] }),
+    onSuccess: () => { if (!isDemoMode) qc.invalidateQueries({ queryKey: ['waves'] }); },
   });
 }
 
 export function useUpdateWave() {
   const qc = useQueryClient();
+  const { isDemoMode } = useDemoMode();
   return useMutation({
     mutationFn: async ({ id, updates }: { id: string; updates: Partial<Wave> }) => {
+      if (isDemoMode) return;
       const { error } = await supabase.from('waves').update(updates).eq('id', id);
       if (error) throw error;
     },
     onSuccess: (_data, { id }) => {
-      qc.invalidateQueries({ queryKey: ['waves'] });
-      qc.invalidateQueries({ queryKey: ['waves', id] });
+      if (!isDemoMode) {
+        qc.invalidateQueries({ queryKey: ['waves'] });
+        qc.invalidateQueries({ queryKey: ['waves', id] });
+      }
     },
   });
 }
 
 export function useDeleteWave() {
   const qc = useQueryClient();
+  const { isDemoMode } = useDemoMode();
   return useMutation({
     mutationFn: async (id: string) => {
+      if (isDemoMode) return;
       const { error } = await supabase.from('waves').delete().eq('id', id);
       if (error) throw error;
     },
-    onSuccess: () => qc.invalidateQueries({ queryKey: ['waves'] }),
+    onSuccess: () => { if (!isDemoMode) qc.invalidateQueries({ queryKey: ['waves'] }); },
   });
 }
 
 export function useAddLeadsToWave() {
   const qc = useQueryClient();
+  const { isDemoMode } = useDemoMode();
   return useMutation({
     mutationFn: async ({ waveId, leadIds, retargetMode }: { waveId: string; leadIds: string[]; retargetMode?: boolean }) => {
+      if (isDemoMode) return;
       const retargetRounds: Record<string, number> = {};
 
       if (retargetMode) {
@@ -155,18 +181,22 @@ export function useAddLeadsToWave() {
       if (error) throw error;
     },
     onSuccess: (_data, { waveId }) => {
-      qc.invalidateQueries({ queryKey: ['waves', waveId] });
-      qc.invalidateQueries({ queryKey: ['waves'] });
-      qc.invalidateQueries({ queryKey: ['retarget-pool'] });
-      qc.invalidateQueries({ queryKey: ['retarget-pool-count'] });
+      if (!isDemoMode) {
+        qc.invalidateQueries({ queryKey: ['waves', waveId] });
+        qc.invalidateQueries({ queryKey: ['waves'] });
+        qc.invalidateQueries({ queryKey: ['retarget-pool'] });
+        qc.invalidateQueries({ queryKey: ['retarget-pool-count'] });
+      }
     },
   });
 }
 
 export function useUpdateEmailQueue(waveId: string) {
   const qc = useQueryClient();
+  const { isDemoMode } = useDemoMode();
   return useMutation({
     mutationFn: async ({ id, subject_rendered, body_rendered }: { id: string; subject_rendered: string; body_rendered: string }) => {
+      if (isDemoMode) return;
       const { error } = await supabase
         .from('email_queue')
         .update({ subject_rendered, body_rendered })
@@ -174,16 +204,18 @@ export function useUpdateEmailQueue(waveId: string) {
       if (error) throw error;
     },
     onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ['waves', waveId] });
+      if (!isDemoMode) qc.invalidateQueries({ queryKey: ['waves', waveId] });
     },
   });
 }
 
 export function useFailedEmails(waveId: string) {
+  const { isDemoMode } = useDemoMode();
   return useQuery({
     queryKey: ['failed-emails', waveId],
     enabled: !!waveId,
     queryFn: async () => {
+      if (isDemoMode) return DEMO_FAILED_EMAILS;
       // Get all wave_lead IDs for this wave
       const { data: waveLeads } = await supabase
         .from('wave_leads')
@@ -206,8 +238,10 @@ export function useFailedEmails(waveId: string) {
 
 export function useRetryFailedEmail() {
   const qc = useQueryClient();
+  const { isDemoMode } = useDemoMode();
   return useMutation({
     mutationFn: async (emailQueueId: string) => {
+      if (isDemoMode) return;
       const { error } = await supabase
         .from('email_queue')
         .update({ status: 'queued', retry_count: 0, error_message: null })
@@ -215,8 +249,10 @@ export function useRetryFailedEmail() {
       if (error) throw error;
     },
     onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ['failed-emails'] });
-      qc.invalidateQueries({ queryKey: ['waves'] });
+      if (!isDemoMode) {
+        qc.invalidateQueries({ queryKey: ['failed-emails'] });
+        qc.invalidateQueries({ queryKey: ['waves'] });
+      }
     },
   });
 }

@@ -1,6 +1,13 @@
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/lib/supabase';
 import type { EnrichmentLog, SystemEvent } from '@/types/database';
+import { useDemoMode } from '@/contexts/DemoModeContext';
+import {
+  DEMO_ENRICHMENT_LOGS,
+  DEMO_SENT_EMAIL_LOGS,
+  DEMO_REPLY_LOGS,
+  DEMO_SYSTEM_EVENTS,
+} from '@/lib/demo-data';
 
 const PAGE_SIZE = 50;
 
@@ -11,9 +18,11 @@ export interface EnrichmentLogRow extends EnrichmentLog {
 
 // ── Enrichment Logs ──
 export function useEnrichmentLogs(page = 0, statusFilter?: string) {
+  const { isDemoMode } = useDemoMode();
   return useQuery<EnrichmentLogRow[]>({
     queryKey: ['system-logs', 'enrichment', page, statusFilter],
     queryFn: async () => {
+      if (isDemoMode) return DEMO_ENRICHMENT_LOGS as unknown as EnrichmentLogRow[];
       let q = supabase
         .from('enrichment_log')
         .select('*, leads(company_name)')
@@ -38,9 +47,11 @@ export interface SentEmailLog {
 }
 
 export function useEmailSendLogs(page = 0) {
+  const { isDemoMode } = useDemoMode();
   return useQuery<SentEmailLog[]>({
     queryKey: ['system-logs', 'emails', page],
     queryFn: async () => {
+      if (isDemoMode) return DEMO_SENT_EMAIL_LOGS as SentEmailLog[];
       const { data, error } = await supabase
         .from('sent_emails')
         .select('id, email_address, subject, sequence_number, sent_at, wave_leads(waves(name))')
@@ -64,9 +75,11 @@ export interface ReplyLog {
 }
 
 export function useReplyLogs(page = 0) {
+  const { isDemoMode } = useDemoMode();
   return useQuery<ReplyLog[]>({
     queryKey: ['system-logs', 'replies', page],
     queryFn: async () => {
+      if (isDemoMode) return DEMO_REPLY_LOGS as ReplyLog[];
       // Fetch from lead_replies (matched), processed_reply_emails, and unmatched_replies
       const [matchedRes, unmatchedRes] = await Promise.all([
         supabase
@@ -102,9 +115,11 @@ export function useReplyLogs(page = 0) {
 
 // ── System Events ──
 export function useSystemEvents(page = 0, typeFilter?: string) {
+  const { isDemoMode } = useDemoMode();
   return useQuery<SystemEvent[]>({
     queryKey: ['system-logs', 'events', page, typeFilter],
     queryFn: async () => {
+      if (isDemoMode) return DEMO_SYSTEM_EVENTS as unknown as SystemEvent[];
       let q = supabase
         .from('system_events')
         .select('*, profiles(full_name)')

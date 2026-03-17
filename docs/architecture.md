@@ -159,7 +159,29 @@ Self-hosted na Hostinger VPS. Vsechny workflow jsou ulozeny jako JSON v `n8n-wor
 | `useSettings` | `useSettings.ts` | Nastaveni aplikace |
 | `useTags` | `useTags.ts` | Sprava tagu (pro firmy i leady) |
 | `useUsers` | `useUsers.ts` | Sprava uzivatelu |
+| `useWavePresets` | `useWavePresets.ts` | Sprava wave presets (sablony konfigurace vln) |
 | `useWaves` | `useWaves.ts` | CRUD operace nad vlnami |
+| `useImportGroups` | `useImportGroups.ts` | Sprava importnich skupin |
+
+#### Demo Mode (prezentacni rezim)
+
+System obsahuje vestaveny demo rezim pro prezentace a skoleni. Kdyz je aktivni, UI zobrazuje fiktivni ceska B2B data misto realnych dat ze Supabase.
+
+**Architektura:**
+- **DemoModeContext** (`src/contexts/DemoModeContext.tsx`) — React context poskytujici `isDemoMode` a `toggleDemoMode`. Obaluje celou aplikaci (uvnitr `AuthProvider`, kolem `Routes`).
+- **demo-data.ts** (`src/lib/demo-data.ts`) — obsahuje vsechny fiktivni entity: 15 firem, kontakty, leady, 4 vlny, 2 sady sablon, dashboard statistiky atd.
+- **Stav** se uklada do `localStorage('demo-mode')` a preziva reload stranky.
+
+**Chovani v demo rezimu:**
+- Vsechny datove hooky (`useDashboard`, `useCompanies`, `useLeads`, `useWaves`, `useContacts`, `useTags`, `useRetargetPool`, `useSettings`, `useWavePresets`, `useForceSend`, `useImportGroups`, `useMasterLeads`, `useSystemLogs`, `useWorkflowStats`) vraci fiktivni data misto Supabase/n8n volani (queryFn early-return pattern).
+- Vsechny mutace (vytvareni, editace, mazani) tichy no-op — tlacitka nic nedelaji.
+- `useRealtime` preskakuje Supabase realtime subscriptions.
+- `OnboardingChecklist` vraci vsechny polozky jako dokoncene.
+- System health, system logs a workflow stats stranky take zobrazuji fiktivni data.
+
+**Vizualni indikace:**
+- Prepinaci tlacitko (ikona Eye) v TopBar mezi bug reportem a user avatarem.
+- Aktivni stav: ikona se zbarvi zlute (#f59e0b).
 
 #### Dalsi UI vlastnosti
 
@@ -232,16 +254,24 @@ CSV import / AddLead dialog (s volbou enrichment level)
    WF2: ARES Lookup (webhook:wf2-ares)
    - ICO → nazev firmy, adresa, pravni forma
    - Vola BE i VR endpoint (merge kontaktu do contacts tabulky)
+   - **ARES BE Lookup** — extrahuje website (www) z ARES BE odpovedi
+   - Pokud ARES najde domenu a lead zadnou nema → zapise do leads + companies
    - Pokud neni ICO ale lead ma domenu → preskoci WF3, spusti WF4 primo
+   - **Pokud neni ICO a neni domena → posle do WF4** (misto fail, WF4 ma domain discovery)
         |
-        v (s ICO)              v (bez ICO, s domenou)
-   WF3: Kurzy Scrape           WF4: Email Gen (primo)
+        v (s ICO)              v (bez ICO)
+   WF3: Kurzy Scrape           WF4: Email Gen (primo/fallback)
    (webhook:wf3-kurzy)
    - Scraping kontaktnich osob z kurzy.cz
+   - **Extrahuje website z Kurzy HTML** pokud lead nema domenu
+   - Zapisuje domain do leads + companies
    - Uklada do contacts tabulky (pres company_id)
         |
         v
    WF4: Email Gen (webhook:wf4-email-gen)
+   - Kontroluje, zda lead ma domenu
+   - **Pokud ne → spusti sub-domain-discovery** (ARES BE → Firmy.cz → DNS probe → DuckDuckGo)
+   - Po nalezeni domeny zapise do leads + companies, pokracuje s generovanim
    - Nacita kontakty pres get_contacts_for_lead() RPC
    - Generuje emailove adresy z jmena + domeny
    - Uklada do email_candidates
@@ -278,6 +308,7 @@ CSV import / AddLead dialog (s volbou enrichment level)
 - **wf-email-finder / v2** — starsi verze Email Finderu (v2 pouziva se pro overeni jednotliveho emailu z UI)
 - **wf-email-finder-v3** — novy firemni orchestrator pro hledani emailu (pouziva se z UI zakladky "Najit emaily"). Resolves company (domain lookup, ARES, firmy.cz fallback), fetches contacts, generates email patterns, SMTP checks, catch-all probe, website scraping pro backup emaily, upsert do email_candidates.
 - **sub-clean-domain** — sub-workflow pro cisteni a validaci domenoveho vstupu (Execute Workflow trigger)
+- **sub-domain-discovery** — sub-workflow pro hledani domeny firmy. Vstupy: lead_id, company_id, company_name, ico. Zkouzi 4 zdroje v poradi: ARES BE (pokud je ICO), Firmy.cz (hledani dle nazvu), DNS probe (.cz/.com), DuckDuckGo. Vraci `{ found, domain, source }`. Pouziva se z WF4 pro leady bez domeny.
 
 ### 2. Sending pipeline
 
@@ -564,7 +595,10 @@ Vsechna muzska jmena se sklonovani — zadna vyjimka pro cizi jmena.
 | **sub-clean-domain** | Sub-workflow pro cisteni a validaci domenoveho vstupu (odebira protokol, cestu, bile znaky) |
 | **cleanDomainInput()** | Frontendova utility funkce v `outreach-ui/src/lib/dedup.ts` pro cisteni domenoveho vstupu pred odeslanim na backend |
 | **StatusBadge** | UI komponenta zobrazujici stav s barvou a ikonou |
+| **Demo Mode** | Prezentacni rezim UI — zobrazuje fiktivni ceska B2B data misto realnych. Prepina se tlacitkem Eye v TopBar, stav v localStorage. Admin stranky neovlivneny. |
+| **DemoModeContext** | React context (`src/contexts/DemoModeContext.tsx`) poskytujici `isDemoMode` a `toggleDemoMode` celemu UI |
+| **demo-data.ts** | Modul s fiktivnimi daty pro demo rezim — firmy, kontakty, leady, vlny, sablony, dashboard stats |
 
 ---
 
-> Posledni aktualizace: 2026-03-15
+> Posledni aktualizace: 2026-03-17

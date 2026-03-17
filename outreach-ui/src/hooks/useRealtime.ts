@@ -1,11 +1,15 @@
 import { useEffect } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/lib/supabase';
+import { useDemoMode } from '@/contexts/DemoModeContext';
 
 export function useRealtime(teamId?: string | null) {
   const qc = useQueryClient();
+  const { isDemoMode } = useDemoMode();
 
   useEffect(() => {
+    if (isDemoMode) return;
+
     const teamFilter = teamId ? `team_id=eq.${teamId}` : undefined;
 
     const channel = supabase
@@ -37,5 +41,5 @@ export function useRealtime(teamId?: string | null) {
       .subscribe();
 
     return () => { supabase.removeChannel(channel); };
-  }, [qc, teamId]);
+  }, [qc, teamId, isDemoMode]);
 }

@@ -1,11 +1,15 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/lib/supabase';
 import type { Team, ConfigEntry, Salesman, TemplateVariable } from '@/types/database';
+import { useDemoMode } from '@/contexts/DemoModeContext';
+import { DEMO_TEAMS, DEMO_SALESMEN, DEMO_TEMPLATE_SETS } from '@/lib/demo-data';
 
 export function useTeamsSettings() {
+  const { isDemoMode } = useDemoMode();
   return useQuery<Team[]>({
     queryKey: ['settings', 'teams'],
     queryFn: async () => {
+      if (isDemoMode) return DEMO_TEAMS;
       const { data, error } = await supabase.from('teams').select('*').order('name');
       if (error) throw error;
       return data ?? [];
@@ -15,8 +19,10 @@ export function useTeamsSettings() {
 
 export function useUpsertTeam() {
   const qc = useQueryClient();
+  const { isDemoMode } = useDemoMode();
   return useMutation({
     mutationFn: async (team: Partial<Team> & { id?: string }): Promise<string> => {
+      if (isDemoMode) return team.id ?? 'demo';
       if (team.id) {
         const { error } = await supabase.from('teams').update(team).eq('id', team.id);
         if (error) throw error;
@@ -27,14 +33,16 @@ export function useUpsertTeam() {
         return data.id;
       }
     },
-    onSuccess: () => qc.invalidateQueries({ queryKey: ['settings', 'teams'] }),
+    onSuccess: () => { if (!isDemoMode) qc.invalidateQueries({ queryKey: ['settings', 'teams'] }); },
   });
 }
 
 export function useConfigEntries() {
+  const { isDemoMode } = useDemoMode();
   return useQuery<ConfigEntry[]>({
     queryKey: ['settings', 'config'],
     queryFn: async () => {
+      if (isDemoMode) return [] as ConfigEntry[];
       const { data, error } = await supabase.from('config').select('*');
       if (error) throw error;
       return data ?? [];
@@ -44,21 +52,25 @@ export function useConfigEntries() {
 
 export function useUpsertConfig() {
   const qc = useQueryClient();
+  const { isDemoMode } = useDemoMode();
   return useMutation({
     mutationFn: async ({ key, value }: { key: string; value: string }) => {
+      if (isDemoMode) return;
       const { error } = await supabase
         .from('config')
         .upsert({ key, value }, { onConflict: 'key' });
       if (error) throw error;
     },
-    onSuccess: () => qc.invalidateQueries({ queryKey: ['settings', 'config'] }),
+    onSuccess: () => { if (!isDemoMode) qc.invalidateQueries({ queryKey: ['settings', 'config'] }); },
   });
 }
 
 export function useSalesmen(teamId?: string) {
+  const { isDemoMode } = useDemoMode();
   return useQuery<Salesman[]>({
     queryKey: ['settings', 'salesmen', teamId ?? 'all'],
     queryFn: async () => {
+      if (isDemoMode) return DEMO_SALESMEN;
       let q = supabase.from('salesmen').select('*, team:teams(name)').order('name');
       if (teamId) q = q.eq('team_id', teamId);
       const { data, error } = await q;
@@ -70,8 +82,10 @@ export function useSalesmen(teamId?: string) {
 
 export function useUpsertSalesman() {
   const qc = useQueryClient();
+  const { isDemoMode } = useDemoMode();
   return useMutation({
     mutationFn: async (salesman: Partial<Salesman> & { id?: string }) => {
+      if (isDemoMode) return;
       if (salesman.id) {
         const { id, ...updates } = salesman;
         const { error } = await supabase.from('salesmen').update(updates).eq('id', id!);
@@ -81,25 +95,29 @@ export function useUpsertSalesman() {
         if (error) throw error;
       }
     },
-    onSuccess: () => qc.invalidateQueries({ queryKey: ['settings', 'salesmen'] }),
+    onSuccess: () => { if (!isDemoMode) qc.invalidateQueries({ queryKey: ['settings', 'salesmen'] }); },
   });
 }
 
 export function useDeleteSalesman() {
   const qc = useQueryClient();
+  const { isDemoMode } = useDemoMode();
   return useMutation({
     mutationFn: async (id: string) => {
+      if (isDemoMode) return;
       const { error } = await supabase.from('salesmen').delete().eq('id', id);
       if (error) throw error;
     },
-    onSuccess: () => qc.invalidateQueries({ queryKey: ['settings', 'salesmen'] }),
+    onSuccess: () => { if (!isDemoMode) qc.invalidateQueries({ queryKey: ['settings', 'salesmen'] }); },
   });
 }
 
 export function useTemplateSetsSettings(teamId?: string) {
+  const { isDemoMode } = useDemoMode();
   return useQuery({
     queryKey: ['settings', 'template-sets', teamId ?? 'all'],
     queryFn: async () => {
+      if (isDemoMode) return DEMO_TEMPLATE_SETS;
       let q = supabase
         .from('template_sets')
         .select('*, email_templates(*)')
@@ -114,8 +132,10 @@ export function useTemplateSetsSettings(teamId?: string) {
 
 export function useCreateTemplateSet() {
   const qc = useQueryClient();
+  const { isDemoMode } = useDemoMode();
   return useMutation({
     mutationFn: async (payload: { name: string; team_id: string; variables?: TemplateVariable[]; description?: string }) => {
+      if (isDemoMode) return {} as Record<string, unknown>;
       const { data, error } = await supabase
         .from('template_sets')
         .insert({
@@ -129,61 +149,71 @@ export function useCreateTemplateSet() {
       if (error) throw error;
       return data;
     },
-    onSuccess: () => qc.invalidateQueries({ queryKey: ['settings', 'template-sets'] }),
+    onSuccess: () => { if (!isDemoMode) qc.invalidateQueries({ queryKey: ['settings', 'template-sets'] }); },
   });
 }
 
 export function useUpdateTemplateSet() {
   const qc = useQueryClient();
+  const { isDemoMode } = useDemoMode();
   return useMutation({
     mutationFn: async ({ id, ...updates }: { id: string; name?: string; variables?: TemplateVariable[]; description?: string | null }) => {
+      if (isDemoMode) return;
       const { error } = await supabase.from('template_sets').update(updates).eq('id', id);
       if (error) throw error;
     },
-    onSuccess: () => qc.invalidateQueries({ queryKey: ['settings', 'template-sets'] }),
+    onSuccess: () => { if (!isDemoMode) qc.invalidateQueries({ queryKey: ['settings', 'template-sets'] }); },
   });
 }
 
 export function useDeleteTemplateSet() {
   const qc = useQueryClient();
+  const { isDemoMode } = useDemoMode();
   return useMutation({
     mutationFn: async (id: string) => {
+      if (isDemoMode) return;
       const { error } = await supabase.from('template_sets').delete().eq('id', id);
       if (error) throw error;
     },
-    onSuccess: () => qc.invalidateQueries({ queryKey: ['settings', 'template-sets'] }),
+    onSuccess: () => { if (!isDemoMode) qc.invalidateQueries({ queryKey: ['settings', 'template-sets'] }); },
   });
 }
 
 export function useDeleteTemplate() {
   const qc = useQueryClient();
+  const { isDemoMode } = useDemoMode();
   return useMutation({
     mutationFn: async (id: string) => {
+      if (isDemoMode) return;
       const { error } = await supabase.from('email_templates').delete().eq('id', id);
       if (error) throw error;
     },
-    onSuccess: () => qc.invalidateQueries({ queryKey: ['settings', 'template-sets'] }),
+    onSuccess: () => { if (!isDemoMode) qc.invalidateQueries({ queryKey: ['settings', 'template-sets'] }); },
   });
 }
 
 export function useReorderSequences() {
   const qc = useQueryClient();
+  const { isDemoMode } = useDemoMode();
   return useMutation({
     mutationFn: async ({ setId, order }: { setId: string; order: number[] }) => {
+      if (isDemoMode) return;
       const { error } = await supabase.rpc('reorder_template_sequences', {
         p_set_id: setId,
         p_order: order,
       });
       if (error) throw error;
     },
-    onSuccess: () => qc.invalidateQueries({ queryKey: ['settings', 'template-sets'] }),
+    onSuccess: () => { if (!isDemoMode) qc.invalidateQueries({ queryKey: ['settings', 'template-sets'] }); },
   });
 }
 
 export function useUpsertTemplate() {
   const qc = useQueryClient();
+  const { isDemoMode } = useDemoMode();
   return useMutation({
     mutationFn: async (template: Record<string, unknown>) => {
+      if (isDemoMode) return;
       // Ensure DB column `variant` is set (UI may send `ab_variant` alias)
       const data: Record<string, unknown> = {
         ...template,
@@ -199,6 +229,6 @@ export function useUpsertTemplate() {
         if (error) throw error;
       }
     },
-    onSuccess: () => qc.invalidateQueries({ queryKey: ['settings', 'template-sets'] }),
+    onSuccess: () => { if (!isDemoMode) qc.invalidateQueries({ queryKey: ['settings', 'template-sets'] }); },
   });
 }

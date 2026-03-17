@@ -6,12 +6,17 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/lib/supabase';
 import type { Lead, MasterLeadFilters, EmailCandidate } from '@/types/database';
 import { PAGE_SIZE } from '@/lib/constants';
+import { useDemoMode } from '@/contexts/DemoModeContext';
+import { DEMO_LEADS } from '@/lib/demo-data';
 
 /** @deprecated Use useCompanies instead */
 export function useMasterLeads(filters: MasterLeadFilters = {}, page = 1) {
+  const { isDemoMode } = useDemoMode();
   return useQuery({
     queryKey: ['master-leads', filters, page],
     queryFn: async () => {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      if (isDemoMode) return { data: DEMO_LEADS as any, count: DEMO_LEADS.length };
       let tagLeadIds: string[] | null = null;
       if (filters.tag_ids && filters.tag_ids.length > 0) {
         const { data: tagRows, error: te } = await supabase
@@ -61,14 +66,18 @@ export function useMasterLeads(filters: MasterLeadFilters = {}, page = 1) {
 /** @deprecated Use useUpdateCompanyMasterStatus instead */
 export function useUpdateMasterStatus() {
   const qc = useQueryClient();
+  const { isDemoMode } = useDemoMode();
   return useMutation({
     mutationFn: async ({ ids, master_status }: { ids: string[]; master_status: string }) => {
+      if (isDemoMode) return;
       const { error } = await supabase.from('leads').update({ master_status }).in('id', ids);
       if (error) throw error;
     },
     onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ['master-leads'] });
-      qc.invalidateQueries({ queryKey: ['leads'] });
+      if (!isDemoMode) {
+        qc.invalidateQueries({ queryKey: ['master-leads'] });
+        qc.invalidateQueries({ queryKey: ['leads'] });
+      }
     },
   });
 }
