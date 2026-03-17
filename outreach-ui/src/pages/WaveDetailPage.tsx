@@ -388,7 +388,7 @@ export default function WaveDetailPage() {
   })();
 
   // Rerun-specific helpers (keep old per-seq behavior for paused waves)
-  function handleSeqDateChange(seq: number, value: string, mode: 'rerun') {
+  function handleSeqDateChange(seq: number, value: string) {
     const setDates = setRerunSeqDates;
     const setTimes = setRerunSeqTimes;
     const dates = rerunSeqDates;
@@ -1070,7 +1070,7 @@ export default function WaveDetailPage() {
                     type="date"
                     value={rerunSeqDates[seq] || ''}
                     min={today}
-                    onChange={e => handleSeqDateChange(seq, e.target.value, 'rerun')}
+                    onChange={e => handleSeqDateChange(seq, e.target.value)}
                     style={{ fontFamily: 'JetBrains Mono, monospace', maxWidth: 170 }}
                   />
                   <TimeInput24h value={rerunSeqTimes[seq] || '08:00'} onChange={v => setRerunSeqTimes(prev => ({ ...prev, [seq]: v }))} />
