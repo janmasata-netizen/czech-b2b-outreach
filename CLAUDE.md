@@ -290,3 +290,42 @@ One file per service/topic (e.g., `webhook.md`, `code-node.md`, `supabase.md`).
 - **Solution:** [exact fix]
 ---
 ```
+
+---
+
+## Multi-Agent Orchestration Rules
+
+### Pre-Execution Protocol (MANDATORY)
+Before spawning any sub-agents or starting work on ANY multi-step task:
+1. Read the full spec/request carefully
+2. List what you understand the requirements to be
+3. Identify any ambiguities, missing details, or assumptions
+4. Ask the user clarifying questions about ALL ambiguities — do not guess
+5. Present your proposed task decomposition: which agents will do what, in what order, dependencies
+6. Wait for explicit user approval before spawning any agents
+7. NEVER skip steps 2–6, even if the request seems clear
+
+### Agent Limits
+- Maximum 7 concurrent agents per wave
+- If more than 7 tasks exist, batch into waves
+- Wave 2 starts only after Wave 1 agents complete
+
+### Code Quality Rules
+- Every agent must run linting before completing its task
+- Every agent must run relevant tests before marking done
+- If tests fail, the agent fixes them — does not mark complete
+- Frontend agents must use Tailwind CSS + shadcn/ui (match existing stack)
+- n8n workflow agents must consult known-issues logs and n8n-skills knowledge
+- All new UI must be responsive and support i18n (cs/en)
+
+### Communication Rules
+- The lead agent provides status updates after each sub-agent completes
+- If any agent is blocked or hits an unexpected problem, notify the user immediately — do not silently skip
+- After all agents complete, provide a summary: what was done, what was skipped, what needs manual review
+
+### Project-Specific Constraints
+- NEVER modify `.env.local` or any file containing secrets
+- NEVER push directly to main — always use feature branches
+- All git workflow rules from "Branch-Based Workflow" section above still apply
+- Deployment: `npm run build` + `node deploy-ssh2.mjs` for UI, `node deploy.mjs` for proxies
+- n8n workflows: export JSON, use helper scripts in `n8n-workflows/` to push
