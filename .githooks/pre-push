@@ -1,0 +1,44 @@
+#!/bin/bash
+# pre-push — Verifies UI build passes before pushing feature branches.
+# Skips for main (only metadata commits go there).
+
+branch=$(git rev-parse --abbrev-ref HEAD 2>/dev/null)
+
+# Skip build check on main — only metadata commits go there
+if [ "$branch" = "main" ] || [ "$branch" = "master" ]; then
+  exit 0
+fi
+
+# Only run if outreach-ui/ exists
+if [ ! -d "outreach-ui" ]; then
+  exit 0
+fi
+
+echo ""
+echo "  [pre-push] Running build check on outreach-ui/..."
+echo ""
+
+# Run the build
+cd outreach-ui
+npm run build 2>&1
+
+build_exit=$?
+cd ..
+
+if [ $build_exit -ne 0 ]; then
+  echo ""
+  echo "╔══════════════════════════════════════════════════════════════╗"
+  echo "║  BLOCKED: UI build failed — push rejected                  ║"
+  echo "╚══════════════════════════════════════════════════════════════╝"
+  echo ""
+  echo "  Fix the build errors in outreach-ui/ before pushing."
+  echo "    cd outreach-ui && npm run build"
+  echo ""
+  exit 1
+fi
+
+echo ""
+echo "  [pre-push] Build passed."
+echo ""
+
+exit 0

@@ -1,0 +1,48 @@
+#!/bin/bash
+# pre-commit — Blocks code commits on main (only active-work.md allowed).
+# On feature branches, warns if branch isn't registered.
+
+branch=$(git rev-parse --abbrev-ref HEAD 2>/dev/null)
+
+if [ "$branch" = "main" ] || [ "$branch" = "master" ]; then
+  # On main: only .claude/active-work.md is allowed
+  staged_files=$(git diff --cached --name-only)
+  blocked_files=""
+
+  while IFS= read -r file; do
+    [ -z "$file" ] && continue
+    if [ "$file" != ".claude/active-work.md" ]; then
+      blocked_files="$blocked_files  $file\n"
+    fi
+  done <<< "$staged_files"
+
+  if [ -n "$blocked_files" ]; then
+    echo ""
+    echo "╔══════════════════════════════════════════════════════════════╗"
+    echo "║  BLOCKED: Code commits on main are not allowed             ║"
+    echo "╚══════════════════════════════════════════════════════════════╝"
+    echo ""
+    echo "  Only .claude/active-work.md can be committed on main."
+    echo "  These files are not allowed:"
+    echo ""
+    echo -e "$blocked_files"
+    echo ""
+    echo "  Fix: switch to a feature branch first:"
+    echo "    git checkout -b claude/[short-description]"
+    echo ""
+    exit 1
+  fi
+elif echo "$branch" | grep -q "^claude/"; then
+  # On claude/* branches: warn if not registered in active-work.md
+  if [ -f ".claude/active-work.md" ]; then
+    if ! grep -q "$branch" ".claude/active-work.md" 2>/dev/null; then
+      echo ""
+      echo "  [WARN] Branch '$branch' is not registered in .claude/active-work.md"
+      echo "  Register before doing any work (HARD RULE #1)."
+      echo ""
+      # Warning only — don't block the commit
+    fi
+  fi
+fi
+
+exit 0

@@ -182,7 +182,6 @@ export function useWaveReplies(teamId?: string) {
       let q = supabase
         .from('wave_analytics')
         .select('*')
-        .gt('sent_count', 0)
         .order('reply_rate', { ascending: false })
         .limit(8);
       if (teamId) q = q.eq('team_id', teamId);

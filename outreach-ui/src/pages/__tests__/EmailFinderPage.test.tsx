@@ -75,13 +75,13 @@ describe('EmailFinderPage', () => {
   it('renders the page description text', () => {
     renderWithProviders(<EmailFinderPage />);
     expect(
-      screen.getByText(/Zadejte firmu, IČO, nebo doménu/),
+      screen.getByText(/Vyhledá jednatele v ARES podle IČO/),
     ).toBeInTheDocument();
   });
 
-  it('renders find form input by default', () => {
+  it('renders ICO form input by default', () => {
     renderWithProviders(<EmailFinderPage />);
-    expect(screen.getByText('Firma, IČO, nebo doména')).toBeInTheDocument();
+    expect(screen.getByText('IČO *')).toBeInTheDocument();
   });
 
   it('renders the submit button with search text', () => {

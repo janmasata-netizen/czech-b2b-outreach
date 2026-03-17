@@ -1,7 +1,7 @@
 import { Link, useLocation, useNavigate, useSearchParams } from 'react-router-dom';
 import {
   Users, LayoutList, Zap, Archive, AlertTriangle, Plus, Search, CircleCheck, Database, Ban, Upload,
-  Hash, UserSearch, MailCheck, Radar, FileText, Layers, Activity, MessageSquare, ScrollText,
+  Hash, UserSearch, MailCheck, Radar, Globe, FileText, Layers, Activity, MessageSquare, ScrollText,
 } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { TOP_H } from './TopBar';
@@ -98,6 +98,7 @@ function useSections(): Record<string, Section> {
             { label: t('sub.byName'),      to: '/email-finder', tabParam: 'name',      Icon: UserSearch },
             { label: t('sub.verifyEmail'), to: '/email-finder', tabParam: 'verify',    Icon: MailCheck  },
             { label: t('sub.directProbe'), to: '/email-finder', tabParam: 'probe',     Icon: Radar      },
+            { label: t('sub.discoverDomain'), to: '/email-finder', tabParam: 'discover', Icon: Globe      },
           ],
         },
       ],

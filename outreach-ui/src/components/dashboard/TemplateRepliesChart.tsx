@@ -31,9 +31,13 @@ export default function TemplateRepliesChart({ teamId }: { teamId?: string }) {
         replies: stats.replies,
         sent: stats.sent,
       }))
-      .filter(d => d.sent > 0)
       .sort((a, b) => b.replyRate - a.replyRate);
   }, [waves]);
+
+  // Prepend a zero-baseline point so a single data point has an area to fill from
+  const displayData = chartData.length === 1
+    ? [{ name: '—', replyRate: 0, replies: 0, sent: 0 }, ...chartData]
+    : chartData;
 
   return (
     <div style={{ padding: '20px 20px 12px', background: 'var(--bg-surface)', border: '1px solid var(--border)', borderRadius: 8 }}>
@@ -43,12 +47,12 @@ export default function TemplateRepliesChart({ teamId }: { teamId?: string }) {
 
       {isLoading ? (
         <Skeleton height={200} />
-      ) : !chartData.length ? (
+      ) : !displayData.length ? (
         <EmptyState icon="📊" title="Žádná data" />
       ) : (
         <>
           <ResponsiveContainer width="100%" height={280}>
-            <AreaChart data={chartData} margin={{ top: 0, right: 0, left: -20, bottom: 0 }}>
+            <AreaChart data={displayData} margin={{ top: 0, right: 0, left: -20, bottom: 0 }}>
               <defs>
                 <linearGradient id={`grad_tpl_${rawId}`} x1="0" y1="0" x2="0" y2="1">
                   <stop offset="0%" stopColor={COLOR} stopOpacity={0.6} />
@@ -62,9 +66,9 @@ export default function TemplateRepliesChart({ teamId }: { teamId?: string }) {
                 axisLine={false}
                 tickLine={false}
                 interval={0}
-                angle={chartData.length > 5 ? -30 : 0}
-                textAnchor={chartData.length > 5 ? 'end' : 'middle'}
-                height={chartData.length > 5 ? 60 : 30}
+                angle={displayData.length > 5 ? -30 : 0}
+                textAnchor={displayData.length > 5 ? 'end' : 'middle'}
+                height={displayData.length > 5 ? 60 : 30}
               />
               <YAxis
                 domain={[0, 100]}

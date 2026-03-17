@@ -478,9 +478,11 @@ Automaticky hledani domeny firmy pro leady, ktere nemaji website. Spousti se z W
 
 **Zdroje (v poradi priority):**
 1. **ARES BE** — `GET /ekonomicke-subjekty/{ico}` → pole `www` (vyzaduje ICO)
-2. **Firmy.cz** — `GET /hledej?dotaz={nazev_firmy}` → extrakce prvni nalezene domeny
-3. **DNS probe** — `HEAD https://{normalizovany_nazev}.cz` a `.com` (5s timeout)
-4. **DuckDuckGo** — `GET html.duckduckgo.com/html/?q={nazev}+website` → prvni vysledek
+2. **Firmy.cz** — `GET /hledej?dotaz={nazev_firmy}` → extrakce domeny z `class="web"` odkazu
+3. **DNS probe** — `HEAD https://{normalizovany_nazev}.cz` a `.com` (5s timeout, pouze 2xx/3xx)
+4. **DuckDuckGo** — `GET html.duckduckgo.com/html/?q={nazev}+website` → `class="result__a"` vysledky
+
+**Blacklist filtering:** Vsechny 4 zdroje pouzivaji sdileny blacklist (~60 domen) — ISP/portaly (seznam.cz, centrum.cz), free email (gmail.com), socialni site, registry (firmy.cz, kurzy.cz, justice.cz), hosting platformy atd. Kontroluje i subdomeny (napr. `mail.seznam.cz` → blacklisted). Bez fallback regexu na genericke `href` linky — pouze cilene selektory.
 
 **Kde se domain discovery pouziva v pipeline:**
 - **WF2:** Po nalezeni ICO provede ARES BE Lookup a extrahuje website (zdroj 1)

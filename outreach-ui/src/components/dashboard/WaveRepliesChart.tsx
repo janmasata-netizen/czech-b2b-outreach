@@ -11,12 +11,17 @@ export default function WaveRepliesChart({ teamId }: { teamId?: string }) {
   const { data: waves = [], isLoading } = useWaveReplies(teamId);
   const rawId = useId().replace(/:/g, '_');
 
-  const chartData = waves.map(w => ({
+  const realData = waves.map(w => ({
     name: w.name || '—',
     replyRate: w.reply_rate ?? 0,
     replies: w.reply_count ?? 0,
     sent: w.sent_count ?? 0,
   }));
+
+  // Prepend a zero-baseline point so a single data point has an area to fill from
+  const chartData = realData.length === 1
+    ? [{ name: '—', replyRate: 0, replies: 0, sent: 0 }, ...realData]
+    : realData;
 
   return (
     <div style={{ padding: '20px 20px 12px', background: 'var(--bg-surface)', border: '1px solid var(--border)', borderRadius: 8 }}>
@@ -72,7 +77,7 @@ export default function WaveRepliesChart({ teamId }: { teamId?: string }) {
           </ResponsiveContainer>
 
           <div style={{ marginTop: 14, display: 'flex', flexDirection: 'column', gap: 5 }}>
-            {chartData.map(d => (
+            {realData.map(d => (
               <div key={d.name} style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 12 }}>
                 <span style={{ width: 8, height: 8, borderRadius: '50%', background: COLOR, flexShrink: 0 }} />
                 <span style={{ flex: 1, color: 'var(--text-dim)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{d.name}</span>

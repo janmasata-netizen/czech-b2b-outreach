@@ -41,8 +41,11 @@ function request(method, path, body) {
 
 async function pushWorkflow({ file, id }) {
   const raw = JSON.parse(readFileSync(file, 'utf-8'));
-  delete raw.pinData;
-  delete raw.active;
+  delete raw.pinData; delete raw.active; delete raw.id; delete raw.staticData; delete raw.meta;
+  delete raw.updatedAt; delete raw.createdAt; delete raw.isArchived; delete raw.shared;
+  delete raw.tags; delete raw.versionId; delete raw.activeVersionId; delete raw.versionCounter;
+  delete raw.triggerCount; delete raw.activeVersion; delete raw.description;
+  if (raw.settings) delete raw.settings.availableInMCP;
 
   console.log(`\n--- ${file} (${id}) ---`);
 

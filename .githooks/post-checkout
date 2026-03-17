@@ -1,0 +1,54 @@
+#!/bin/bash
+# post-checkout — Detects dirty files carried across branch switches.
+# Args: $1=prev-ref, $2=new-ref, $3=flag (1=branch checkout, 0=file checkout)
+
+prev_ref="$1"
+new_ref="$2"
+checkout_flag="$3"
+
+# Only run on branch checkouts, not file checkouts
+if [ "$checkout_flag" != "1" ]; then
+  exit 0
+fi
+
+# Skip if prev and new are the same (initial checkout or no-op)
+if [ "$prev_ref" = "$new_ref" ]; then
+  exit 0
+fi
+
+# Check for dirty files (staged + unstaged + untracked)
+dirty_files=$(git status --porcelain 2>/dev/null)
+
+if [ -n "$dirty_files" ]; then
+  prev_branch=$(git name-rev --name-only "$prev_ref" 2>/dev/null || echo "$prev_ref")
+  new_branch=$(git rev-parse --abbrev-ref HEAD 2>/dev/null || echo "$new_ref")
+
+  echo ""
+  echo "╔══════════════════════════════════════════════════════════════╗"
+  echo "║  ⚠️  WARNING: DIRTY FILES DETECTED AFTER BRANCH SWITCH  ⚠️   ║"
+  echo "╚══════════════════════════════════════════════════════════════╝"
+  echo ""
+  echo "  You switched from '$prev_branch' to '$new_branch'"
+  echo "  but these files have uncommitted changes:"
+  echo ""
+  echo "$dirty_files" | while IFS= read -r line; do
+    echo "    $line"
+  done
+  echo ""
+  echo "  These changes were NOT committed to '$prev_branch' and are"
+  echo "  now sitting in your working tree on '$new_branch'."
+  echo ""
+  echo "  ┌─ REMEDIATION ──────────────────────────────────────────┐"
+  echo "  │ Option 1: Move changes back to the original branch     │"
+  echo "  │   git checkout $prev_branch                            │"
+  echo "  │   git add -A && git commit -m 'WIP: save dirty state'  │"
+  echo "  │   git checkout $new_branch                             │"
+  echo "  │                                                        │"
+  echo "  │ Option 2: Keep changes on current branch               │"
+  echo "  │   git add -A && git commit -m 'WIP: carried from $prev_branch' │"
+  echo "  └────────────────────────────────────────────────────────┘"
+  echo ""
+fi
+
+# post-checkout exit code is always ignored by git, but exit 0 for clarity
+exit 0

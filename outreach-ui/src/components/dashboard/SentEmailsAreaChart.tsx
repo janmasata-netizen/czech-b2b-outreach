@@ -26,6 +26,20 @@ export default function SentEmailsAreaChart({ teamId }: { teamId?: string }) {
     return Array.from(keys).sort();
   }, [data]);
 
+  // If only 1 data point, prepend a zero-baseline day so the chart draws a visible area
+  const chartData = useMemo(() => {
+    if (!data?.length || data.length > 1) return data;
+    const first = data[0] as Record<string, unknown>;
+    const firstDate = first.date as string;
+    // Create a date one day before
+    const prev = new Date(firstDate);
+    prev.setDate(prev.getDate() - 1);
+    const prevStr = prev.toISOString().slice(0, 10);
+    const zeroPoint: Record<string, unknown> = { date: prevStr };
+    for (const k of seqKeys) zeroPoint[k] = 0;
+    return [zeroPoint, ...data];
+  }, [data, seqKeys]);
+
   return (
     <div style={{ padding: '20px 20px 12px', background: 'var(--bg-surface)', border: '1px solid var(--border)', borderRadius: 8 }}>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 }}>
@@ -57,11 +71,11 @@ export default function SentEmailsAreaChart({ teamId }: { teamId?: string }) {
 
       {isLoading ? (
         <Skeleton height={320} />
-      ) : !data?.length ? (
+      ) : !chartData?.length ? (
         <EmptyState icon="📊" title="Žádná data" />
       ) : (
         <ResponsiveContainer width="100%" height={320}>
-          <AreaChart data={data} margin={{ top: 0, right: 0, left: -20, bottom: 0 }}>
+          <AreaChart data={chartData} margin={{ top: 0, right: 0, left: -20, bottom: 0 }}>
             <defs>
               {seqKeys.map((key, i) => {
                 const color = CHART_COLORS[i % CHART_COLORS.length];

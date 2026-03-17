@@ -1,0 +1,81 @@
+{
+  "name": "Domain Discovery Test",
+  "nodes": [
+    {
+      "parameters": {
+        "path": "wf-domain-discovery-test",
+        "httpMethod": "POST",
+        "responseMode": "responseNode",
+        "authentication": "headerAuth",
+        "options": {}
+      },
+      "id": "wfdd-webhook",
+      "name": "Webhook Trigger",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [240, 300],
+      "webhookId": "wf-domain-discovery-test",
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "Jvj4HIG7aE6YPKcJ",
+          "name": "Webhook Header Auth"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "source": "database",
+        "workflowId": "KdaIVaNnqj8eDx8D",
+        "waitForSubWorkflow": true
+      },
+      "id": "wfdd-exec-discovery",
+      "name": "Execute Domain Discovery",
+      "type": "n8n-nodes-base.executeWorkflow",
+      "typeVersion": 1,
+      "position": [480, 300]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ $json }}"
+      },
+      "id": "wfdd-respond",
+      "name": "Respond to Webhook",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [720, 300]
+    },
+    {
+      "parameters": {
+        "content": "## Domain Discovery Test\n\nWebhook wrapper for sub-domain-discovery subworkflow.\n\n**Input:** `{ company_name, ico }` (at least one required)\n**Output:** `{ found, domain, source }` (passthrough from sub-domain-discovery)\n\nSources: ARES → Firmy.cz → DNS probe → DuckDuckGo"
+      },
+      "id": "wfdd-note",
+      "name": "Sticky Note",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [180, 80]
+    }
+  ],
+  "connections": {
+    "Webhook Trigger": {
+      "main": [
+        [
+          { "node": "Execute Domain Discovery", "type": "main", "index": 0 }
+        ]
+      ]
+    },
+    "Execute Domain Discovery": {
+      "main": [
+        [
+          { "node": "Respond to Webhook", "type": "main", "index": 0 }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "staticData": null,
+  "tags": [],
+  "pinData": {}
+}
