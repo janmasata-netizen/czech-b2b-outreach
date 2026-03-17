@@ -18,7 +18,6 @@
 
 | Branch | Agent | Files (exact paths) | Started | Last Updated | PR |
 |---|---|---|---|---|---|
-
-| claude/area-charts | Claude | outreach-ui/src/components/dashboard/WaveRepliesChart.tsx, outreach-ui/src/components/dashboard/TemplateRepliesChart.tsx | 2026-03-16 | 2026-03-16 | — |
+| claude/drip-mode | Claude | n8n-workflows/migrate-drip-mode.mjs, n8n-workflows/wf7-wave-schedule.json, outreach-ui/src/types/database.ts, outreach-ui/src/pages/WaveDetailPage.tsx, outreach-ui/src/components/waves/WaveResults.tsx, outreach-ui/src/i18n/cs.ts, outreach-ui/src/i18n/en.ts | 2026-03-17 | 2026-03-17 | — |
 
 
