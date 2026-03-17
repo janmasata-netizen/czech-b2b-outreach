@@ -219,6 +219,7 @@ COMPANY_DEFS.forEach((def, i) => {
     master_status: 'active',
     created_at: daysAgo(40 - i),
     updated_at: daysAgo(5 - Math.min(i, 4)),
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
     contacts: contacts.map(({ email_candidates: _ec, ...rest }) => rest),
     email_candidates,
   };
