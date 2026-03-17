@@ -343,7 +343,7 @@ CSV import / AddLead dialog (s volbou enrichment level)
 - **wf-ndr-monitor-spam** — monitoring NDR ze spam slozky
 - **sub-smtp-check** — sub-workflow pro kontrolu SMTP
 - **sub-burner-probe** — sub-workflow pro probe testovani
-- **sub-reply-check** — sub-workflow pro kontrolu odpovedi
+- **sub-reply-check** — sub-workflow pro kontrolu odpovedi. Obsahuje "IF Not Already Replied" node — pokud lead uz ma `status = 'replied'`, dalsi emaily z vlakna se preskoci (zadny novy `lead_reply` zaznam).
 
 ### 3. Doplnkove workflow
 
