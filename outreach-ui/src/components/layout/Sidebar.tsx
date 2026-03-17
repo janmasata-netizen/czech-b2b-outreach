@@ -5,7 +5,7 @@ import {
   Building2, UserCheck, UserCog,
   Key, FileText, X, Activity,
   LayoutList, Zap, Archive, AlertTriangle, CircleCheck, Plus, Ban, Upload,
-  Hash, UserSearch, MailCheck, Radar,
+  Hash, UserSearch, MailCheck, Radar, Globe,
 } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { TOP_H } from './TopBar';
@@ -76,6 +76,7 @@ export default function Sidebar() {
     { label: t('sub.verifyEmail'), to: '/email-finder', tabParam: 'verify',    Icon: MailCheck  },
     { label: t('sub.directProbe'), to: '/email-finder', tabParam: 'probe',     Icon: Radar      },
     { label: t('sub.bulk'),        to: '/email-finder', tabParam: 'bulk',      Icon: Upload      },
+    { label: t('sub.discoverDomain'), to: '/email-finder', tabParam: 'discover', Icon: Globe     },
   ];
 
   const open = isMobile ? sidebarOpen : hover;
