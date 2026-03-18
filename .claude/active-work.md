@@ -18,5 +18,4 @@
 
 | Branch | Agent | Files (exact paths) | Started | Last Updated | PR |
 |---|---|---|---|---|---|
-| claude/outreach-accounts | Claude | n8n-workflows/migrate-outreach-accounts.mjs, smtp-proxy/server.mjs, outreach-ui/src/hooks/useSettings.ts, outreach-ui/src/types/database.ts, outreach-ui/src/components/waves/WaveConfigForm.tsx | 2026-03-18 | 2026-03-18 | — |
 
