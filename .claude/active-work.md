@@ -18,5 +18,5 @@
 
 | Branch | Agent | Files (exact paths) | Started | Last Updated | PR |
 |---|---|---|---|---|---|
-| claude/fix-demo-toggle | claude | outreach-ui/src/contexts/DemoModeContext.tsx, outreach-ui/src/components/layout/TopBar.tsx | 2026-03-18 | 2026-03-18 | — |
+| claude/security-audit-fixes | claude | n8n-workflows/wf-execution-stats.json, n8n-workflows/rerun-failed-leads.mjs, n8n-workflows/test-waves.mjs, n8n-workflows/test-ddg.mjs, n8n-workflows/test-small-firms.mjs, n8n-workflows/test-domain-discovery-100.mjs, n8n-workflows/create-admin.mjs, n8n-workflows/setup-all.mjs, n8n-workflows/env.mjs, n8n-workflows/email-verification-subwf.json, n8n-workflows/sub-reply-check.json, n8n-workflows/wf11-website-fallback.json, n8n-workflows/wf1-lead-ingest.json, imap-proxy/server.mjs, smtp-proxy/server.mjs, imap-proxy/Dockerfile, smtp-proxy/Dockerfile, outreach-ui/src/hooks/useLeads.ts, outreach-ui/src/hooks/useCompanies.ts, outreach-ui/src/hooks/useMasterLeads.ts, outreach-ui/src/pages/LeadsPage.tsx, outreach-ui/package.json | 2026-03-18 | 2026-03-18 | — |
 
