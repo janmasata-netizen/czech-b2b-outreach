@@ -25,6 +25,7 @@ export type WaveLeadStatus = 'pending' | 'seq1_sent' | 'seq2_sent' | 'seq3_sent'
 export interface SequenceScheduleEntry {
   seq: number;
   send_date: string | null;
+  send_date_end?: string | null;
   send_time: string | null;
 }
 export type EmailQueueStatus = 'queued' | 'sending' | 'sent' | 'failed' | 'cancelled' | 'pending_prev';
@@ -241,6 +242,7 @@ export interface Wave {
   send_date_seq1?: string | null;
   send_date_seq2?: string | null;
   send_date_seq3?: string | null;
+  daily_lead_count?: number | null;
   delay_seq1_to_seq2_days?: number;
   delay_seq2_to_seq3_days?: number;
   send_window_start?: string;
@@ -343,6 +345,7 @@ export interface WaveAnalytics {
   send_time_seq1: string | null;
   send_time_seq2: string | null;
   send_time_seq3: string | null;
+  daily_lead_count?: number | null;
   delay_seq1_to_seq2_days?: number;
   delay_seq2_to_seq3_days?: number;
   send_window_start?: string;

@@ -492,6 +492,14 @@ export default {
     forceSendDone: 'Force send completed for {{count}} emails',
     // Send now
     testWaveLaunched: 'Test wave launched — emails will be sent within 5 minutes to {{email}}',
+    // Drip mode
+    leadsPerDay: 'Leads per day',
+    leadsPerDayHint: 'empty = all at once',
+    seqDelay: 'SEQ{{from}} → SEQ{{to}}',
+    dripSummaryTitle: 'Summary',
+    dripDays: '{{count}} days',
+    dripDateRange: '{{start}} – {{end}}',
+    dripDelayNote: '+{{days}}d from SEQ{{seq}}',
     // Scheduling summary
     leads: 'Leads',
     totalEmails: 'Total Emails',
