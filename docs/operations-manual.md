@@ -488,23 +488,25 @@ Samostatny nastroj pro vyhledavani a overovani e-mailovych adres. Pristupny na `
 
 ### Domain Discovery (sub-domain-discovery)
 
-Automaticky hledani domeny firmy pro leady, ktere nemaji website. Spousti se z WF4 pred selhanim leadu.
+Automaticky hledani domeny firmy pro leady, ktere nemaji website. Spousti se z WF4 pred selhanim leadu a z Email Finder V3 jako fallback.
 
 **Zdroje (v poradi priority):**
 1. **ARES BE** — `GET /ekonomicke-subjekty/{ico}` → pole `www` (vyzaduje ICO)
-2. **Firmy.cz** — `GET /hledej?dotaz={nazev_firmy}` → extrakce domeny z `class="web"` odkazu
-3. **DNS probe** — `HEAD https://{normalizovany_nazev}.cz` a `.com` (5s timeout, pouze 2xx/3xx)
-4. **DuckDuckGo** — `GET html.duckduckgo.com/html/?q={nazev}+website` → `class="result__a"` vysledky
+2. **DNS probe** — `HEAD https://{normalizovany_nazev}.cz` a `.com` (5s timeout, pouze 2xx/3xx)
+3. **DuckDuckGo** — `GET html.duckduckgo.com/html/?q={nazev}+website` → dekodovani redirect URL (uddg parametr) → extrakce domeny
 
-**Blacklist filtering:** Vsechny 4 zdroje pouzivaji sdileny blacklist (~60 domen) — ISP/portaly (seznam.cz, centrum.cz), free email (gmail.com), socialni site, registry (firmy.cz, kurzy.cz, justice.cz), hosting platformy atd. Kontroluje i subdomeny (napr. `mail.seznam.cz` → blacklisted). Bez fallback regexu na genericke `href` linky — pouze cilene selektory.
+> **Poznamka:** Firmy.cz byl odstranen — migroval na SPA (client-side rendering), HTTP Request vraci prazdny HTML shell bez obsahu.
+
+**Blacklist filtering:** Vsechny zdroje pouzivaji blacklist (~70 domen) — ISP/portaly (seznam.cz, centrum.cz), free email (gmail.com), socialni site, registry (firmy.cz, kurzy.cz, justice.cz), hosting platformy atd. Kontroluje i subdomeny (napr. `mail.seznam.cz` → blacklisted).
 
 **Kde se domain discovery pouziva v pipeline:**
-- **WF2:** Po nalezeni ICO provede ARES BE Lookup a extrahuje website (zdroj 1)
-- **WF3:** Pri scraping Kurzy.cz extrahuje website z HTML (pokud lead nema domenu)
-- **WF4:** Pokud lead stale nema domenu → vola sub-domain-discovery (zdroje 1-4)
+- **WF2:** Po nalezeni ICO provede ARES BE Lookup a extrahuje website
+- **WF3:** Pri scraping Kurzy.cz extrahuje website z HTML (WWW radek v tabulce, pokud lead nema domenu)
+- **WF4:** Pokud lead stale nema domenu → vola sub-domain-discovery (zdroje 1-3)
 - **WF2 (bez ICO):** Misto selhani posle lead do WF4, kde probehne domain discovery
+- **Email Finder V3:** Pokud ARES+Kurzy nenajdou domenu → vola sub-domain-discovery jako fallback
 
-**Vystup sub-workflow:** `{ found: true/false, domain: "example.cz", source: "ares|firmy|dns|ddg" }`
+**Vystup sub-workflow:** `{ found: true/false, domain: "example.cz", source: "ares|dns|ddg" }`
 
 ### Zakladka "Najit domenu" (`?tab=discover`)
 
@@ -513,12 +515,12 @@ Automaticky hledani domeny firmy pro leady, ktere nemaji website. Spousti se z W
 - **Vstup:** Nazev firmy nebo ICO
 - **Postup:**
   1. Posle pozadavek do sub-domain-discovery subworkflow
-  2. Subworkflow zkusi najit domenu pres 4 zdroje (v poradi): ARES, Firmy.cz, DNS probe (.cz/.com), DuckDuckGo
+  2. Subworkflow zkusi najit domenu pres 3 zdroje (v poradi): ARES, DNS probe (.cz/.com), DuckDuckGo
   3. Vrati vysledek: nalezeno/nenalezeno, domena, zdroj
 - **Pouziti:** Pro rychle overeni, zda system dokaze najit domenu firmy. Uzitecne pri testovani domain discovery pipeline nebo pri rucnim hledani domeny firmy.
 
 Vysledek ukazuje:
-- **Nalezeno:** Zeleny badge s domenou v monospace fontu + barevny badge zdroje (ARES modry, Firmy.cz fialovy, DNS zeleny, DuckDuckGo oranzovy)
+- **Nalezeno:** Zeleny badge s domenou v monospace fontu + barevny badge zdroje (ARES modry, DNS zeleny, DuckDuckGo oranzovy)
 - **Nenalezeno:** Cervena zprava "Domena nenalezena"
 
 ### Akce s vysledky
