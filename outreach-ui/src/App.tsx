@@ -20,6 +20,7 @@ import ApiKeysSettings from '@/components/settings/ApiKeysSettings';
 import TemplateSetDetailPage from '@/pages/TemplateSetDetailPage';
 import TemplatesPage from '@/pages/TemplatesPage';
 import SalesmenSettings from '@/components/settings/SalesmenSettings';
+import OutreachAccountsSettings from '@/components/settings/OutreachAccountsSettings';
 import UsersSettings from '@/components/settings/UsersSettings';
 import SystemHealthPage from '@/pages/SystemHealthPage';
 import BugReportDetailPage from '@/pages/BugReportDetailPage';
@@ -59,6 +60,7 @@ export default function App() {
             <Route index element={null} />
             <Route path="tymy" element={<TeamsSettings />} />
             <Route path="obchodnici" element={<SalesmenSettings />} />
+            <Route path="ucty" element={<OutreachAccountsSettings />} />
             <Route path="uzivatele" element={<UsersSettings />} />
             <Route path="api-klice" element={<ApiKeysSettings />} />
           </Route>

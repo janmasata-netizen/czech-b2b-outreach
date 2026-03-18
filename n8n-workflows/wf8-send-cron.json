@@ -143,7 +143,7 @@
             },
             {
               "name": "select",
-              "value": "waves(from_email,team_id,teams(daily_send_limit,sends_today),salesmen(email))"
+              "value": "waves(from_email,team_id,outreach_account_id,teams(daily_send_limit,sends_today),salesmen(email),outreach_accounts(daily_send_limit,sends_today))"
             },
             {
               "name": "limit",
@@ -168,7 +168,7 @@
     {
       "parameters": {
         "mode": "runOnceForEachItem",
-        "jsCode": "const emailItem = $('Loop Emails').first().json;\nconst wlData = $input.item.json;\nconst waveData = wlData.waves || {};\nconst team = waveData.teams || {};\nconst salesman = waveData.salesmen || {};\nreturn { json: {\n  ...emailItem,\n  outreach_email: waveData.from_email || '',\n  display_name: waveData.from_email || '',\n  salesman_email: salesman.email || '',\n  team_id: waveData.team_id || '',\n  fresh_sends_today: team.sends_today || 0,\n  fresh_daily_limit: team.daily_send_limit || 130\n}};"
+        "jsCode": "const emailItem = $('Loop Emails').first().json;\nconst wlData = $input.item.json;\nconst waveData = wlData.waves || {};\nconst team = waveData.teams || {};\nconst salesman = waveData.salesmen || {};\nconst account = waveData.outreach_accounts || {};\nconst hasAccount = !!waveData.outreach_account_id;\nreturn { json: {\n  ...emailItem,\n  outreach_email: waveData.from_email || '',\n  display_name: waveData.from_email || '',\n  salesman_email: salesman.email || '',\n  team_id: waveData.team_id || '',\n  outreach_account_id: waveData.outreach_account_id || '',\n  fresh_sends_today: hasAccount ? (account.sends_today || 0) : (team.sends_today || 0),\n  fresh_daily_limit: hasAccount ? (account.daily_send_limit || 100) : (team.daily_send_limit || 130)\n}};"
       },
       "id": "wf08-0000-0000-0000-000000000024",
       "name": "Parse Limit Check",
@@ -182,7 +182,7 @@
     {
       "parameters": {
         "method": "POST",
-        "url": "https://cycapkswtucbucyegdsn.supabase.co/rest/v1/rpc/increment_and_check_sends",
+        "url": "={{ $json.outreach_account_id ? 'https://cycapkswtucbucyegdsn.supabase.co/rest/v1/rpc/increment_and_check_sends_account' : 'https://cycapkswtucbucyegdsn.supabase.co/rest/v1/rpc/increment_and_check_sends' }}",
         "sendHeaders": true,
         "headerParameters": {
           "parameters": [
@@ -202,7 +202,7 @@
         },
         "sendBody": true,
         "specifyBody": "json",
-        "jsonBody": "={{ JSON.stringify({ p_team_id: $json.team_id }) }}",
+        "jsonBody": "={{ JSON.stringify($json.outreach_account_id ? { p_account_id: $json.outreach_account_id } : { p_team_id: $json.team_id }) }}",
         "options": {
           "timeout": 30000,
           "neverError": true
@@ -380,7 +380,7 @@
         },
         "sendBody": true,
         "specifyBody": "json",
-        "jsonBody": "={{ JSON.stringify({ credential_name: 'Burner SMTP', from: $('Prepare Email').first().json.outreach_email, to: $('Prepare Email').first().json.email_address, subject: $('Prepare Email').first().json.smtp_subject, html: $('Prepare Email').first().json.body_rendered, replyTo: $('Prepare Email').first().json.salesman_email, messageId: $('Prepare Email').first().json.generated_message_id, inReplyTo: $('Prepare Email').first().json.proxy_in_reply_to || '', references: $('Prepare Email').first().json.proxy_references || '' }) }}",
+        "jsonBody": "={{ JSON.stringify(Object.assign({ from: $('Prepare Email').first().json.outreach_email, to: $('Prepare Email').first().json.email_address, subject: $('Prepare Email').first().json.smtp_subject, html: $('Prepare Email').first().json.body_rendered, replyTo: $('Prepare Email').first().json.salesman_email, messageId: $('Prepare Email').first().json.generated_message_id, inReplyTo: $('Prepare Email').first().json.proxy_in_reply_to || '', references: $('Prepare Email').first().json.proxy_references || '' }, $('Prepare Email').first().json.outreach_account_id ? {} : { credential_name: 'Burner SMTP' })) }}",
         "options": {
           "timeout": 30000,
           "neverError": true

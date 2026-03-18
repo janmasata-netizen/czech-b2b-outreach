@@ -1,7 +1,8 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/lib/supabase';
-import type { Team, ConfigEntry, Salesman, TemplateVariable } from '@/types/database';
+import type { Team, ConfigEntry, Salesman, TemplateVariable, OutreachAccount } from '@/types/database';
 import { useDemoMode } from '@/contexts/DemoModeContext';
+import { n8nWebhookUrl, n8nHeaders } from '@/lib/n8n';
 import { DEMO_TEAMS, DEMO_SALESMEN, DEMO_TEMPLATE_SETS } from '@/lib/demo-data';
 
 export function useTeamsSettings() {
@@ -230,5 +231,61 @@ export function useUpsertTemplate() {
       }
     },
     onSuccess: () => { if (!isDemoMode) qc.invalidateQueries({ queryKey: ['settings', 'template-sets'] }); },
+  });
+}
+
+// ── Outreach Accounts ──
+
+export function useOutreachAccounts(teamId?: string) {
+  const { isDemoMode } = useDemoMode();
+  return useQuery<OutreachAccount[]>({
+    queryKey: ['settings', 'outreach-accounts', teamId ?? 'all'],
+    queryFn: async () => {
+      if (isDemoMode) return [];
+      let q = supabase
+        .from('outreach_accounts')
+        .select('id, team_id, email_address, display_name, smtp_host, smtp_port, smtp_secure, smtp_user, daily_send_limit, sends_today, is_active, created_at, updated_at, team:teams(name)')
+        .order('email_address');
+      if (teamId) q = q.eq('team_id', teamId);
+      const { data, error } = await q;
+      if (error) throw error;
+      return (data ?? []) as unknown as OutreachAccount[];
+    },
+  });
+}
+
+export function useUpsertOutreachAccount() {
+  const qc = useQueryClient();
+  const { isDemoMode } = useDemoMode();
+  return useMutation({
+    mutationFn: async (account: Partial<OutreachAccount> & { id?: string }) => {
+      if (isDemoMode) return;
+      // Strip computed/joined fields before write
+      const { team, active_wave, ...rest } = account;
+      if (rest.id) {
+        const { id, ...updates } = rest;
+        // Don't send empty password on update (means "keep existing")
+        if (!updates.smtp_password) delete updates.smtp_password;
+        const { error } = await supabase.from('outreach_accounts').update(updates).eq('id', id!);
+        if (error) throw error;
+      } else {
+        const { error } = await supabase.from('outreach_accounts').insert(rest);
+        if (error) throw error;
+      }
+    },
+    onSuccess: () => { if (!isDemoMode) qc.invalidateQueries({ queryKey: ['settings', 'outreach-accounts'] }); },
+  });
+}
+
+export function useDeleteOutreachAccount() {
+  const qc = useQueryClient();
+  const { isDemoMode } = useDemoMode();
+  return useMutation({
+    mutationFn: async (id: string) => {
+      if (isDemoMode) return;
+      const { error } = await supabase.from('outreach_accounts').delete().eq('id', id);
+      if (error) throw error;
+    },
+    onSuccess: () => { if (!isDemoMode) qc.invalidateQueries({ queryKey: ['settings', 'outreach-accounts'] }); },
   });
 }

@@ -12,6 +12,7 @@ export default {
     users: 'Uživatelé',
     apiKeys: 'API klíče',
     emailFinder: 'Email Finder',
+    outreachAccounts: 'Odesílací účty',
     system: 'Systém',
     settings: 'Nastavení',
   },

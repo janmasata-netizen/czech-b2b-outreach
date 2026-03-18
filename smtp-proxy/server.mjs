@@ -6,8 +6,13 @@
  *
  * POST /send-email  { credential_name, from, to, subject, html, replyTo, messageId, inReplyTo, references }
  * GET  /health      → { status: "ok" }
+ *
+ * Credential resolution order:
+ *   1. config.json lookup by credential_name (backward compat)
+ *   2. Supabase outreach_accounts lookup by from email address (fallback)
  */
 import http from 'http';
+import https from 'https';
 import { readFileSync } from 'fs';
 import { fileURLToPath } from 'url';
 import { dirname, join } from 'path';
@@ -17,6 +22,10 @@ const __dirname = dirname(fileURLToPath(import.meta.url));
 const PORT = process.env.PORT || 3002;
 const MAX_BODY_SIZE = 1024 * 1024; // 1MB
 const BEARER_TOKEN = process.env.PROXY_AUTH_TOKEN || '';
+
+// Supabase DB credential lookup
+const SUPABASE_URL = process.env.SUPABASE_URL || '';
+const SUPABASE_SERVICE_KEY = process.env.SUPABASE_SERVICE_KEY || '';
 
 // Simple in-memory rate limiter (per IP, sliding window)
 const RATE_LIMIT = parseInt(process.env.RATE_LIMIT || '120', 10); // requests per minute
@@ -51,12 +60,92 @@ try {
 const transporters = new Map();
 const TRANSPORTER_TTL = 30 * 60 * 1000;
 
-function getTransporter(credName) {
-  const cached = transporters.get(credName);
-  if (cached && Date.now() - cached.createdAt < TRANSPORTER_TTL) return cached.transporter;
+// DB credential cache keyed by email address (5-minute TTL)
+const dbCredCache = new Map(); // key: email, value: { creds, fetchedAt }
+const DB_CACHE_TTL = 5 * 60 * 1000; // 5 minutes
 
-  const creds = config.credentials?.[credName];
-  if (!creds) return null;
+/**
+ * Fetch SMTP credentials from Supabase outreach_accounts table by from email.
+ * Returns { host, port, secure, user, pass } or null.
+ */
+async function getDbCredentials(fromEmail) {
+  // Check cache first
+  const cached = dbCredCache.get(fromEmail);
+  if (cached && Date.now() - cached.fetchedAt < DB_CACHE_TTL) {
+    return cached.creds;
+  }
+
+  if (!SUPABASE_URL || !SUPABASE_SERVICE_KEY) {
+    return null;
+  }
+
+  const urlObj = new URL(SUPABASE_URL);
+  const path = `/rest/v1/outreach_accounts?email_address=eq.${encodeURIComponent(fromEmail)}&is_active=eq.true&select=smtp_host,smtp_port,smtp_secure,smtp_user,smtp_password&limit=1`;
+
+  const creds = await new Promise((resolve) => {
+    const options = {
+      hostname: urlObj.hostname,
+      port: urlObj.port || 443,
+      path,
+      method: 'GET',
+      headers: {
+        'apikey': SUPABASE_SERVICE_KEY,
+        'Authorization': `Bearer ${SUPABASE_SERVICE_KEY}`,
+        'Accept': 'application/json',
+      },
+    };
+
+    const req = https.request(options, (res) => {
+      let data = '';
+      res.on('data', (chunk) => { data += chunk; });
+      res.on('end', () => {
+        try {
+          const rows = JSON.parse(data);
+          if (!Array.isArray(rows) || rows.length === 0) {
+            resolve(null);
+            return;
+          }
+          const row = rows[0];
+          resolve({
+            host: row.smtp_host,
+            port: row.smtp_port || 465,
+            secure: row.smtp_secure !== undefined ? row.smtp_secure : (row.smtp_port === 465),
+            user: row.smtp_user,
+            pass: row.smtp_password,
+          });
+        } catch (parseErr) {
+          console.warn('[smtp-proxy] Failed to parse Supabase response:', parseErr.message);
+          resolve(null);
+        }
+      });
+    });
+
+    req.on('error', (err) => {
+      console.warn('[smtp-proxy] Supabase DB lookup failed for', fromEmail, '—', err.message);
+      resolve(null);
+    });
+
+    req.setTimeout(5000, () => {
+      console.warn('[smtp-proxy] Supabase DB lookup timed out for', fromEmail);
+      req.destroy();
+      resolve(null);
+    });
+
+    req.end();
+  });
+
+  // Cache the result (even null, to avoid hammering DB on missing accounts)
+  dbCredCache.set(fromEmail, { creds, fetchedAt: Date.now() });
+  return creds;
+}
+
+/**
+ * Get or create a nodemailer transporter from explicit creds object.
+ * Keyed by `key` (email address) in the shared transporters cache.
+ */
+function getOrCreateTransporter(key, creds) {
+  const cached = transporters.get(key);
+  if (cached && Date.now() - cached.createdAt < TRANSPORTER_TTL) return cached.transporter;
 
   // Close old transporter if exists
   if (cached) try { cached.transporter.close(); } catch (_) {}
@@ -74,8 +163,22 @@ function getTransporter(credName) {
     socketTimeout: 30000,
   });
 
-  transporters.set(credName, { transporter, createdAt: Date.now() });
+  transporters.set(key, { transporter, createdAt: Date.now() });
   return transporter;
+}
+
+/**
+ * Look up a transporter by credential name from config.json.
+ * Returns null if not found.
+ */
+function getTransporter(credName) {
+  const cached = transporters.get(credName);
+  if (cached && Date.now() - cached.createdAt < TRANSPORTER_TTL) return cached.transporter;
+
+  const creds = config.credentials?.[credName];
+  if (!creds) return null;
+
+  return getOrCreateTransporter(credName, creds);
 }
 
 /** Validate email format */
@@ -92,7 +195,10 @@ function sanitizeSubject(subject) {
 }
 
 /**
- * Send an email with proper threading headers
+ * Send an email with proper threading headers.
+ * Credential resolution order:
+ *   1. config.json by credential_name
+ *   2. Supabase outreach_accounts by from email address
  */
 async function sendEmail(payload) {
   const { credential_name, from, to, subject, html, replyTo, messageId, inReplyTo, references } = payload;
@@ -100,9 +206,19 @@ async function sendEmail(payload) {
   if (!isValidEmail(to)) throw new Error('Invalid recipient email');
   const safeSubject = sanitizeSubject(subject);
 
-  const transporter = getTransporter(credential_name);
+  // 1. Try config.json lookup by credential_name (backward compat)
+  let transporter = credential_name ? getTransporter(credential_name) : null;
+
+  // 2. Fallback: DB lookup by from email address
+  if (!transporter && from) {
+    const dbCreds = await getDbCredentials(from);
+    if (dbCreds) {
+      transporter = getOrCreateTransporter(from, dbCreds);
+    }
+  }
+
   if (!transporter) {
-    throw new Error(`Unknown credential: ${credential_name}`);
+    throw new Error(`No credentials found for ${credential_name || from}`);
   }
 
   // Build mailOptions with dedicated fields for protected headers
@@ -212,10 +328,10 @@ async function handleRequest(req, res) {
       return;
     }
 
-    // Validate required fields
-    if (!payload.credential_name) {
+    // Validate required fields — credential_name is now optional if from is provided
+    if (!payload.credential_name && !payload.from) {
       res.writeHead(400, { 'Content-Type': 'application/json' });
-      res.end(JSON.stringify({ success: false, error: 'Missing credential_name' }));
+      res.end(JSON.stringify({ success: false, error: 'Missing credential_name or from' }));
       return;
     }
     if (!payload.to) {
@@ -247,7 +363,8 @@ server.requestTimeout = 30000;
 const BIND_HOST = process.env.BIND_HOST || '0.0.0.0';
 server.listen(PORT, BIND_HOST, () => {
   const credCount = Object.keys(config.credentials || {}).length;
-  console.log(`SMTP proxy listening on 127.0.0.1:${PORT} (${credCount} credentials configured)`);
+  const dbEnabled = !!(SUPABASE_URL && SUPABASE_SERVICE_KEY);
+  console.log(`SMTP proxy listening on 127.0.0.1:${PORT} (${credCount} config credentials | Supabase DB lookup: ${dbEnabled ? 'enabled' : 'disabled'})`);
 });
 
 // Graceful shutdown — let in-flight requests finish, close SMTP transporters

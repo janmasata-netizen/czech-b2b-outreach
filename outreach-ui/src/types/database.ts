@@ -228,6 +228,26 @@ export interface Salesman {
   team?: { name: string };
 }
 
+export interface OutreachAccount {
+  id: string;
+  team_id: string;
+  email_address: string;
+  display_name?: string | null;
+  smtp_host: string;
+  smtp_port: number;
+  smtp_secure: boolean;
+  smtp_user: string;
+  smtp_password?: string; // excluded from safe view, only available to admin
+  daily_send_limit: number;
+  sends_today: number;
+  is_active: boolean;
+  created_at: string;
+  updated_at?: string;
+  team?: { name: string };
+  // Computed: which active wave is using this account (if any)
+  active_wave?: { id: string; name: string; status: string } | null;
+}
+
 export interface Wave {
   id: string;
   team_id?: string | null;
