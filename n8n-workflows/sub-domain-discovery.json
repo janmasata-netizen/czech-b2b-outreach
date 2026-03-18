@@ -25,7 +25,7 @@
     {
       "parameters": {
         "mode": "runOnceForEachItem",
-        "jsCode": "const d = $input.item.json;\nreturn { json: {\n  lead_id: d.lead_id || '',\n  company_id: d.company_id || '',\n  company_name: d.company_name || '',\n  ico: d.ico || '',\n  found: false,\n  domain: '',\n  source: ''\n} };"
+        "jsCode": "const raw = $input.item.json;\nconst d = raw.body || raw;\nreturn { json: {\n  lead_id: d.lead_id || '',\n  company_id: d.company_id || '',\n  company_name: d.company_name || '',\n  ico: d.ico || '',\n  found: false,\n  domain: '',\n  source: ''\n} };"
       },
       "id": "sdd-0002",
       "name": "Extract Input",
@@ -117,27 +117,29 @@
     },
     {
       "parameters": {
-        "method": "HEAD",
+        "method": "GET",
         "url": "={{ 'https://' + ($json._dns_candidates[0] || 'invalid.invalid') }}",
-        "options": { "neverError": true, "timeout": 5000, "redirect": { "redirect": { "followRedirects": false } } }
+        "options": { "neverError": true, "timeout": 5000, "response": { "response": { "responseFormat": "text" } } }
       },
       "id": "sdd-0031",
       "name": "Probe .cz Domain",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
-      "position": [1920, 420]
+      "position": [1920, 420],
+      "onError": "continueRegularOutput"
     },
     {
       "parameters": {
-        "method": "HEAD",
+        "method": "GET",
         "url": "={{ 'https://' + ($('Generate DNS Candidates').first().json._dns_candidates[1] || 'invalid.invalid') }}",
-        "options": { "neverError": true, "timeout": 5000, "redirect": { "redirect": { "followRedirects": false } } }
+        "options": { "neverError": true, "timeout": 5000, "response": { "response": { "responseFormat": "text" } } }
       },
       "id": "sdd-0032",
       "name": "Probe .com Domain",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
-      "position": [1920, 580]
+      "position": [1920, 580],
+      "onError": "continueRegularOutput"
     },
     {
       "parameters": { "mode": "append" },
@@ -150,7 +152,7 @@
     {
       "parameters": {
         "mode": "runOnceForAllItems",
-        "jsCode": "const BLACKLISTED = new Set(['seznam.cz','centrum.cz','atlas.cz','volny.cz','tiscali.cz','o2.cz','vodafone.cz','t-mobile.cz','upc.cz','czfree.net','gmail.com','yahoo.com','hotmail.com','outlook.com','protonmail.com','icloud.com','mail.com','zoho.com','aol.com','gmx.com','gmx.net','yandex.com','tutanota.com','live.com','msn.com','post.cz','email.cz','facebook.com','twitter.com','x.com','linkedin.com','instagram.com','youtube.com','tiktok.com','pinterest.com','reddit.com','threads.net','google.com','google.cz','bing.com','duckduckgo.com','wikipedia.org','wikipedie.cz','firmy.cz','kurzy.cz','rejstrik.penize.cz','or.justice.cz','justice.cz','rzp.cz','ares.gov.cz','hbi.cz','detail.cz','databaze-firem.cz','github.com','gitlab.com','medium.com','wordpress.com','blogspot.com','wix.com','squarespace.com','webnode.cz','amazon.com','ebay.com','alibaba.com','aliexpress.com','apple.com','microsoft.com','cloudflare.com','mapy.cz','idnes.cz','novinky.cz','aktualne.cz','heureka.cz','zbozi.cz','slevomat.cz']);\nfunction isBlacklisted(d) { if (!d) return true; if (BLACKLISTED.has(d)) return true; const p = d.split('.'); if (p.length > 2 && BLACKLISTED.has(p.slice(-2).join('.'))) return true; return false; }\nconst prev = $('Generate DNS Candidates').first().json;\nconst candidates = prev._dns_candidates || [];\nconst results = $input.all().map(i => i.json);\n\n// neverError:true may return { error: ... } or empty {}. Check statusCode explicitly.\nconst czStatus = (results[0] && typeof results[0].statusCode === 'number') ? results[0].statusCode : 0;\nconst comStatus = (results[1] && typeof results[1].statusCode === 'number') ? results[1].statusCode : 0;\n\n// Only accept 2xx/3xx — reject 403/404 parked domains\nif (czStatus >= 200 && czStatus < 400 && candidates[0] && !isBlacklisted(candidates[0])) {\n  return [{ json: { lead_id: prev.lead_id, company_id: prev.company_id, company_name: prev.company_name, ico: prev.ico, found: true, domain: candidates[0], source: 'dns' } }];\n}\nif (comStatus >= 200 && comStatus < 400 && candidates[1] && !isBlacklisted(candidates[1])) {\n  return [{ json: { lead_id: prev.lead_id, company_id: prev.company_id, company_name: prev.company_name, ico: prev.ico, found: true, domain: candidates[1], source: 'dns' } }];\n}\n\nreturn [{ json: { lead_id: prev.lead_id, company_id: prev.company_id, company_name: prev.company_name, ico: prev.ico, found: false, domain: '', source: '' } }];"
+        "jsCode": "const BLACKLISTED = new Set(['seznam.cz','centrum.cz','atlas.cz','volny.cz','tiscali.cz','o2.cz','vodafone.cz','t-mobile.cz','upc.cz','czfree.net','gmail.com','yahoo.com','hotmail.com','outlook.com','protonmail.com','icloud.com','mail.com','zoho.com','aol.com','gmx.com','gmx.net','yandex.com','tutanota.com','live.com','msn.com','post.cz','email.cz','facebook.com','twitter.com','x.com','linkedin.com','instagram.com','youtube.com','tiktok.com','pinterest.com','reddit.com','threads.net','google.com','google.cz','bing.com','duckduckgo.com','wikipedia.org','wikipedie.cz','firmy.cz','kurzy.cz','rejstrik.penize.cz','or.justice.cz','justice.cz','rzp.cz','ares.gov.cz','hbi.cz','detail.cz','databaze-firem.cz','github.com','gitlab.com','medium.com','wordpress.com','blogspot.com','wix.com','squarespace.com','webnode.cz','amazon.com','ebay.com','alibaba.com','aliexpress.com','apple.com','microsoft.com','cloudflare.com','mapy.cz','idnes.cz','novinky.cz','aktualne.cz','heureka.cz','zbozi.cz','slevomat.cz']);\nfunction isBlacklisted(d) { if (!d) return true; if (BLACKLISTED.has(d)) return true; const p = d.split('.'); if (p.length > 2 && BLACKLISTED.has(p.slice(-2).join('.'))) return true; return false; }\nconst prev = $('Generate DNS Candidates').first().json;\nconst candidates = prev._dns_candidates || [];\nconst results = $input.all().map(i => i.json);\n\n// onError:continueRegularOutput wraps errors as { error: { message: '403 - ...' } }\n// Extract status from statusCode field or from error message prefix\nfunction extractStatus(r) {\n  if (!r) return 0;\n  if (typeof r.statusCode === 'number') return r.statusCode;\n  if (r.error && r.error.message) {\n    const m = r.error.message.match(/^(\\d{3})\\s*-/);\n    if (m) return parseInt(m[1]);\n  }\n  return 0;\n}\nconst czStatus = extractStatus(results[0]);\nconst comStatus = extractStatus(results[1]);\n\n// Accept 2xx/3xx AND 403 (Cloudflare/WAF = domain exists). Reject 404/5xx/0 (no domain)\nfunction isAlive(status) { return (status >= 200 && status < 400) || status === 403; }\nif (isAlive(czStatus) && candidates[0] && !isBlacklisted(candidates[0])) {\n  return [{ json: { lead_id: prev.lead_id, company_id: prev.company_id, company_name: prev.company_name, ico: prev.ico, found: true, domain: candidates[0], source: 'dns' } }];\n}\nif (isAlive(comStatus) && candidates[1] && !isBlacklisted(candidates[1])) {\n  return [{ json: { lead_id: prev.lead_id, company_id: prev.company_id, company_name: prev.company_name, ico: prev.ico, found: true, domain: candidates[1], source: 'dns' } }];\n}\n\nreturn [{ json: { lead_id: prev.lead_id, company_id: prev.company_id, company_name: prev.company_name, ico: prev.ico, found: false, domain: '', source: '' } }];"
       },
       "id": "sdd-0034",
       "name": "Check DNS Results",
@@ -230,11 +232,14 @@
       "position": [3360, 700]
     },
     {
-      "parameters": {},
+      "parameters": {
+        "mode": "runOnceForEachItem",
+        "jsCode": "return { json: $input.item.json };"
+      },
       "id": "sdd-0099",
       "name": "Return Result",
-      "type": "n8n-nodes-base.noOp",
-      "typeVersion": 1,
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
       "position": [3600, 400]
     }
   ],
