@@ -2,6 +2,7 @@ import { useState, useRef, useEffect } from 'react';
 import { LogOut, Settings, Menu, Bug, Eye } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
+import { useQueryClient } from '@tanstack/react-query';
 import { useAuthContext } from '@/components/AuthProvider';
 import { useMobileNav } from '@/hooks/useMobileNav';
 import { useDemoMode } from '@/contexts/DemoModeContext';
@@ -13,6 +14,7 @@ export default function TopBar() {
   const { user, profile, signOut } = useAuthContext();
   const { isMobile, toggleSidebar } = useMobileNav();
   const { isDemoMode, toggleDemoMode } = useDemoMode();
+  const queryClient = useQueryClient();
   const { t, i18n } = useTranslation();
   const [open, setOpen] = useState(false);
   const [bugModalOpen, setBugModalOpen] = useState(false);
@@ -115,7 +117,7 @@ export default function TopBar() {
           <Bug size={16} />
         </button>
         <button
-          onClick={toggleDemoMode}
+          onClick={() => { toggleDemoMode(); queryClient.invalidateQueries(); }}
           title={isDemoMode ? 'Vypnout demo rezim' : 'Zapnout demo rezim'}
           style={{
             width: 32, height: 32, borderRadius: '50%',
