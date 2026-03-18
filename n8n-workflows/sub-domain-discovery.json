@@ -67,12 +67,13 @@
       "name": "ARES BE Lookup",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
-      "position": [720, 300]
+      "position": [720, 300],
+      "onError": "continueRegularOutput"
     },
     {
       "parameters": {
         "mode": "runOnceForEachItem",
-        "jsCode": "const BLACKLISTED = new Set(['seznam.cz','centrum.cz','atlas.cz','volny.cz','tiscali.cz','o2.cz','vodafone.cz','t-mobile.cz','upc.cz','czfree.net','gmail.com','yahoo.com','hotmail.com','outlook.com','protonmail.com','icloud.com','mail.com','zoho.com','aol.com','gmx.com','gmx.net','yandex.com','tutanota.com','live.com','msn.com','post.cz','email.cz','facebook.com','twitter.com','x.com','linkedin.com','instagram.com','youtube.com','tiktok.com','pinterest.com','reddit.com','threads.net','google.com','google.cz','bing.com','duckduckgo.com','wikipedia.org','wikipedie.cz','firmy.cz','kurzy.cz','rejstrik.penize.cz','or.justice.cz','justice.cz','rzp.cz','ares.gov.cz','hbi.cz','detail.cz','databaze-firem.cz','github.com','gitlab.com','medium.com','wordpress.com','blogspot.com','wix.com','squarespace.com','webnode.cz','amazon.com','ebay.com','alibaba.com','aliexpress.com','apple.com','microsoft.com','cloudflare.com','mapy.cz','idnes.cz','novinky.cz','aktualne.cz','heureka.cz','zbozi.cz','slevomat.cz']);\nfunction isBlacklisted(d) { if (!d) return true; if (BLACKLISTED.has(d)) return true; const p = d.split('.'); if (p.length > 2 && BLACKLISTED.has(p.slice(-2).join('.'))) return true; return false; }\nconst be = $input.item.json || {};\nconst prev = $('Extract Input').first().json;\nlet website = '';\nif (be.www) website = be.www;\nelse if (be.sidlo && be.sidlo.www) website = be.sidlo.www;\n\nif (!website) {\n  return { json: { ...prev, found: false } };\n}\n\nlet domain = website.replace(/^https?:\\/\\//i, '').replace(/^www\\./i, '').split(/[\\/?#]/)[0].trim().toLowerCase();\nif (!domain || !/^[a-z0-9.-]+\\.[a-z]{2,}$/.test(domain)) {\n  return { json: { ...prev, found: false } };\n}\n\nif (isBlacklisted(domain)) {\n  return { json: { ...prev, found: false } };\n}\n\nreturn { json: { ...prev, found: true, domain: domain, source: 'ares' } };"
+        "jsCode": "const BLACKLISTED = new Set(['seznam.cz','centrum.cz','atlas.cz','volny.cz','tiscali.cz','o2.cz','vodafone.cz','t-mobile.cz','upc.cz','czfree.net','gmail.com','yahoo.com','hotmail.com','outlook.com','protonmail.com','icloud.com','mail.com','zoho.com','aol.com','gmx.com','gmx.net','yandex.com','tutanota.com','live.com','msn.com','post.cz','email.cz','facebook.com','twitter.com','x.com','linkedin.com','instagram.com','youtube.com','tiktok.com','pinterest.com','reddit.com','threads.net','google.com','google.cz','bing.com','duckduckgo.com','wikipedia.org','wikipedie.cz','firmy.cz','kurzy.cz','rejstrik.penize.cz','or.justice.cz','justice.cz','rzp.cz','ares.gov.cz','hbi.cz','detail.cz','databaze-firem.cz','github.com','gitlab.com','medium.com','wordpress.com','blogspot.com','wix.com','squarespace.com','webnode.cz','amazon.com','ebay.com','alibaba.com','aliexpress.com','apple.com','microsoft.com','cloudflare.com','mapy.cz','idnes.cz','novinky.cz','aktualne.cz','heureka.cz','zbozi.cz','slevomat.cz']);\nfunction isBlacklisted(d) { if (!d) return true; if (BLACKLISTED.has(d)) return true; const p = d.split('.'); if (p.length > 2 && BLACKLISTED.has(p.slice(-2).join('.'))) return true; return false; }\nconst be = $input.item.json || {};\nconst prev = $('Extract Input').first().json;\n// Handle ARES error responses (404, rate limit, etc.)\nif (be.error || be.kod === 'NENALEZENO') {\n  return { json: { ...prev, found: false } };\n}\nlet website = '';\nif (be.www) website = be.www;\nelse if (be.sidlo && be.sidlo.www) website = be.sidlo.www;\n\nif (!website) {\n  return { json: { ...prev, found: false } };\n}\n\nlet domain = website.replace(/^https?:\\/\\//i, '').replace(/^www\\./i, '').split(/[\\/?#]/)[0].trim().toLowerCase();\nif (!domain || !/^[a-z0-9.-]+\\.[a-z]{2,}$/.test(domain)) {\n  return { json: { ...prev, found: false } };\n}\n\nif (isBlacklisted(domain)) {\n  return { json: { ...prev, found: false } };\n}\n\nreturn { json: { ...prev, found: true, domain: domain, source: 'ares' } };"
       },
       "id": "sdd-0012",
       "name": "Extract ARES Domain",
@@ -218,7 +219,8 @@
       "name": "Search DuckDuckGo",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
-      "position": [3120, 700]
+      "position": [3120, 700],
+      "onError": "continueRegularOutput"
     },
     {
       "parameters": {
