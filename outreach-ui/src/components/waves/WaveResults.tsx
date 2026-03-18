@@ -64,7 +64,16 @@ export default function WaveResults({ wave, waveLeads = [] }: WaveResultsProps) 
     let scheduled: string | null = null;
     if (wave.sequence_schedule?.length) {
       const entry = wave.sequence_schedule.find(e => e.seq === seq);
-      if (entry) scheduled = fmtSeqDate(entry.send_date, entry.send_time);
+      if (entry) {
+        // Show date range for drip waves (send_date_end differs from send_date)
+        if (entry.send_date_end && entry.send_date_end !== entry.send_date) {
+          const startFmt = fmtSeqDate(entry.send_date, entry.send_time);
+          const [y2, m2, d2] = (entry.send_date_end || '').split('-');
+          scheduled = startFmt ? `${startFmt} – ${d2}.${m2}.${y2}` : null;
+        } else {
+          scheduled = fmtSeqDate(entry.send_date, entry.send_time);
+        }
+      }
     }
     if (!scheduled && seq <= 3) {
       const dateKey = `send_date_seq${seq}`;

@@ -515,6 +515,14 @@ export default {
     forceSendDone: 'Force send dokončen pro {{count}} e-mailů',
     // Send now
     testWaveLaunched: 'Testovací vlna spuštěna — e-maily se odešlou do 5 minut na {{email}}',
+    // Drip mode
+    leadsPerDay: 'Leadů za den',
+    leadsPerDayHint: 'prázdné = všechny naráz',
+    seqDelay: 'SEQ{{from}} → SEQ{{to}}',
+    dripSummaryTitle: 'Přehled',
+    dripDays: '{{count}} dní',
+    dripDateRange: '{{start}} – {{end}}',
+    dripDelayNote: '+{{days}}d od SEQ{{seq}}',
     // Scheduling summary
     leads: 'Leady',
     totalEmails: 'E-mailů celkem',

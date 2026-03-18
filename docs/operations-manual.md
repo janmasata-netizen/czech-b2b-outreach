@@ -240,9 +240,23 @@ Vytvorit vlnu, naplnit ji leady, pridat e-mailovou sablonu a naplanovat odeslani
 
 1. Na detailu vlny kliknete **Naplanovat**
 2. Nastavte datum a cas zahajeni
-3. Potvrdte
+3. Zvolte rezim planovani:
+
+| Rezim | Nastaveni | Chovani |
+|-------|-----------|---------|
+| **Vsechny najednou** | Pole "Leadu za den" nevyplneno | Vsechny leady se naplanuj na den 1 (standardni chovani) |
+| **Drip mode** | Vyplnte "Leadu za den" (napr. 50) | Leady se rozlozi po dnech — 50 denne |
+
+4. Nastavte **prodlevy mezi sekvencemi** (delay tlacitka):
+   - **Seq 1 → Seq 2**: pocet dni mezi prvnim a druhym emailem
+   - **Seq 2 → Seq 3**: pocet dni mezi druhym a tretim emailem
+   - Kazdy lead ma seq2/seq3 relativni ke svemu seq1 (ne globalni datum)
+5. V **drip summary** nahledu vidite rozlozeni leadu po dnech a celkovy rozsah kampane
+6. Potvrdte
 
 Vlna prejde do stavu `scheduled`. V naplanovany cas WF8 (cron kazdou minutu) zacne odesilat emaily z fronty.
+
+> **TIP:** Drip mode je uzitecny pro velke vlny (100+ leadu) — rozlozenim po dnech snizite riziko, ze mailbox bude oznacen jako spam. Napr. 500 leadu s 50/den = 10 dni odesilani.
 
 #### Krok 5 — Monitorovat prubeh
 
@@ -445,7 +459,7 @@ System nabizi tri zpusoby importu leadu.
 
 ### Co to je
 
-Samostatny nastroj pro vyhledavani a overovani e-mailovych adres. Pristupny na `/email-finder`. Stranka ma dve zakladky.
+Samostatny nastroj pro vyhledavani a overovani e-mailovych adres. Pristupny na `/email-finder`. Stranka ma tri zakladky.
 
 ### Zakladka "Najit emaily" (`?tab=find`)
 
@@ -474,23 +488,40 @@ Samostatny nastroj pro vyhledavani a overovani e-mailovych adres. Pristupny na `
 
 ### Domain Discovery (sub-domain-discovery)
 
-Automaticky hledani domeny firmy pro leady, ktere nemaji website. Spousti se z WF4 pred selhanim leadu.
+Automaticky hledani domeny firmy pro leady, ktere nemaji website. Spousti se z WF4 pred selhanim leadu a z Email Finder V3 jako fallback.
 
 **Zdroje (v poradi priority):**
 1. **ARES BE** — `GET /ekonomicke-subjekty/{ico}` → pole `www` (vyzaduje ICO)
-2. **Firmy.cz** — `GET /hledej?dotaz={nazev_firmy}` → extrakce domeny z `class="web"` odkazu
-3. **DNS probe** — `HEAD https://{normalizovany_nazev}.cz` a `.com` (5s timeout, pouze 2xx/3xx)
-4. **DuckDuckGo** — `GET html.duckduckgo.com/html/?q={nazev}+website` → `class="result__a"` vysledky
+2. **DNS probe** — `HEAD https://{normalizovany_nazev}.cz` a `.com` (5s timeout, pouze 2xx/3xx)
+3. **DuckDuckGo** — `GET html.duckduckgo.com/html/?q={nazev}+website` → dekodovani redirect URL (uddg parametr) → extrakce domeny
 
-**Blacklist filtering:** Vsechny 4 zdroje pouzivaji sdileny blacklist (~60 domen) — ISP/portaly (seznam.cz, centrum.cz), free email (gmail.com), socialni site, registry (firmy.cz, kurzy.cz, justice.cz), hosting platformy atd. Kontroluje i subdomeny (napr. `mail.seznam.cz` → blacklisted). Bez fallback regexu na genericke `href` linky — pouze cilene selektory.
+> **Poznamka:** Firmy.cz byl odstranen — migroval na SPA (client-side rendering), HTTP Request vraci prazdny HTML shell bez obsahu.
+
+**Blacklist filtering:** Vsechny zdroje pouzivaji blacklist (~70 domen) — ISP/portaly (seznam.cz, centrum.cz), free email (gmail.com), socialni site, registry (firmy.cz, kurzy.cz, justice.cz), hosting platformy atd. Kontroluje i subdomeny (napr. `mail.seznam.cz` → blacklisted).
 
 **Kde se domain discovery pouziva v pipeline:**
-- **WF2:** Po nalezeni ICO provede ARES BE Lookup a extrahuje website (zdroj 1)
-- **WF3:** Pri scraping Kurzy.cz extrahuje website z HTML (pokud lead nema domenu)
-- **WF4:** Pokud lead stale nema domenu → vola sub-domain-discovery (zdroje 1-4)
+- **WF2:** Po nalezeni ICO provede ARES BE Lookup a extrahuje website
+- **WF3:** Pri scraping Kurzy.cz extrahuje website z HTML (WWW radek v tabulce, pokud lead nema domenu)
+- **WF4:** Pokud lead stale nema domenu → vola sub-domain-discovery (zdroje 1-3)
 - **WF2 (bez ICO):** Misto selhani posle lead do WF4, kde probehne domain discovery
+- **Email Finder V3:** Pokud ARES+Kurzy nenajdou domenu → vola sub-domain-discovery jako fallback
 
-**Vystup sub-workflow:** `{ found: true/false, domain: "example.cz", source: "ares|firmy|dns|ddg" }`
+**Vystup sub-workflow:** `{ found: true/false, domain: "example.cz", source: "ares|dns|ddg" }`
+
+### Zakladka "Najit domenu" (`?tab=discover`)
+
+- **Backend:** wf-domain-discovery-test (webhook wrapper → sub-domain-discovery)
+- **Webhook:** `POST /webhook/wf-domain-discovery-test`
+- **Vstup:** Nazev firmy nebo ICO
+- **Postup:**
+  1. Posle pozadavek do sub-domain-discovery subworkflow
+  2. Subworkflow zkusi najit domenu pres 3 zdroje (v poradi): ARES, DNS probe (.cz/.com), DuckDuckGo
+  3. Vrati vysledek: nalezeno/nenalezeno, domena, zdroj
+- **Pouziti:** Pro rychle overeni, zda system dokaze najit domenu firmy. Uzitecne pri testovani domain discovery pipeline nebo pri rucnim hledani domeny firmy.
+
+Vysledek ukazuje:
+- **Nalezeno:** Zeleny badge s domenou v monospace fontu + barevny badge zdroje (ARES modry, DNS zeleny, DuckDuckGo oranzovy)
+- **Nenalezeno:** Cervena zprava "Domena nenalezena"
 
 ### Akce s vysledky
 
@@ -725,6 +756,8 @@ Zobrazované metriky:
 | **Blacklist** | Systemovy tag — firma/lead oznaceny jako blacklist je vyloucen z oslovovani. |
 | **System tag** | Chranene tagy (blacklist, email outreach, telefon, vip) — nelze smazat. |
 | **Daily send limit** | Maximalni pocet emailu, ktere muze tym odeslat za den. Resetuje se o pulnoci. |
+| **Drip mode** | Rezim planovani vlny — leady se rozkladaji po dnech (napr. 50/den) misto odeslani vsech najednou. Nastavuje se polem "Leadu za den" v planovacim formulari. |
+| **Daily lead count** | Pocet novych leadu k odeslani za den v drip mode. NULL = vsechny najednou (default). |
 | **FROM email** | Adresa odesilatele nastavena primo na vlne (volny text). |
 | **Reply-To** | Adresa pro odpovedi — nastavuje se automaticky na email obchodnika z tymu. |
 | **Demo Mode** | Prezentacni rezim UI — zobrazuje fiktivni ceska B2B data. Prepina se ikonou Eye v TopBar. Stav v localStorage. Admin stranky neovlivneny. |
