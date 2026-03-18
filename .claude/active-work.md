@@ -18,5 +18,5 @@
 
 | Branch | Agent | Files (exact paths) | Started | Last Updated | PR |
 |---|---|---|---|---|---|
-| claude/multi-agent-setup | Claude | CLAUDE.md, .mcp.json | 2026-03-17 | 2026-03-17 | — |
+| claude/fix-wf8-splitinbatches | Claude | n8n-workflows/wf8-send-cron.json, n8n-workflows/test-waves.mjs | 2026-03-18 | 2026-03-18 | — |
 
