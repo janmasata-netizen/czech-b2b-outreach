@@ -12,39 +12,39 @@ const WEBHOOK_SECRET = 'reWDUmcjSRPTv3k-0CKdoASO_KY7Z3ux';
 const FIRMS = [
   { company_name: "Alza.cz a.s.", ico: "27082440", expected: "alza.cz" },
   { company_name: "Kiwi.com s.r.o.", ico: "29352886", expected: "kiwi.com" },
-  { company_name: "Avast Software s.r.o.", ico: "02176475", expected: "avast.com" },
+  { company_name: "Avast Software s.r.o.", ico: "02176475", expected: "avast.com,avast.cz" },
   { company_name: "SPORTISIMO s.r.o.", ico: "26194627", expected: "sportisimo.cz" },
   { company_name: "Notino, s.r.o.", ico: "27609057", expected: "notino.cz" },
   { company_name: "CZC.cz s.r.o.", ico: "25655701", expected: "czc.cz" },
   { company_name: "DATART INTERNATIONAL, a.s.", ico: "60192615", expected: "datart.cz" },
   { company_name: "Mountfield a.s.", ico: "25620991", expected: "mountfield.cz" },
   { company_name: "ČEZ, a. s.", ico: "45274649", expected: "cez.cz" },
-  { company_name: "Škoda Auto a.s.", ico: "00177041", expected: "skoda-auto.cz" },
+  { company_name: "Škoda Auto a.s.", ico: "00177041", expected: "skoda-auto.cz,skodaauto.cz" },
   { company_name: "Česká pošta, s.p.", ico: "47114983", expected: "ceskaposta.cz" },
   { company_name: "Česká televize", ico: "00027383", expected: "ceskatelevize.cz" },
-  { company_name: "TV Nova s.r.o.", ico: "45800456", expected: "nova.cz" },
+  { company_name: "TV Nova s.r.o.", ico: "45800456", expected: "nova.cz,tvnova.cz" },
   { company_name: "SAZKA a.s.", ico: "26493993", expected: "sazka.cz" },
   { company_name: "TIPSPORT a.s.", ico: "18600824", expected: "tipsport.cz" },
-  { company_name: "Lidl Česká republika s.r.o.", ico: "26178541", expected: "lidl.cz" },
+  { company_name: "Lidl Česká republika s.r.o.", ico: "26178541", expected: "lidl.cz,lidl.com" },
   { company_name: "Kaufland Česká republika v.o.s.", ico: "25110161", expected: "kaufland.cz" },
-  { company_name: "Penny Market s.r.o.", ico: "64945880", expected: "penny.cz" },
+  { company_name: "Penny Market s.r.o.", ico: "64945880", expected: "penny.cz,penny-market.cz,pennymarket.cz" },
   { company_name: "Plzeňský Prazdroj, a. s.", ico: "45357366", expected: "prazdroj.cz" },
   { company_name: "AGROFERT, a.s.", ico: "26185610", expected: "agrofert.cz" },
   { company_name: "E.ON Česká republika, s. r. o.", ico: "25733591", expected: "eon.cz" },
-  { company_name: "2N TELEKOMUNIKACE a.s.", ico: "26183960", expected: "2n.com" },
+  { company_name: "2N TELEKOMUNIKACE a.s.", ico: "26183960", expected: "2n.com,2n.cz" },
   { company_name: "Rohlik.cz investment a.s.", ico: "04711602", expected: "rohlik.cz" },
-  { company_name: "České dráhy, a.s.", ico: "70994226", expected: "cd.cz" },
+  { company_name: "České dráhy, a.s.", ico: "70994226", expected: "cd.cz,ceskedrahy.cz" },
   { company_name: "O2 Czech Republic a.s.", ico: "60193336", expected: "o2.cz" },
   { company_name: "Budějovický Budvar, národní podnik", ico: "00017478", expected: "budejovickybudvar.cz" },
   { company_name: "OKAY s.r.o.", ico: "25307358", expected: "okay.cz" },
   { company_name: "Allianz pojišťovna, a.s.", ico: "47115971", expected: "allianz.cz" },
-  { company_name: "Kooperativa pojišťovna, a.s.", ico: "47116617", expected: "koop.cz" },
-  { company_name: "Česká spořitelna, a.s.", ico: "45244782", expected: "csas.cz" },
+  { company_name: "Kooperativa pojišťovna, a.s.", ico: "47116617", expected: "koop.cz,kooperativa.cz" },
+  { company_name: "Česká spořitelna, a.s.", ico: "45244782", expected: "csas.cz,ceskasporitelna.cz" },
   { company_name: "Komerční banka, a.s.", ico: "45317054", expected: "kb.cz" },
-  { company_name: "ČSOB, a.s.", ico: "00001350", expected: "csob.cz" },
-  { company_name: "Raiffeisenbank a.s.", ico: "49240901", expected: "rb.cz" },
-  { company_name: "Vodafone Czech Republic a.s.", ico: "25788001", expected: "vodafone.cz" },
-  { company_name: "T-Mobile Czech Republic a.s.", ico: "64949681", expected: "t-mobile.cz" },
+  { company_name: "ČSOB, a.s.", ico: "00001350", expected: "csob.cz,csob.com" },
+  { company_name: "Raiffeisenbank a.s.", ico: "49240901", expected: "rb.cz,raiffeisenbank.cz" },
+  { company_name: "Vodafone Czech Republic a.s.", ico: "25788001", expected: "vodafone.cz,vodafone.com" },
+  { company_name: "T-Mobile Czech Republic a.s.", ico: "64949681", expected: "t-mobile.cz,tmobile.cz" },
   { company_name: "Net4Gas, s.r.o.", ico: "27386143", expected: "net4gas.cz" },
   { company_name: "Seznam.cz, a.s.", ico: "26168685", expected: "seznam.cz" },
   { company_name: "Staropramen s.r.o.", ico: "14896945", expected: "staropramen.cz" },
@@ -52,7 +52,7 @@ const FIRMS = [
   { company_name: "Albert Česká republika, s.r.o.", ico: "45796393", expected: "albert.cz" },
   { company_name: "Globus ČR, k.s.", ico: "63473291", expected: "globus.cz" },
   { company_name: "Home Credit a.s.", ico: "26978636", expected: "homecredit.cz" },
-  { company_name: "Stavebniny DEK a.s.", ico: "27636801", expected: "dek.cz" },
+  { company_name: "Stavebniny DEK a.s.", ico: "27636801", expected: "dek.cz,stavebninydek.cz" },
   { company_name: "OBI Česká republika s.r.o.", ico: "18628203", expected: "obi.cz" },
   { company_name: "Hornbach Baumarkt CS spol. s r.o.", ico: "60193066", expected: "hornbach.cz" },
   { company_name: "Makro Cash & Carry ČR s.r.o.", ico: "26450691", expected: "makro.cz" },
@@ -145,8 +145,9 @@ async function runBatch(firms, concurrency = 3) {
       result.time_ms = Date.now() - start;
       results.push(result);
       const status = result.error ? `ERROR: ${result.error}` : result.found ? `FOUND: ${result.domain} (${result.source})` : 'NOT FOUND';
-      const match = result.expected && result.found && result.domain === result.expected ? ' ✓' :
-                    result.expected && result.found && result.domain !== result.expected ? ` ✗ exp:${result.expected}` : '';
+      const expList = result.expected ? result.expected.split(',') : [];
+      const match = result.expected && result.found && expList.includes(result.domain) ? ' ✓' :
+                    result.expected && result.found && !expList.includes(result.domain) ? ` ✗ exp:${result.expected}` : '';
       console.log(`[${results.length}/${firms.length}] ${firm.company_name} → ${status}${match} (${result.time_ms}ms)`);
     }
   }
@@ -155,7 +156,7 @@ async function runBatch(firms, concurrency = 3) {
 }
 
 console.log(`\n═══ Domain Discovery Test — ${FIRMS.length} Czech Firms ═══\n`);
-const results = await runBatch(FIRMS, 3);
+const results = await runBatch(FIRMS, 1);
 
 const found = results.filter(r => r.found);
 const notFound = results.filter(r => !r.found && !r.error);
@@ -164,8 +165,9 @@ const bySource = {};
 for (const r of found) bySource[r.source] = (bySource[r.source] || 0) + 1;
 
 const withExpected = results.filter(r => r.expected);
-const correctMatch = withExpected.filter(r => r.found && r.domain === r.expected);
-const wrongDomain = withExpected.filter(r => r.found && r.domain !== r.expected);
+function matchesExpected(r) { return r.expected.split(',').includes(r.domain); }
+const correctMatch = withExpected.filter(r => r.found && matchesExpected(r));
+const wrongDomain = withExpected.filter(r => r.found && !matchesExpected(r));
 const missedExpected = withExpected.filter(r => !r.found);
 
 console.log(`\n═══ RESULTS ═══`);

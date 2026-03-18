@@ -3,16 +3,19 @@
   "nodes": [
     {
       "parameters": {
-        "content": "## SUB — Domain Discovery\n**Trigger:** Execute Workflow\n**Input:** `{ lead_id, company_id, company_name, ico }`\n**Output:** `{ found: true/false, domain: \"example.cz\", source: \"ares|dns|ddg\" }`\n\nTries 3 sources in order: ARES BE (if ICO), DNS probe (.cz/.com), DuckDuckGo.\nStops at first success. Firmy.cz removed (migrated to SPA, unscrappable).",
+        "content": "## SUB — Domain Discovery (v2)\n**Trigger:** Execute Workflow\n**Input:** `{ lead_id, company_id, company_name, ico }`\n**Output:** `{ found: true/false, domain: \"example.cz\", source: \"ares|dns|ddg\" }`\n\nTries 3 sources: ARES BE (if ICO), DNS probe (4 parallel candidates), DuckDuckGo.\nv2: Smart blacklist bypass, 4 DNS candidates (hyphen/lastword/acronym), generic word filter, .cz preference.",
         "height": 200,
-        "width": 600,
+        "width": 700,
         "color": 4
       },
       "id": "sdd-sticky",
       "name": "Sticky Note",
       "type": "n8n-nodes-base.stickyNote",
       "typeVersion": 1,
-      "position": [-200, 100]
+      "position": [
+        -200,
+        100
+      ]
     },
     {
       "parameters": {},
@@ -20,7 +23,10 @@
       "name": "Execute Workflow Trigger",
       "type": "n8n-nodes-base.executeWorkflowTrigger",
       "typeVersion": 1,
-      "position": [0, 400]
+      "position": [
+        0,
+        400
+      ]
     },
     {
       "parameters": {
@@ -31,7 +37,10 @@
       "name": "Extract Input",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
-      "position": [240, 400]
+      "position": [
+        240,
+        400
+      ]
     },
     {
       "parameters": {
@@ -55,31 +64,43 @@
       "name": "IF Has ICO",
       "type": "n8n-nodes-base.if",
       "typeVersion": 2,
-      "position": [480, 400]
+      "position": [
+        480,
+        400
+      ]
     },
     {
       "parameters": {
         "method": "GET",
         "url": "={{ 'https://ares.gov.cz/ekonomicke-subjekty-v-be/rest/ekonomicke-subjekty/' + $json.ico }}",
-        "options": { "neverError": true, "timeout": 15000 }
+        "options": {
+          "neverError": true,
+          "timeout": 15000
+        }
       },
       "id": "sdd-0011",
       "name": "ARES BE Lookup",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
-      "position": [720, 300],
+      "position": [
+        720,
+        300
+      ],
       "onError": "continueRegularOutput"
     },
     {
       "parameters": {
         "mode": "runOnceForEachItem",
-        "jsCode": "const BLACKLISTED = new Set(['seznam.cz','centrum.cz','atlas.cz','volny.cz','tiscali.cz','o2.cz','vodafone.cz','t-mobile.cz','upc.cz','czfree.net','gmail.com','yahoo.com','hotmail.com','outlook.com','protonmail.com','icloud.com','mail.com','zoho.com','aol.com','gmx.com','gmx.net','yandex.com','tutanota.com','live.com','msn.com','post.cz','email.cz','facebook.com','twitter.com','x.com','linkedin.com','instagram.com','youtube.com','tiktok.com','pinterest.com','reddit.com','threads.net','google.com','google.cz','bing.com','duckduckgo.com','wikipedia.org','wikipedie.cz','firmy.cz','kurzy.cz','rejstrik.penize.cz','or.justice.cz','justice.cz','rzp.cz','ares.gov.cz','hbi.cz','detail.cz','databaze-firem.cz','github.com','gitlab.com','medium.com','wordpress.com','blogspot.com','wix.com','squarespace.com','webnode.cz','amazon.com','ebay.com','alibaba.com','aliexpress.com','apple.com','microsoft.com','cloudflare.com','mapy.cz','idnes.cz','novinky.cz','aktualne.cz','heureka.cz','zbozi.cz','slevomat.cz']);\nfunction isBlacklisted(d) { if (!d) return true; if (BLACKLISTED.has(d)) return true; const p = d.split('.'); if (p.length > 2 && BLACKLISTED.has(p.slice(-2).join('.'))) return true; return false; }\nconst be = $input.item.json || {};\nconst prev = $('Extract Input').first().json;\n// Handle ARES error responses (404, rate limit, etc.)\nif (be.error || be.kod === 'NENALEZENO') {\n  return { json: { ...prev, found: false } };\n}\nlet website = '';\nif (be.www) website = be.www;\nelse if (be.sidlo && be.sidlo.www) website = be.sidlo.www;\n\nif (!website) {\n  return { json: { ...prev, found: false } };\n}\n\nlet domain = website.replace(/^https?:\\/\\//i, '').replace(/^www\\./i, '').split(/[\\/?#]/)[0].trim().toLowerCase();\nif (!domain || !/^[a-z0-9.-]+\\.[a-z]{2,}$/.test(domain)) {\n  return { json: { ...prev, found: false } };\n}\n\nif (isBlacklisted(domain)) {\n  return { json: { ...prev, found: false } };\n}\n\nreturn { json: { ...prev, found: true, domain: domain, source: 'ares' } };"
+        "jsCode": "const BLACKLISTED = new Set(['seznam.cz','centrum.cz','atlas.cz','volny.cz','tiscali.cz','o2.cz','vodafone.cz','t-mobile.cz','upc.cz','czfree.net','gmail.com','yahoo.com','hotmail.com','outlook.com','protonmail.com','icloud.com','mail.com','zoho.com','aol.com','gmx.com','gmx.net','yandex.com','tutanota.com','live.com','msn.com','post.cz','email.cz','facebook.com','twitter.com','x.com','linkedin.com','instagram.com','youtube.com','tiktok.com','pinterest.com','reddit.com','threads.net','google.com','google.cz','bing.com','duckduckgo.com','wikipedia.org','wikipedie.cz','firmy.cz','kurzy.cz','rejstrik.penize.cz','or.justice.cz','justice.cz','rzp.cz','ares.gov.cz','hbi.cz','detail.cz','databaze-firem.cz','github.com','gitlab.com','medium.com','wordpress.com','blogspot.com','wix.com','squarespace.com','webnode.cz','amazon.com','ebay.com','alibaba.com','aliexpress.com','apple.com','microsoft.com','cloudflare.com','mapy.cz','idnes.cz','novinky.cz','aktualne.cz','heureka.cz','zbozi.cz','slevomat.cz']);\n\nfunction stripD(s) { return s.normalize('NFD').replace(/[\\u0300-\\u036f]/g, '').toLowerCase(); }\nfunction companyBase(name) {\n  let r = name.replace(/\\.(cz|com|eu|sk|net|org)\\b/gi, '');\n  r = r.replace(/,?\\s*\\b(s\\.?\\s*r\\.?\\s*o\\.?|a\\.?\\s*s\\.?|spol\\.?\\s*s\\s*r\\.?\\s*o\\.?|v\\.?\\s*o\\.?\\s*s\\.?|k\\.?\\s*s\\.?|s\\.?\\s*p\\.?|z\\.?\\s*s\\.?|z\\.?\\s*u\\.?|o\\.?\\s*p\\.?\\s*s\\.?|s\\.?\\s*e\\.?)\\b\\.?/gi, '');\n  r = r.replace(/\\b(ceska\\s*republika|czech\\s*republic|\\bcr\\b|international|baumarkt|cash\\s*&\\s*carry|pojistovna|pojistovni|banka|lekarna|group|investment)\\b/gi, '');\n  return stripD(r).replace(/[^a-z0-9]/g, '');\n}\nfunction shouldBypass(domain, name) {\n  const base = domain.split('.')[0].replace(/[^a-z0-9]/g, '');\n  const cb = companyBase(name);\n  if (base.length < 2 || cb.length < 2) return false;\n  if (base === cb) return true;\n  if (cb.startsWith(base) && cb.length - base.length <= 3) return true;\n  return false;\n}\nfunction isBlacklisted(d, name) {\n  if (!d) return true;\n  if (shouldBypass(d, name)) return false;\n  if (BLACKLISTED.has(d)) return true;\n  const p = d.split('.');\n  if (p.length > 2 && BLACKLISTED.has(p.slice(-2).join('.'))) return true;\n  return false;\n}\n\nconst be = $input.item.json || {};\nconst prev = $('Extract Input').first().json;\nif (be.error || be.kod === 'NENALEZENO') {\n  return { json: { ...prev, found: false } };\n}\nlet website = '';\nif (be.www) website = be.www;\nelse if (be.sidlo && be.sidlo.www) website = be.sidlo.www;\nif (!website) {\n  return { json: { ...prev, found: false } };\n}\nlet domain = website.replace(/^https?:\\/\\//i, '').replace(/^www\\./i, '').split(/[\\/?#]/)[0].trim().toLowerCase();\nif (!domain || !/^[a-z0-9.-]+\\.[a-z]{2,}$/.test(domain)) {\n  return { json: { ...prev, found: false } };\n}\nif (isBlacklisted(domain, prev.company_name || '')) {\n  return { json: { ...prev, found: false } };\n}\nreturn { json: { ...prev, found: true, domain: domain, source: 'ares' } };"
       },
       "id": "sdd-0012",
       "name": "Extract ARES Domain",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
-      "position": [960, 300]
+      "position": [
+        960,
+        300
+      ]
     },
     {
       "parameters": {
@@ -103,63 +124,99 @@
       "name": "IF ARES Found",
       "type": "n8n-nodes-base.if",
       "typeVersion": 2,
-      "position": [1200, 300]
+      "position": [
+        1200,
+        300
+      ]
     },
     {
       "parameters": {
         "mode": "runOnceForEachItem",
-        "jsCode": "const prev = $('Extract Input').first().json;\nfunction stripDiacritics(s) {\n  return s.normalize('NFD').replace(/[\\u0300-\\u036f]/g, '').toLowerCase();\n}\nlet raw = prev.company_name || '';\n// Strip domain extensions from company names like 'Alza.cz a.s.' or 'Kiwi.com s.r.o.'\nraw = raw.replace(/\\.(cz|com|eu|sk|net|org)\\b/gi, '');\n// Strip all Czech legal suffixes (with optional spaces/dots)\nraw = raw.replace(/,?\\s*\\b(s\\.?\\s*r\\.?\\s*o\\.?|a\\.?\\s*s\\.?|spol\\.?\\s*s\\s*r\\.?\\s*o\\.?|v\\.?\\s*o\\.?\\s*s\\.?|k\\.?\\s*s\\.?|s\\.?\\s*p\\.?|z\\.?\\s*s\\.?|z\\.?\\s*u\\.?|o\\.?\\s*p\\.?\\s*s\\.?|s\\.?\\s*e\\.?|druzstvo|narodni\\s*podnik|organizacni\\s*slozka)\\b\\.?/gi, '');\nraw = raw.replace(/,\\s*$/, '').trim();\n// Strip geographic/industry qualifiers that inflate the name\nraw = raw.replace(/\\b(ceska\\s*republika|czech\\s*republic|cr|international|baumarkt|cash\\s*&\\s*carry|pojistovna|pojistovni|banka|lekarna|group|investment)\\b/gi, '').trim();\nraw = raw.replace(/\\s+/g, ' ').trim();\nconst stripped = stripDiacritics(raw);\n// Generate candidates\nconst alphaOnly = stripped.replace(/[^a-z0-9]/g, '').trim();\nconst words = stripped.replace(/[^a-z0-9\\s-]/g, '').trim().split(/\\s+/).filter(w => w.length > 0);\nconst hyphenated = words.length >= 2 ? words.join('-') : '';\n// Also try first significant word alone (catches Lidl, Kaufland, Vodafone, etc.)\nconst firstWord = words.length >= 2 && words[0].length >= 3 ? words[0] : '';\nif (!alphaOnly || alphaOnly.length < 2 || /^[0-9]+$/.test(alphaOnly)) {\n  return { json: { ...prev, found: false, _dns_candidates: [] } };\n}\n// Build best 2 candidates for parallel probing\nlet candidates;\nif (alphaOnly.length > 25 && firstWord) {\n  // Full name too long — try first word instead\n  candidates = [firstWord + '.cz', firstWord + '.com'];\n} else if (alphaOnly.length > 25) {\n  return { json: { ...prev, found: false, _dns_candidates: [] } };\n} else if (firstWord && firstWord !== alphaOnly && words.length >= 2) {\n  // Multi-word: try full name .cz and first word .cz\n  candidates = [alphaOnly + '.cz', firstWord + '.cz'];\n} else if (hyphenated && hyphenated !== alphaOnly) {\n  candidates = [alphaOnly + '.cz', hyphenated + '.cz'];\n} else {\n  candidates = [alphaOnly + '.cz', alphaOnly + '.com'];\n}\nreturn { json: { ...prev, _dns_candidates: candidates, _dns_index: 0 } };"
+        "jsCode": "const prev = $('Extract Input').first().json;\nfunction strip(s) { return s.normalize('NFD').replace(/[\\u0300-\\u036f]/g, '').toLowerCase(); }\n\n// Generic industry/trade words — skip as standalone single-word DNS candidates\nconst GENERIC = new Set([\n  'autoservis','auto','auta','malirstvi','lakyrnictvi','cistirna','cistirny',\n  'instalaterstvi','zamecnictvi','truhlarstvi','zahradnictvi','calounictvi',\n  'cukrarna','autopujcovna','uklidova','uklidovy','tiskarna','opravna',\n  'pekarstvi','klempirstvi','stavebni','stavba','stavby','stavebniny',\n  'obchod','obchodni','doprava','dopravni','logistika','servis','sluzby',\n  'sluzba','technika','technicke','technicky','montaz','montazni','udrzba',\n  'elektro','poradenstvi','konzultace','zdravotni','lekarna','ordinace',\n  'autocentrum','papirnictvi','pohrebni','firma','podnik','centrum',\n  'strojirna','strojirny','nakladni','osobni','vyroba','vyrobni',\n  'prumysl','prumyslova','technicke','informacni','provozni','instalace',\n  'instalacni','market','service','services','company','trading',\n  'international','management','consulting','software','solutions',\n  'systems','energy','media','digital','online','shop','store',\n  'import','export','trans','transport','invest','finance',\n  'praha','brno','ostrava','plzen','liberec','olomouc',\n  'telekomunikace','komunikace','pojistovna','republika',\n  'cesko','ceska','cesky','ceske','entity','red','clinic',\n  'hand','team','hor','hory','narodni','jihlava','zlin','cvikov',\n  'boleslav','vary','karlovy','pardubice','prerov','prostejov',\n  'opava','kladno','most','teplice','chomutov','decin','havirov',\n  'karvina','znojmo','trebic','kolin','frydek','mistek'\n]);\n\nlet raw = prev.company_name || '';\n// Strip domain extensions from names like 'Alza.cz a.s.'\nraw = raw.replace(/\\.(cz|com|eu|sk|net|org)\\b/gi, '');\n// Strip diacritics EARLY so all regex matching works on clean ASCII\nraw = strip(raw);\n// Strip legal suffixes (now matches narodni podnik, druzstvo etc.)\nraw = raw.replace(/,?\\s*\\b(s\\.?\\s*r\\.?\\s*o\\.?|a\\.?\\s*s\\.?|spol\\.?\\s*s\\s*r\\.?\\s*o\\.?|v\\.?\\s*o\\.?\\s*s\\.?|k\\.?\\s*s\\.?|s\\.?\\s*p\\.?|z\\.?\\s*s\\.?|z\\.?\\s*u\\.?|o\\.?\\s*p\\.?\\s*s\\.?|s\\.?\\s*e\\.?|b\\.?\\s*v\\.?|gmbh|ltd|inc|druzstvo|narodni\\s*podnik|organizacni\\s*slozka)\\b\\.?/gi, '');\nraw = raw.replace(/,\\s*$/, '').trim().replace(/\\s+/g, ' ');\n\n// Pre-qualifier (keeps 'banka', 'pojistovna' etc. — needed for acronyms)\nconst preWords = raw.replace(/[^a-z0-9\\s-]/g, '').trim().split(/\\s+/).filter(w => w.length > 0);\nconst preAlpha = raw.replace(/[^a-z0-9]/g, '');\n\n// Post-qualifier-strip (removes 'czech republic', 'banka', 'pojistovna' etc.)\nlet post = raw.replace(/\\b(ceska\\s*republika|czech\\s*republic|\\bcr\\b|international|baumarkt|cash\\s*&\\s*carry|pojistovna|pojistovni|banka|lekarna|lekarny|group|investment|software|technologie|technology|telekomunikace|komunikace)\\b/gi, '').replace(/\\s+/g, ' ').trim();\nconst postWords = post.replace(/[^a-z0-9\\s-]/g, '').trim().split(/\\s+/).filter(w => w.length > 0);\nconst postAlpha = post.replace(/[^a-z0-9]/g, '');\n\nconst words = postWords.length > 0 ? postWords : preWords;\nconst alpha = postAlpha || preAlpha;\nconst INV = 'invalid.invalid';\n\nif (!alpha || alpha.length < 2 || /^[0-9]+$/.test(alpha)) {\n  return { json: { ...prev, found: false, _dns_candidates: [INV,INV,INV,INV], _pre_alpha: '', _post_alpha: '' } };\n}\n\nconst seen = new Set();\nconst all = [];\nfunction add(d, pri) {\n  if (!d || seen.has(d)) return;\n  const b = d.split('.')[0];\n  if (!b || b.length < 2 || /^[0-9]+$/.test(b)) return;\n  if (!/^[a-z0-9]([a-z0-9.-]*[a-z0-9])?\\.?[a-z]{2,}$/.test(d)) return;\n  seen.add(d);\n  all.push({ d, p: pri });\n}\n\n// --- Candidate generation in priority order ---\n\n// 1. Full concatenated .cz (highest priority)\nif (alpha.length <= 30) add(alpha + '.cz', 100);\n\n// 2. Hyphenated .cz (common pattern: skoda-auto.cz)\nif (words.length >= 2) {\n  add(words.join('-') + '.cz', 90);\n} else if (words.length === 1 && words[0].includes('-')) {\n  // Existing hyphen in name (T-Mobile)\n  add(words[0] + '.cz', 95);\n}\n\n// 3. Last significant word .cz (brand name: 'Prazdroj' from 'Plzensky Prazdroj')\nif (words.length >= 2) {\n  const last = words[words.length - 1];\n  if (last.length >= 3 && !GENERIC.has(last)) add(last + '.cz', 80);\n}\n\n// 4. First word .cz (if not generic)\nif (words.length >= 2 && words[0].length >= 2 && !GENERIC.has(words[0])) {\n  add(words[0] + '.cz', 70);\n}\n\n// 6. Pre-strip full alpha .cz (keeps 'banka' etc. — e.g., komercnibanka.cz)\nif (preAlpha !== alpha && preAlpha.length <= 30 && preAlpha.length >= 3) {\n  add(preAlpha + '.cz', 50);\n}\n\n// 7. Full .com — higher priority for single-word names (vodafone.com > vcr.cz)\nconst comPri = (words.length <= 1) ? 85 : 40;\nif (alpha.length <= 30) add(alpha + '.com', comPri);\n\n// 8. Last word .com\nif (words.length >= 2) {\n  const last = words[words.length - 1];\n  if (last.length >= 3 && !GENERIC.has(last)) add(last + '.com', 30);\n}\n\n// 9. First word .com\nif (words[0] && words[0].length >= 3) add(words[0] + '.com', 20);\n\nall.sort((a, b) => b.p - a.p);\nconst top4 = all.slice(0, 4).map(c => c.d);\nwhile (top4.length < 4) top4.push(INV);\n\nreturn { json: { ...prev, _dns_candidates: top4, _dns_index: 0, _pre_alpha: preAlpha, _post_alpha: postAlpha || alpha } };"
       },
       "id": "sdd-0030",
       "name": "Generate DNS Candidates",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
-      "position": [1680, 500]
+      "position": [
+        1680,
+        500
+      ]
     },
     {
       "parameters": {
         "method": "GET",
         "url": "={{ 'https://' + ($json._dns_candidates[0] || 'invalid.invalid') }}",
-        "options": { "neverError": true, "timeout": 5000, "response": { "response": { "responseFormat": "text" } } }
+        "options": {
+          "neverError": true,
+          "timeout": 5000,
+          "response": {
+            "response": {
+              "responseFormat": "text"
+            }
+          }
+        }
       },
       "id": "sdd-0031",
       "name": "Probe .cz Domain",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
-      "position": [1920, 420],
+      "position": [
+        1920,
+        420
+      ],
       "onError": "continueRegularOutput"
     },
     {
       "parameters": {
         "method": "GET",
         "url": "={{ 'https://' + ($('Generate DNS Candidates').first().json._dns_candidates[1] || 'invalid.invalid') }}",
-        "options": { "neverError": true, "timeout": 5000, "response": { "response": { "responseFormat": "text" } } }
+        "options": {
+          "neverError": true,
+          "timeout": 5000,
+          "response": {
+            "response": {
+              "responseFormat": "text"
+            }
+          }
+        }
       },
       "id": "sdd-0032",
       "name": "Probe .com Domain",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
-      "position": [1920, 580],
+      "position": [
+        1920,
+        580
+      ],
       "onError": "continueRegularOutput"
     },
     {
-      "parameters": { "mode": "append" },
+      "parameters": {
+        "mode": "append"
+      },
       "id": "sdd-0033",
       "name": "Merge DNS Results",
       "type": "n8n-nodes-base.merge",
       "typeVersion": 3,
-      "position": [2160, 500]
+      "position": [
+        2160,
+        500
+      ]
     },
     {
       "parameters": {
         "mode": "runOnceForAllItems",
-        "jsCode": "const BLACKLISTED = new Set(['seznam.cz','centrum.cz','atlas.cz','volny.cz','tiscali.cz','o2.cz','vodafone.cz','t-mobile.cz','upc.cz','czfree.net','gmail.com','yahoo.com','hotmail.com','outlook.com','protonmail.com','icloud.com','mail.com','zoho.com','aol.com','gmx.com','gmx.net','yandex.com','tutanota.com','live.com','msn.com','post.cz','email.cz','facebook.com','twitter.com','x.com','linkedin.com','instagram.com','youtube.com','tiktok.com','pinterest.com','reddit.com','threads.net','google.com','google.cz','bing.com','duckduckgo.com','wikipedia.org','wikipedie.cz','firmy.cz','kurzy.cz','rejstrik.penize.cz','or.justice.cz','justice.cz','rzp.cz','ares.gov.cz','hbi.cz','detail.cz','databaze-firem.cz','github.com','gitlab.com','medium.com','wordpress.com','blogspot.com','wix.com','squarespace.com','webnode.cz','amazon.com','ebay.com','alibaba.com','aliexpress.com','apple.com','microsoft.com','cloudflare.com','mapy.cz','idnes.cz','novinky.cz','aktualne.cz','heureka.cz','zbozi.cz','slevomat.cz']);\nfunction isBlacklisted(d) { if (!d) return true; if (BLACKLISTED.has(d)) return true; const p = d.split('.'); if (p.length > 2 && BLACKLISTED.has(p.slice(-2).join('.'))) return true; return false; }\nconst prev = $('Generate DNS Candidates').first().json;\nconst candidates = prev._dns_candidates || [];\nconst results = $input.all().map(i => i.json);\n\n// onError:continueRegularOutput wraps errors as { error: { message: '403 - ...' } }\n// Extract status from statusCode field or from error message prefix\nfunction extractStatus(r) {\n  if (!r) return 0;\n  if (typeof r.statusCode === 'number') return r.statusCode;\n  if (r.error && r.error.message) {\n    const m = r.error.message.match(/^(\\d{3})\\s*-/);\n    if (m) return parseInt(m[1]);\n    return 0;\n  }\n  // No error + has data = successful request (responseFormat:text returns { data: '...' })\n  if (r.data !== undefined && r.data !== '') return 200;\n  return 0;\n}\nconst czStatus = extractStatus(results[0]);\nconst comStatus = extractStatus(results[1]);\n\n// Accept 2xx/3xx AND 403 (Cloudflare/WAF = domain exists). Reject 404/5xx/0 (no domain)\nfunction isAlive(status) { return (status >= 200 && status < 400) || status === 403; }\nif (isAlive(czStatus) && candidates[0] && !isBlacklisted(candidates[0])) {\n  return [{ json: { lead_id: prev.lead_id, company_id: prev.company_id, company_name: prev.company_name, ico: prev.ico, found: true, domain: candidates[0], source: 'dns' } }];\n}\nif (isAlive(comStatus) && candidates[1] && !isBlacklisted(candidates[1])) {\n  return [{ json: { lead_id: prev.lead_id, company_id: prev.company_id, company_name: prev.company_name, ico: prev.ico, found: true, domain: candidates[1], source: 'dns' } }];\n}\n\nreturn [{ json: { lead_id: prev.lead_id, company_id: prev.company_id, company_name: prev.company_name, ico: prev.ico, found: false, domain: '', source: '' } }];"
+        "jsCode": "const BLACKLISTED = new Set(['seznam.cz','centrum.cz','atlas.cz','volny.cz','tiscali.cz','o2.cz','vodafone.cz','t-mobile.cz','upc.cz','czfree.net','gmail.com','yahoo.com','hotmail.com','outlook.com','protonmail.com','icloud.com','mail.com','zoho.com','aol.com','gmx.com','gmx.net','yandex.com','tutanota.com','live.com','msn.com','post.cz','email.cz','facebook.com','twitter.com','x.com','linkedin.com','instagram.com','youtube.com','tiktok.com','pinterest.com','reddit.com','threads.net','google.com','google.cz','bing.com','duckduckgo.com','wikipedia.org','wikipedie.cz','firmy.cz','kurzy.cz','rejstrik.penize.cz','or.justice.cz','justice.cz','rzp.cz','ares.gov.cz','hbi.cz','detail.cz','databaze-firem.cz','github.com','gitlab.com','medium.com','wordpress.com','blogspot.com','wix.com','squarespace.com','webnode.cz','amazon.com','ebay.com','alibaba.com','aliexpress.com','apple.com','microsoft.com','cloudflare.com','mapy.cz','idnes.cz','novinky.cz','aktualne.cz','heureka.cz','zbozi.cz','slevomat.cz']);\nconst prev = $('Generate DNS Candidates').first().json;\nconst candidates = prev._dns_candidates || [];\nconst preAlpha = prev._pre_alpha || '';\nconst postAlpha = prev._post_alpha || '';\n\n// Smart blacklist bypass: don't block a domain that IS the company's own name\nfunction shouldBypass(domain) {\n  if (!domain) return false;\n  const base = domain.split('.')[0].replace(/[^a-z0-9]/g, '');\n  if (base.length < 2) return false;\n  // Exact match with either pre or post alpha\n  if (base === postAlpha || base === preAlpha) return true;\n  // Close match (e.g., 'seznam' vs 'seznamcz' after .cz strip)\n  if (postAlpha && postAlpha.startsWith(base) && postAlpha.length - base.length <= 3) return true;\n  if (preAlpha && preAlpha.startsWith(base) && preAlpha.length - base.length <= 3) return true;\n  return false;\n}\nfunction isBlacklisted(d) {\n  if (!d) return true;\n  if (shouldBypass(d)) return false;\n  if (BLACKLISTED.has(d)) return true;\n  const p = d.split('.');\n  if (p.length > 2 && BLACKLISTED.has(p.slice(-2).join('.'))) return true;\n  return false;\n}\n\nconst results = $input.all().map(i => i.json);\nfunction extractStatus(r) {\n  if (!r) return 0;\n  if (typeof r.statusCode === 'number') return r.statusCode;\n  if (r.error && r.error.message) {\n    const m = r.error.message.match(/^(\\d{3})\\s*-/);\n    if (m) return parseInt(m[1]);\n    return 0;\n  }\n  if (r.data !== undefined && r.data !== '') return 200;\n  return 0;\n}\nfunction isAlive(status) { return (status >= 200 && status < 400) || status === 403; }\n\n// Evaluate all candidates (up to 4)\nconst alive = [];\nfor (let i = 0; i < Math.min(candidates.length, results.length); i++) {\n  const status = extractStatus(results[i]);\n  const domain = candidates[i];\n  if (domain && domain !== 'invalid.invalid' && isAlive(status) && !isBlacklisted(domain)) {\n    alive.push({ domain, index: i });\n  }\n}\n\nif (alive.length === 0) {\n  return [{ json: { lead_id: prev.lead_id, company_id: prev.company_id, company_name: prev.company_name, ico: prev.ico, found: false, domain: '', source: '' } }];\n}\n\n// Prefer .cz over .com; among same TLD, prefer higher priority (lower index)\nlet best = alive[0];\nconst czAlive = alive.filter(a => a.domain.endsWith('.cz'));\nif (czAlive.length > 0 && !best.domain.endsWith('.cz')) {\n  best = czAlive[0];\n}\n\nreturn [{ json: { lead_id: prev.lead_id, company_id: prev.company_id, company_name: prev.company_name, ico: prev.ico, found: true, domain: best.domain, source: 'dns' } }];"
       },
       "id": "sdd-0034",
       "name": "Check DNS Results",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
-      "position": [2400, 500]
+      "position": [
+        2540,
+        600
+      ]
     },
     {
       "parameters": {
@@ -183,18 +240,24 @@
       "name": "IF DNS Found",
       "type": "n8n-nodes-base.if",
       "typeVersion": 2,
-      "position": [2640, 500]
+      "position": [
+        2780,
+        600
+      ]
     },
     {
       "parameters": {
         "mode": "runOnceForEachItem",
-        "jsCode": "const prev = $('Extract Input').first().json;\nconst searchQuery = encodeURIComponent(prev.company_name + ' website');\nreturn { json: { ...prev, _ddg_url: 'https://html.duckduckgo.com/html/?q=' + searchQuery } };"
+        "jsCode": "const prev = $('Extract Input').first().json;\n// Strip legal suffixes + qualifiers for cleaner DDG search\nlet name = prev.company_name || '';\nname = name.replace(/,?\\s*\\b(s\\.?\\s*r\\.?\\s*o\\.?|a\\.?\\s*s\\.?|spol\\.?\\s*s\\s*r\\.?\\s*o\\.?|v\\.?\\s*o\\.?\\s*s\\.?|k\\.?\\s*s\\.?|s\\.?\\s*p\\.?|z\\.?\\s*s\\.?|z\\.?\\s*u\\.?|o\\.?\\s*p\\.?\\s*s\\.?|s\\.?\\s*e\\.?|b\\.?\\s*v\\.?|gmbh|ltd|inc|druzstvo|narodni\\s*podnik|organizacni\\s*slozka)\\b\\.?/gi, '');\nname = name.replace(/,\\s*$/, '').trim();\nconst searchQuery = encodeURIComponent(name + ' web');\nreturn { json: { ...prev, _ddg_url: 'https://html.duckduckgo.com/html/?q=' + searchQuery } };"
       },
       "id": "sdd-0040",
       "name": "Prepare DDG Search",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
-      "position": [2880, 700]
+      "position": [
+        3020,
+        800
+      ]
     },
     {
       "parameters": {
@@ -205,33 +268,43 @@
           "parameters": [
             {
               "name": "User-Agent",
-              "value": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
+              "value": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36"
             }
           ]
         },
         "options": {
           "neverError": true,
           "timeout": 15000,
-          "response": { "response": { "responseFormat": "text" } }
+          "response": {
+            "response": {
+              "responseFormat": "text"
+            }
+          }
         }
       },
       "id": "sdd-0041",
       "name": "Search DuckDuckGo",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
-      "position": [3120, 700],
+      "position": [
+        3260,
+        800
+      ],
       "onError": "continueRegularOutput"
     },
     {
       "parameters": {
         "mode": "runOnceForAllItems",
-        "jsCode": "const BLACKLISTED = new Set(['seznam.cz','centrum.cz','atlas.cz','volny.cz','tiscali.cz','o2.cz','vodafone.cz','t-mobile.cz','upc.cz','czfree.net','gmail.com','yahoo.com','hotmail.com','outlook.com','protonmail.com','icloud.com','mail.com','zoho.com','aol.com','gmx.com','gmx.net','yandex.com','tutanota.com','live.com','msn.com','post.cz','email.cz','facebook.com','twitter.com','x.com','linkedin.com','instagram.com','youtube.com','tiktok.com','pinterest.com','reddit.com','threads.net','google.com','google.cz','bing.com','duckduckgo.com','wikipedia.org','wikipedie.cz','firmy.cz','kurzy.cz','rejstrik.penize.cz','or.justice.cz','justice.cz','rzp.cz','ares.gov.cz','hbi.cz','detail.cz','databaze-firem.cz','github.com','gitlab.com','medium.com','wordpress.com','blogspot.com','wix.com','squarespace.com','webnode.cz','amazon.com','ebay.com','alibaba.com','aliexpress.com','apple.com','microsoft.com','cloudflare.com','mapy.cz','idnes.cz','novinky.cz','aktualne.cz','heureka.cz','zbozi.cz','slevomat.cz']);\nfunction isBlacklisted(d) { if (!d) return true; if (BLACKLISTED.has(d)) return true; const p = d.split('.'); if (p.length > 2 && BLACKLISTED.has(p.slice(-2).join('.'))) return true; return false; }\nconst prev = $('Prepare DDG Search').first().json;\nconst html = ($input.first().json.data || '').toString();\n\nlet domain = '';\n// Match result links — handle both attribute orderings\nconst resultPattern = /class=\"result__a\"[^>]*href=\"([^\"]+)\"|href=\"([^\"]+)\"[^>]*class=\"result__a\"/g;\nlet match;\nwhile ((match = resultPattern.exec(html)) !== null) {\n  const rawUrl = match[1] || match[2];\n  if (!rawUrl) continue;\n  // DuckDuckGo wraps results in redirect URLs with percent-encoded destination\n  let url = rawUrl;\n  const uddgMatch = url.match(/[?&]uddg=([^&]+)/);\n  if (uddgMatch) {\n    try { url = decodeURIComponent(uddgMatch[1]); } catch(e) {}\n  }\n  if (url.includes('duckduckgo.com')) continue;\n  const domainMatch = url.match(/https?:\\/\\/(?:www\\.)?([a-z0-9.-]+\\.[a-z]{2,})/i);\n  if (domainMatch && domainMatch[1]) {\n    const d = domainMatch[1].toLowerCase();\n    if (isBlacklisted(d)) continue;\n    domain = d;\n    break;\n  }\n}\n\nif (!domain) {\n  return [{ json: { lead_id: prev.lead_id, company_id: prev.company_id, company_name: prev.company_name, ico: prev.ico, found: false, domain: '', source: '' } }];\n}\n\nreturn [{ json: { lead_id: prev.lead_id, company_id: prev.company_id, company_name: prev.company_name, ico: prev.ico, found: true, domain: domain, source: 'ddg' } }];"
+        "jsCode": "const BLACKLISTED = new Set(['seznam.cz','centrum.cz','atlas.cz','volny.cz','tiscali.cz','o2.cz','vodafone.cz','t-mobile.cz','upc.cz','czfree.net','gmail.com','yahoo.com','hotmail.com','outlook.com','protonmail.com','icloud.com','mail.com','zoho.com','aol.com','gmx.com','gmx.net','yandex.com','tutanota.com','live.com','msn.com','post.cz','email.cz','facebook.com','twitter.com','x.com','linkedin.com','instagram.com','youtube.com','tiktok.com','pinterest.com','reddit.com','threads.net','google.com','google.cz','bing.com','duckduckgo.com','wikipedia.org','wikipedie.cz','firmy.cz','kurzy.cz','rejstrik.penize.cz','or.justice.cz','justice.cz','rzp.cz','ares.gov.cz','hbi.cz','detail.cz','databaze-firem.cz','github.com','gitlab.com','medium.com','wordpress.com','blogspot.com','wix.com','squarespace.com','webnode.cz','amazon.com','ebay.com','alibaba.com','aliexpress.com','apple.com','microsoft.com','cloudflare.com','mapy.cz','idnes.cz','novinky.cz','aktualne.cz','heureka.cz','zbozi.cz','slevomat.cz']);\n\nfunction stripD(s) { return s.normalize('NFD').replace(/[\\u0300-\\u036f]/g, '').toLowerCase(); }\nfunction companyBase(name) {\n  let r = name.replace(/\\.(cz|com|eu|sk|net|org)\\b/gi, '');\n  r = r.replace(/,?\\s*\\b(s\\.?\\s*r\\.?\\s*o\\.?|a\\.?\\s*s\\.?|spol\\.?\\s*s\\s*r\\.?\\s*o\\.?|v\\.?\\s*o\\.?\\s*s\\.?|k\\.?\\s*s\\.?|s\\.?\\s*p\\.?|z\\.?\\s*s\\.?|z\\.?\\s*u\\.?|o\\.?\\s*p\\.?\\s*s\\.?|s\\.?\\s*e\\.?)\\b\\.?/gi, '');\n  r = r.replace(/\\b(ceska\\s*republika|czech\\s*republic|\\bcr\\b|international|baumarkt|cash\\s*&\\s*carry|pojistovna|pojistovni|banka|lekarna|group|investment)\\b/gi, '');\n  return stripD(r).replace(/[^a-z0-9]/g, '');\n}\nfunction shouldBypass(domain, name) {\n  const base = domain.split('.')[0].replace(/[^a-z0-9]/g, '');\n  const cb = companyBase(name);\n  if (base.length < 2 || cb.length < 2) return false;\n  if (base === cb) return true;\n  if (cb.startsWith(base) && cb.length - base.length <= 3) return true;\n  return false;\n}\nfunction isBlacklisted(d, name) {\n  if (!d) return true;\n  if (shouldBypass(d, name)) return false;\n  if (BLACKLISTED.has(d)) return true;\n  const p = d.split('.');\n  if (p.length > 2 && BLACKLISTED.has(p.slice(-2).join('.'))) return true;\n  return false;\n}\n\nconst prev = $('Prepare DDG Search').first().json;\nconst companyName = prev.company_name || '';\nconst html = ($input.first().json.data || '').toString();\n\nlet domain = '';\nconst resultPattern = /class=\"result__a\"[^>]*href=\"([^\"]+)\"|href=\"([^\"]+)\"[^>]*class=\"result__a\"/g;\nlet match;\nwhile ((match = resultPattern.exec(html)) !== null) {\n  const rawUrl = match[1] || match[2];\n  if (!rawUrl) continue;\n  let url = rawUrl;\n  const uddgMatch = url.match(/[?&]uddg=([^&]+)/);\n  if (uddgMatch) {\n    try { url = decodeURIComponent(uddgMatch[1]); } catch(e) {}\n  }\n  if (url.includes('duckduckgo.com')) continue;\n  const domainMatch = url.match(/https?:\\/\\/(?:www\\.)?([a-z0-9.-]+\\.[a-z]{2,})/i);\n  if (domainMatch && domainMatch[1]) {\n    const d = domainMatch[1].toLowerCase();\n    if (isBlacklisted(d, companyName)) continue;\n    domain = d;\n    break;\n  }\n}\n\nif (!domain) {\n  return [{ json: { lead_id: prev.lead_id, company_id: prev.company_id, company_name: prev.company_name, ico: prev.ico, found: false, domain: '', source: '' } }];\n}\nreturn [{ json: { lead_id: prev.lead_id, company_id: prev.company_id, company_name: prev.company_name, ico: prev.ico, found: true, domain: domain, source: 'ddg' } }];"
       },
       "id": "sdd-0042",
       "name": "Extract DDG Domain",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
-      "position": [3360, 700]
+      "position": [
+        3500,
+        800
+      ]
     },
     {
       "parameters": {
@@ -242,68 +315,331 @@
       "name": "Return Result",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
-      "position": [3600, 400]
+      "position": [
+        3740,
+        500
+      ]
+    },
+    {
+      "parameters": {
+        "method": "GET",
+        "url": "={{ 'https://' + ($('Generate DNS Candidates').first().json._dns_candidates[2] || 'invalid.invalid') }}",
+        "options": {
+          "neverError": true,
+          "timeout": 5000,
+          "response": {
+            "response": {
+              "responseFormat": "text"
+            }
+          }
+        }
+      },
+      "id": "sdd-0036",
+      "name": "Probe DNS 3",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1920,
+        700
+      ],
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "method": "GET",
+        "url": "={{ 'https://' + ($('Generate DNS Candidates').first().json._dns_candidates[3] || 'invalid.invalid') }}",
+        "options": {
+          "neverError": true,
+          "timeout": 5000,
+          "response": {
+            "response": {
+              "responseFormat": "text"
+            }
+          }
+        }
+      },
+      "id": "sdd-0037",
+      "name": "Probe DNS 4",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1920,
+        840
+      ],
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "mode": "append"
+      },
+      "id": "sdd-0038",
+      "name": "Merge DNS 34",
+      "type": "n8n-nodes-base.merge",
+      "typeVersion": 3,
+      "position": [
+        2160,
+        770
+      ]
+    },
+    {
+      "parameters": {
+        "mode": "append"
+      },
+      "id": "sdd-0039",
+      "name": "Merge All DNS",
+      "type": "n8n-nodes-base.merge",
+      "typeVersion": 3,
+      "position": [
+        2340,
+        600
+      ]
     }
   ],
   "connections": {
     "Execute Workflow Trigger": {
-      "main": [[{ "node": "Extract Input", "type": "main", "index": 0 }]]
+      "main": [
+        [
+          {
+            "node": "Extract Input",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
     },
     "Extract Input": {
-      "main": [[{ "node": "IF Has ICO", "type": "main", "index": 0 }]]
+      "main": [
+        [
+          {
+            "node": "IF Has ICO",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
     },
     "IF Has ICO": {
       "main": [
-        [{ "node": "ARES BE Lookup", "type": "main", "index": 0 }],
-        [{ "node": "Generate DNS Candidates", "type": "main", "index": 0 }]
+        [
+          {
+            "node": "ARES BE Lookup",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Generate DNS Candidates",
+            "type": "main",
+            "index": 0
+          }
+        ]
       ]
     },
     "ARES BE Lookup": {
-      "main": [[{ "node": "Extract ARES Domain", "type": "main", "index": 0 }]]
+      "main": [
+        [
+          {
+            "node": "Extract ARES Domain",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
     },
     "Extract ARES Domain": {
-      "main": [[{ "node": "IF ARES Found", "type": "main", "index": 0 }]]
+      "main": [
+        [
+          {
+            "node": "IF ARES Found",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
     },
     "IF ARES Found": {
       "main": [
-        [{ "node": "Return Result", "type": "main", "index": 0 }],
-        [{ "node": "Generate DNS Candidates", "type": "main", "index": 0 }]
+        [
+          {
+            "node": "Return Result",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Generate DNS Candidates",
+            "type": "main",
+            "index": 0
+          }
+        ]
       ]
     },
     "Generate DNS Candidates": {
       "main": [
         [
-          { "node": "Probe .cz Domain", "type": "main", "index": 0 },
-          { "node": "Probe .com Domain", "type": "main", "index": 0 }
+          {
+            "node": "Probe .cz Domain",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Probe .com Domain",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Probe DNS 3",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Probe DNS 4",
+            "type": "main",
+            "index": 0
+          }
         ]
       ]
     },
     "Probe .cz Domain": {
-      "main": [[{ "node": "Merge DNS Results", "type": "main", "index": 0 }]]
+      "main": [
+        [
+          {
+            "node": "Merge DNS Results",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
     },
     "Probe .com Domain": {
-      "main": [[{ "node": "Merge DNS Results", "type": "main", "index": 1 }]]
+      "main": [
+        [
+          {
+            "node": "Merge DNS Results",
+            "type": "main",
+            "index": 1
+          }
+        ]
+      ]
+    },
+    "Probe DNS 3": {
+      "main": [
+        [
+          {
+            "node": "Merge DNS 34",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Probe DNS 4": {
+      "main": [
+        [
+          {
+            "node": "Merge DNS 34",
+            "type": "main",
+            "index": 1
+          }
+        ]
+      ]
     },
     "Merge DNS Results": {
-      "main": [[{ "node": "Check DNS Results", "type": "main", "index": 0 }]]
+      "main": [
+        [
+          {
+            "node": "Merge All DNS",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Merge DNS 34": {
+      "main": [
+        [
+          {
+            "node": "Merge All DNS",
+            "type": "main",
+            "index": 1
+          }
+        ]
+      ]
+    },
+    "Merge All DNS": {
+      "main": [
+        [
+          {
+            "node": "Check DNS Results",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
     },
     "Check DNS Results": {
-      "main": [[{ "node": "IF DNS Found", "type": "main", "index": 0 }]]
+      "main": [
+        [
+          {
+            "node": "IF DNS Found",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
     },
     "IF DNS Found": {
       "main": [
-        [{ "node": "Return Result", "type": "main", "index": 0 }],
-        [{ "node": "Prepare DDG Search", "type": "main", "index": 0 }]
+        [
+          {
+            "node": "Return Result",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Prepare DDG Search",
+            "type": "main",
+            "index": 0
+          }
+        ]
       ]
     },
     "Prepare DDG Search": {
-      "main": [[{ "node": "Search DuckDuckGo", "type": "main", "index": 0 }]]
+      "main": [
+        [
+          {
+            "node": "Search DuckDuckGo",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
     },
     "Search DuckDuckGo": {
-      "main": [[{ "node": "Extract DDG Domain", "type": "main", "index": 0 }]]
+      "main": [
+        [
+          {
+            "node": "Extract DDG Domain",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
     },
     "Extract DDG Domain": {
-      "main": [[{ "node": "Return Result", "type": "main", "index": 0 }]]
+      "main": [
+        [
+          {
+            "node": "Return Result",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
     }
   },
   "pinData": {},
