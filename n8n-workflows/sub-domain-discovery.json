@@ -3,7 +3,7 @@
   "nodes": [
     {
       "parameters": {
-        "content": "## SUB — Domain Discovery\n**Trigger:** Execute Workflow\n**Input:** `{ lead_id, company_id, company_name, ico }`\n**Output:** `{ found: true/false, domain: \"example.cz\", source: \"ares|firmy|dns|ddg\" }`\n\nTries 4 sources in order: ARES BE (if ICO), Firmy.cz, DNS probe (.cz/.com), DuckDuckGo.\nStops at first success.",
+        "content": "## SUB — Domain Discovery\n**Trigger:** Execute Workflow\n**Input:** `{ lead_id, company_id, company_name, ico }`\n**Output:** `{ found: true/false, domain: \"example.cz\", source: \"ares|dns|ddg\" }`\n\nTries 3 sources in order: ARES BE (if ICO), DNS probe (.cz/.com), DuckDuckGo.\nStops at first success. Firmy.cz removed (migrated to SPA, unscrappable).",
         "height": 200,
         "width": 600,
         "color": 4
@@ -107,71 +107,13 @@
     {
       "parameters": {
         "mode": "runOnceForEachItem",
-        "jsCode": "const prev = $('Extract Input').first().json;\nconst searchQuery = encodeURIComponent(prev.company_name);\nreturn { json: { ...prev, _search_url: 'https://www.firmy.cz/hledej?dotaz=' + searchQuery } };"
-      },
-      "id": "sdd-0020",
-      "name": "Prepare Firmy Search",
-      "type": "n8n-nodes-base.code",
-      "typeVersion": 2,
-      "position": [1440, 500]
-    },
-    {
-      "parameters": {
-        "method": "GET",
-        "url": "={{ $json._search_url }}",
-        "options": { "neverError": true, "timeout": 15000 }
-      },
-      "id": "sdd-0021",
-      "name": "Search Firmy.cz",
-      "type": "n8n-nodes-base.httpRequest",
-      "typeVersion": 4.2,
-      "position": [1680, 500]
-    },
-    {
-      "parameters": {
-        "mode": "runOnceForAllItems",
-        "jsCode": "const BLACKLISTED = new Set(['seznam.cz','centrum.cz','atlas.cz','volny.cz','tiscali.cz','o2.cz','vodafone.cz','t-mobile.cz','upc.cz','czfree.net','gmail.com','yahoo.com','hotmail.com','outlook.com','protonmail.com','icloud.com','mail.com','zoho.com','aol.com','gmx.com','gmx.net','yandex.com','tutanota.com','live.com','msn.com','post.cz','email.cz','facebook.com','twitter.com','x.com','linkedin.com','instagram.com','youtube.com','tiktok.com','pinterest.com','reddit.com','threads.net','google.com','google.cz','bing.com','duckduckgo.com','wikipedia.org','wikipedie.cz','firmy.cz','kurzy.cz','rejstrik.penize.cz','or.justice.cz','justice.cz','rzp.cz','ares.gov.cz','hbi.cz','detail.cz','databaze-firem.cz','github.com','gitlab.com','medium.com','wordpress.com','blogspot.com','wix.com','squarespace.com','webnode.cz','amazon.com','ebay.com','alibaba.com','aliexpress.com','apple.com','microsoft.com','cloudflare.com','mapy.cz','idnes.cz','novinky.cz','aktualne.cz','heureka.cz','zbozi.cz','slevomat.cz']);\nfunction isBlacklisted(d) { if (!d) return true; if (BLACKLISTED.has(d)) return true; const p = d.split('.'); if (p.length > 2 && BLACKLISTED.has(p.slice(-2).join('.'))) return true; return false; }\nconst prev = $('Prepare Firmy Search').first().json;\nconst html = ($input.first().json.data || $input.first().json || '').toString();\n\nlet domain = '';\nconst urlMatch = html.match(/href=\"(https?:\\/\\/(?:www\\.)?([a-z0-9.-]+\\.[a-z]{2,}))[^\"]*\"[^>]*class=\"[^\"]*web/i);\n\nif (urlMatch && urlMatch[2]) {\n  domain = urlMatch[2].toLowerCase();\n}\n\nif (!domain || isBlacklisted(domain)) {\n  return [{ json: { ...prev, found: false, _search_url: undefined } }];\n}\n\nreturn [{ json: { ...prev, found: true, domain: domain, source: 'firmy', _search_url: undefined } }];"
-      },
-      "id": "sdd-0022",
-      "name": "Extract Firmy Domain",
-      "type": "n8n-nodes-base.code",
-      "typeVersion": 2,
-      "position": [1920, 500]
-    },
-    {
-      "parameters": {
-        "conditions": {
-          "options": {},
-          "conditions": [
-            {
-              "id": "firmy-found",
-              "leftValue": "={{ $json.found }}",
-              "rightValue": true,
-              "operator": {
-                "type": "boolean",
-                "operation": "equals"
-              }
-            }
-          ],
-          "combinator": "and"
-        }
-      },
-      "id": "sdd-0023",
-      "name": "IF Firmy Found",
-      "type": "n8n-nodes-base.if",
-      "typeVersion": 2,
-      "position": [2160, 500]
-    },
-    {
-      "parameters": {
-        "mode": "runOnceForEachItem",
         "jsCode": "const prev = $('Extract Input').first().json;\nfunction stripDiacritics(s) {\n  return s.normalize('NFD').replace(/[\\u0300-\\u036f]/g, '').toLowerCase();\n}\nconst name = stripDiacritics(prev.company_name)\n  .replace(/\\b(s\\.?r\\.?o\\.?|a\\.?s\\.?|spol\\.?\\s*s\\s*r\\.?\\s*o\\.?|v\\.?o\\.?s\\.?)\\b/gi, '')\n  .replace(/[^a-z0-9]/g, '')\n  .trim();\nif (!name || name.length < 2) {\n  return { json: { ...prev, found: false, _dns_candidates: [] } };\n}\nreturn { json: { ...prev, _dns_candidates: [name + '.cz', name + '.com'], _dns_index: 0 } };"
       },
       "id": "sdd-0030",
       "name": "Generate DNS Candidates",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
-      "position": [2400, 700]
+      "position": [1680, 500]
     },
     {
       "parameters": {
@@ -183,7 +125,7 @@
       "name": "Probe .cz Domain",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
-      "position": [2640, 620]
+      "position": [1920, 420]
     },
     {
       "parameters": {
@@ -195,7 +137,7 @@
       "name": "Probe .com Domain",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
-      "position": [2640, 780]
+      "position": [1920, 580]
     },
     {
       "parameters": { "mode": "append" },
@@ -203,18 +145,18 @@
       "name": "Merge DNS Results",
       "type": "n8n-nodes-base.merge",
       "typeVersion": 3,
-      "position": [2880, 700]
+      "position": [2160, 500]
     },
     {
       "parameters": {
         "mode": "runOnceForAllItems",
-        "jsCode": "const BLACKLISTED = new Set(['seznam.cz','centrum.cz','atlas.cz','volny.cz','tiscali.cz','o2.cz','vodafone.cz','t-mobile.cz','upc.cz','czfree.net','gmail.com','yahoo.com','hotmail.com','outlook.com','protonmail.com','icloud.com','mail.com','zoho.com','aol.com','gmx.com','gmx.net','yandex.com','tutanota.com','live.com','msn.com','post.cz','email.cz','facebook.com','twitter.com','x.com','linkedin.com','instagram.com','youtube.com','tiktok.com','pinterest.com','reddit.com','threads.net','google.com','google.cz','bing.com','duckduckgo.com','wikipedia.org','wikipedie.cz','firmy.cz','kurzy.cz','rejstrik.penize.cz','or.justice.cz','justice.cz','rzp.cz','ares.gov.cz','hbi.cz','detail.cz','databaze-firem.cz','github.com','gitlab.com','medium.com','wordpress.com','blogspot.com','wix.com','squarespace.com','webnode.cz','amazon.com','ebay.com','alibaba.com','aliexpress.com','apple.com','microsoft.com','cloudflare.com','mapy.cz','idnes.cz','novinky.cz','aktualne.cz','heureka.cz','zbozi.cz','slevomat.cz']);\nfunction isBlacklisted(d) { if (!d) return true; if (BLACKLISTED.has(d)) return true; const p = d.split('.'); if (p.length > 2 && BLACKLISTED.has(p.slice(-2).join('.'))) return true; return false; }\nconst prev = $('Generate DNS Candidates').first().json;\nconst candidates = prev._dns_candidates || [];\nconst results = $input.all().map(i => i.json);\n\nconst czStatus = results[0] && results[0].statusCode ? results[0].statusCode : (results[0] && !results[0].error ? 200 : 0);\nconst comStatus = results[1] && results[1].statusCode ? results[1].statusCode : (results[1] && !results[1].error ? 200 : 0);\n\n// Only accept 2xx/3xx — reject 403/404 parked domains\nif (czStatus >= 200 && czStatus < 400 && candidates[0] && !isBlacklisted(candidates[0])) {\n  return [{ json: { lead_id: prev.lead_id, company_id: prev.company_id, company_name: prev.company_name, ico: prev.ico, found: true, domain: candidates[0], source: 'dns' } }];\n}\nif (comStatus >= 200 && comStatus < 400 && candidates[1] && !isBlacklisted(candidates[1])) {\n  return [{ json: { lead_id: prev.lead_id, company_id: prev.company_id, company_name: prev.company_name, ico: prev.ico, found: true, domain: candidates[1], source: 'dns' } }];\n}\n\nreturn [{ json: { lead_id: prev.lead_id, company_id: prev.company_id, company_name: prev.company_name, ico: prev.ico, found: false, domain: '', source: '' } }];"
+        "jsCode": "const BLACKLISTED = new Set(['seznam.cz','centrum.cz','atlas.cz','volny.cz','tiscali.cz','o2.cz','vodafone.cz','t-mobile.cz','upc.cz','czfree.net','gmail.com','yahoo.com','hotmail.com','outlook.com','protonmail.com','icloud.com','mail.com','zoho.com','aol.com','gmx.com','gmx.net','yandex.com','tutanota.com','live.com','msn.com','post.cz','email.cz','facebook.com','twitter.com','x.com','linkedin.com','instagram.com','youtube.com','tiktok.com','pinterest.com','reddit.com','threads.net','google.com','google.cz','bing.com','duckduckgo.com','wikipedia.org','wikipedie.cz','firmy.cz','kurzy.cz','rejstrik.penize.cz','or.justice.cz','justice.cz','rzp.cz','ares.gov.cz','hbi.cz','detail.cz','databaze-firem.cz','github.com','gitlab.com','medium.com','wordpress.com','blogspot.com','wix.com','squarespace.com','webnode.cz','amazon.com','ebay.com','alibaba.com','aliexpress.com','apple.com','microsoft.com','cloudflare.com','mapy.cz','idnes.cz','novinky.cz','aktualne.cz','heureka.cz','zbozi.cz','slevomat.cz']);\nfunction isBlacklisted(d) { if (!d) return true; if (BLACKLISTED.has(d)) return true; const p = d.split('.'); if (p.length > 2 && BLACKLISTED.has(p.slice(-2).join('.'))) return true; return false; }\nconst prev = $('Generate DNS Candidates').first().json;\nconst candidates = prev._dns_candidates || [];\nconst results = $input.all().map(i => i.json);\n\n// neverError:true may return { error: ... } or empty {}. Check statusCode explicitly.\nconst czStatus = (results[0] && typeof results[0].statusCode === 'number') ? results[0].statusCode : 0;\nconst comStatus = (results[1] && typeof results[1].statusCode === 'number') ? results[1].statusCode : 0;\n\n// Only accept 2xx/3xx — reject 403/404 parked domains\nif (czStatus >= 200 && czStatus < 400 && candidates[0] && !isBlacklisted(candidates[0])) {\n  return [{ json: { lead_id: prev.lead_id, company_id: prev.company_id, company_name: prev.company_name, ico: prev.ico, found: true, domain: candidates[0], source: 'dns' } }];\n}\nif (comStatus >= 200 && comStatus < 400 && candidates[1] && !isBlacklisted(candidates[1])) {\n  return [{ json: { lead_id: prev.lead_id, company_id: prev.company_id, company_name: prev.company_name, ico: prev.ico, found: true, domain: candidates[1], source: 'dns' } }];\n}\n\nreturn [{ json: { lead_id: prev.lead_id, company_id: prev.company_id, company_name: prev.company_name, ico: prev.ico, found: false, domain: '', source: '' } }];"
       },
       "id": "sdd-0034",
       "name": "Check DNS Results",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
-      "position": [3120, 700]
+      "position": [2400, 500]
     },
     {
       "parameters": {
@@ -238,7 +180,7 @@
       "name": "IF DNS Found",
       "type": "n8n-nodes-base.if",
       "typeVersion": 2,
-      "position": [3360, 700]
+      "position": [2640, 500]
     },
     {
       "parameters": {
@@ -249,7 +191,7 @@
       "name": "Prepare DDG Search",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
-      "position": [3600, 900]
+      "position": [2880, 700]
     },
     {
       "parameters": {
@@ -260,28 +202,40 @@
           "parameters": [
             {
               "name": "User-Agent",
-              "value": "Mozilla/5.0 (compatible; bot)"
+              "value": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
             }
           ]
         },
-        "options": { "neverError": true, "timeout": 15000 }
+        "options": {
+          "neverError": true,
+          "timeout": 15000,
+          "response": { "response": { "responseFormat": "text" } }
+        }
       },
       "id": "sdd-0041",
       "name": "Search DuckDuckGo",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
-      "position": [3840, 900]
+      "position": [3120, 700]
     },
     {
       "parameters": {
         "mode": "runOnceForAllItems",
-        "jsCode": "const BLACKLISTED = new Set(['seznam.cz','centrum.cz','atlas.cz','volny.cz','tiscali.cz','o2.cz','vodafone.cz','t-mobile.cz','upc.cz','czfree.net','gmail.com','yahoo.com','hotmail.com','outlook.com','protonmail.com','icloud.com','mail.com','zoho.com','aol.com','gmx.com','gmx.net','yandex.com','tutanota.com','live.com','msn.com','post.cz','email.cz','facebook.com','twitter.com','x.com','linkedin.com','instagram.com','youtube.com','tiktok.com','pinterest.com','reddit.com','threads.net','google.com','google.cz','bing.com','duckduckgo.com','wikipedia.org','wikipedie.cz','firmy.cz','kurzy.cz','rejstrik.penize.cz','or.justice.cz','justice.cz','rzp.cz','ares.gov.cz','hbi.cz','detail.cz','databaze-firem.cz','github.com','gitlab.com','medium.com','wordpress.com','blogspot.com','wix.com','squarespace.com','webnode.cz','amazon.com','ebay.com','alibaba.com','aliexpress.com','apple.com','microsoft.com','cloudflare.com','mapy.cz','idnes.cz','novinky.cz','aktualne.cz','heureka.cz','zbozi.cz','slevomat.cz']);\nfunction isBlacklisted(d) { if (!d) return true; if (BLACKLISTED.has(d)) return true; const p = d.split('.'); if (p.length > 2 && BLACKLISTED.has(p.slice(-2).join('.'))) return true; return false; }\nconst prev = $('Prepare DDG Search').first().json;\nconst html = ($input.first().json.data || $input.first().json || '').toString();\n\nlet domain = '';\nconst resultPattern = /class=\"result__a\"[^>]*href=\"([^\"]+)\"/g;\nlet match;\nwhile ((match = resultPattern.exec(html)) !== null) {\n  const url = match[1];\n  if (url.includes('duckduckgo.com')) continue;\n  const domainMatch = url.match(/https?:\\/\\/(?:www\\.)?([a-z0-9.-]+\\.[a-z]{2,})/i);\n  if (domainMatch && domainMatch[1]) {\n    const d = domainMatch[1].toLowerCase();\n    if (isBlacklisted(d)) continue;\n    domain = d;\n    break;\n  }\n}\n\nif (!domain) {\n  return [{ json: { lead_id: prev.lead_id, company_id: prev.company_id, company_name: prev.company_name, ico: prev.ico, found: false, domain: '', source: '' } }];\n}\n\nreturn [{ json: { lead_id: prev.lead_id, company_id: prev.company_id, company_name: prev.company_name, ico: prev.ico, found: true, domain: domain, source: 'ddg' } }];"
+        "jsCode": "const BLACKLISTED = new Set(['seznam.cz','centrum.cz','atlas.cz','volny.cz','tiscali.cz','o2.cz','vodafone.cz','t-mobile.cz','upc.cz','czfree.net','gmail.com','yahoo.com','hotmail.com','outlook.com','protonmail.com','icloud.com','mail.com','zoho.com','aol.com','gmx.com','gmx.net','yandex.com','tutanota.com','live.com','msn.com','post.cz','email.cz','facebook.com','twitter.com','x.com','linkedin.com','instagram.com','youtube.com','tiktok.com','pinterest.com','reddit.com','threads.net','google.com','google.cz','bing.com','duckduckgo.com','wikipedia.org','wikipedie.cz','firmy.cz','kurzy.cz','rejstrik.penize.cz','or.justice.cz','justice.cz','rzp.cz','ares.gov.cz','hbi.cz','detail.cz','databaze-firem.cz','github.com','gitlab.com','medium.com','wordpress.com','blogspot.com','wix.com','squarespace.com','webnode.cz','amazon.com','ebay.com','alibaba.com','aliexpress.com','apple.com','microsoft.com','cloudflare.com','mapy.cz','idnes.cz','novinky.cz','aktualne.cz','heureka.cz','zbozi.cz','slevomat.cz']);\nfunction isBlacklisted(d) { if (!d) return true; if (BLACKLISTED.has(d)) return true; const p = d.split('.'); if (p.length > 2 && BLACKLISTED.has(p.slice(-2).join('.'))) return true; return false; }\nconst prev = $('Prepare DDG Search').first().json;\nconst html = ($input.first().json.data || '').toString();\n\nlet domain = '';\n// Match result links — handle both attribute orderings\nconst resultPattern = /class=\"result__a\"[^>]*href=\"([^\"]+)\"|href=\"([^\"]+)\"[^>]*class=\"result__a\"/g;\nlet match;\nwhile ((match = resultPattern.exec(html)) !== null) {\n  const rawUrl = match[1] || match[2];\n  if (!rawUrl) continue;\n  // DuckDuckGo wraps results in redirect URLs with percent-encoded destination\n  let url = rawUrl;\n  const uddgMatch = url.match(/[?&]uddg=([^&]+)/);\n  if (uddgMatch) {\n    try { url = decodeURIComponent(uddgMatch[1]); } catch(e) {}\n  }\n  if (url.includes('duckduckgo.com')) continue;\n  const domainMatch = url.match(/https?:\\/\\/(?:www\\.)?([a-z0-9.-]+\\.[a-z]{2,})/i);\n  if (domainMatch && domainMatch[1]) {\n    const d = domainMatch[1].toLowerCase();\n    if (isBlacklisted(d)) continue;\n    domain = d;\n    break;\n  }\n}\n\nif (!domain) {\n  return [{ json: { lead_id: prev.lead_id, company_id: prev.company_id, company_name: prev.company_name, ico: prev.ico, found: false, domain: '', source: '' } }];\n}\n\nreturn [{ json: { lead_id: prev.lead_id, company_id: prev.company_id, company_name: prev.company_name, ico: prev.ico, found: true, domain: domain, source: 'ddg' } }];"
       },
       "id": "sdd-0042",
       "name": "Extract DDG Domain",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
-      "position": [4080, 900]
+      "position": [3360, 700]
+    },
+    {
+      "parameters": {},
+      "id": "sdd-0099",
+      "name": "Return Result",
+      "type": "n8n-nodes-base.noOp",
+      "typeVersion": 1,
+      "position": [3600, 400]
     }
   ],
   "connections": {
@@ -294,7 +248,7 @@
     "IF Has ICO": {
       "main": [
         [{ "node": "ARES BE Lookup", "type": "main", "index": 0 }],
-        [{ "node": "Prepare Firmy Search", "type": "main", "index": 0 }]
+        [{ "node": "Generate DNS Candidates", "type": "main", "index": 0 }]
       ]
     },
     "ARES BE Lookup": {
@@ -305,22 +259,7 @@
     },
     "IF ARES Found": {
       "main": [
-        [],
-        [{ "node": "Prepare Firmy Search", "type": "main", "index": 0 }]
-      ]
-    },
-    "Prepare Firmy Search": {
-      "main": [[{ "node": "Search Firmy.cz", "type": "main", "index": 0 }]]
-    },
-    "Search Firmy.cz": {
-      "main": [[{ "node": "Extract Firmy Domain", "type": "main", "index": 0 }]]
-    },
-    "Extract Firmy Domain": {
-      "main": [[{ "node": "IF Firmy Found", "type": "main", "index": 0 }]]
-    },
-    "IF Firmy Found": {
-      "main": [
-        [],
+        [{ "node": "Return Result", "type": "main", "index": 0 }],
         [{ "node": "Generate DNS Candidates", "type": "main", "index": 0 }]
       ]
     },
@@ -346,7 +285,7 @@
     },
     "IF DNS Found": {
       "main": [
-        [],
+        [{ "node": "Return Result", "type": "main", "index": 0 }],
         [{ "node": "Prepare DDG Search", "type": "main", "index": 0 }]
       ]
     },
@@ -355,6 +294,9 @@
     },
     "Search DuckDuckGo": {
       "main": [[{ "node": "Extract DDG Domain", "type": "main", "index": 0 }]]
+    },
+    "Extract DDG Domain": {
+      "main": [[{ "node": "Return Result", "type": "main", "index": 0 }]]
     }
   },
   "pinData": {},

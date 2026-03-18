@@ -326,8 +326,15 @@
     {
       "parameters": {
         "method": "GET",
-        "url": "={{ 'https://www.kurzy.cz/rejstrik-firem/' + ($json.ico || '') + '/' }}",
-        "options": { "neverError": true, "timeout": 15000 }
+        "url": "={{ 'https://rejstrik-firem.kurzy.cz/' + ($json.ico || '') + '/' }}",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            { "name": "Accept", "value": "text/html,application/xhtml+xml" },
+            { "name": "User-Agent", "value": "Mozilla/5.0 (compatible; bot)" }
+          ]
+        },
+        "options": { "neverError": true, "timeout": 15000, "fullResponse": true, "response": { "response": { "responseFormat": "text" } } }
       },
       "id": "v3-0046",
       "name": "Kurzy Scrape",
@@ -338,7 +345,7 @@
     {
       "parameters": {
         "mode": "runOnceForAllItems",
-        "jsCode": "const prev = $('Process ARES Response').first().json;\nconst html = ($input.first().json.data || $input.first().json || '').toString();\n\n// Extract jednatels from kurzy.cz HTML — look for names in the leadership section\nconst jednatels = [...(prev.jednatels || [])];\nconst seenNames = new Set(jednatels.map(j => j.full_name.toLowerCase()));\n\n// Kurzy.cz typically has names in <a> tags under \"Statutární orgán\" section\n// Pattern: look for Czech full names\nconst namePattern = /class=\"lnk\"[^>]*>([A-ZÁČĎÉĚÍŇÓŘŠŤÚŮÝŽ][a-záčďéěíňóřšťúůýž]+\\s+[A-ZÁČĎÉĚÍŇÓŘŠŤÚŮÝŽ][a-záčďéěíňóřšťúůýž]+)/g;\nlet match;\nwhile ((match = namePattern.exec(html)) !== null) {\n  const name = match[1].trim();\n  if (name && !seenNames.has(name.toLowerCase()) && name.split(' ').length >= 2) {\n    seenNames.add(name.toLowerCase());\n    jednatels.push({ full_name: name, role: 'jednatel' });\n  }\n}\n\n// Also try to extract website if ARES didn't have one\nlet domain = prev.domain;\nif (!domain) {\n  const webMatch = html.match(/href=\"(https?:\\/\\/[^\"]+)\"[^>]*class=\"lnk\"/);\n  if (webMatch) {\n    const url = webMatch[1];\n    domain = url.replace(/^https?:\\/\\//i, '').replace(/^www\\./i, '').split(/[\\/?#]/)[0].toLowerCase();\n  }\n}\n\nreturn [{ json: {\n  ...prev,\n  domain: domain,\n  raw_domain: domain,\n  jednatels: jednatels,\n  steps: [...prev.steps, 'kurzy_scrape']\n} }];"
+        "jsCode": "const prev = $('Process ARES Response').first().json;\nconst resp = $input.first().json;\nconst html = (resp.body || resp.data || '').toString();\n\n// Extract jednatels from kurzy.cz HTML\nconst jednatels = [...(prev.jednatels || [])];\nconst seenNames = new Set(jednatels.map(j => j.full_name.toLowerCase()));\n\n// Kurzy.cz has names in <a href=\"/osoba/N/...\"> tags\nconst namePattern = /<a[^>]*href=\"\\/osoba\\/\\d+\\/[^\"]*\"[^>]*>([^<]+)/gi;\nlet match;\nwhile ((match = namePattern.exec(html)) !== null) {\n  const name = match[1].trim();\n  if (name && name.length >= 3 && name.length <= 100 && !seenNames.has(name.toLowerCase()) && name.split(/\\s+/).length >= 2) {\n    seenNames.add(name.toLowerCase());\n    jednatels.push({ full_name: name, role: 'jednatel' });\n  }\n}\n\n// Extract website from WWW row if ARES didn't have one\nconst SITE_BL = new Set(['kurzy.cz','rejstrik-firem.kurzy.cz','or.justice.cz','justice.cz','google.com','google.cz','facebook.com','linkedin.com','firmy.cz','mapy.cz','seznam.cz','wikipedia.org']);\nfunction isSiteBL(d) { if (!d) return true; if (SITE_BL.has(d)) return true; var p = d.split('.'); return p.length > 2 && SITE_BL.has(p.slice(-2).join('.')); }\nlet domain = prev.domain;\nif (!domain) {\n  var webMatch = html.match(/WWW:<\\/b><\\/td>\\s*<td[^>]*>\\s*<a[^>]*href=\"(https?:\\/\\/[^\"]+)\"/i);\n  if (webMatch) {\n    var d = webMatch[1].replace(/^https?:\\/\\//i, '').replace(/^www\\./i, '').split(/[\\/?#]/)[0].toLowerCase();\n    if (d && /^[a-z0-9.-]+\\.[a-z]{2,}$/.test(d) && !isSiteBL(d)) domain = d;\n  }\n  // Fallback: any external URL\n  if (!domain) {\n    var extMatch = html.match(/href=\"(https?:\\/\\/(?:www\\.)?([a-z0-9.-]+\\.[a-z]{2,}))[^\"]*\"/i);\n    if (extMatch && extMatch[2] && !isSiteBL(extMatch[2].toLowerCase())) domain = extMatch[2].toLowerCase();\n  }\n}\n\nreturn [{ json: {\n  ...prev,\n  domain: domain,\n  raw_domain: domain,\n  jednatels: jednatels,\n  steps: [...prev.steps, 'kurzy_scrape']\n} }];"
       },
       "id": "v3-0047",
       "name": "Process Kurzy Response",
@@ -987,6 +994,54 @@
       "type": "n8n-nodes-base.merge",
       "typeVersion": 3,
       "position": [3360, 800]
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForEachItem",
+        "jsCode": "const prev = $('Process Kurzy Response').first().json;\nreturn { json: { lead_id: '', company_id: prev.company_id || '', company_name: prev.company_name || '', ico: prev.ico || '' } };"
+      },
+      "id": "v3-disc-01",
+      "name": "Prepare Discovery Input",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [2880, 660]
+    },
+    {
+      "parameters": {
+        "source": "database",
+        "workflowId": "KdaIVaNnqj8eDx8D",
+        "waitForSubWorkflow": true
+      },
+      "id": "v3-disc-02",
+      "name": "V3 Domain Discovery",
+      "type": "n8n-nodes-base.executeWorkflow",
+      "typeVersion": 1,
+      "position": [3120, 660]
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForEachItem",
+        "jsCode": "const result = $input.item.json;\nconst prev = $('Process Kurzy Response').first().json;\nif (result.found && result.domain) {\n  return { json: { ...prev, domain: result.domain, raw_domain: result.domain, steps: [...(prev.steps || []), 'domain_discovery_' + (result.source || 'unknown')] } };\n}\nreturn { json: { ...prev, domain: '', steps: [...(prev.steps || []), 'domain_discovery_failed'] } };"
+      },
+      "id": "v3-disc-03",
+      "name": "V3 Parse Discovery",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [3360, 660]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {},
+          "conditions": [{ "leftValue": "={{ $json.domain || '' }}", "rightValue": "", "operator": { "type": "string", "operation": "notEquals" } }],
+          "combinator": "and"
+        }
+      },
+      "id": "v3-disc-04",
+      "name": "V3 IF Discovery Found",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [3600, 660]
     }
   ],
   "connections": {
@@ -1081,6 +1136,21 @@
       "main": [[{ "node": "IF Has Domain After Enrich", "type": "main", "index": 0 }]]
     },
     "IF Has Domain After Enrich": {
+      "main": [
+        [{ "node": "Lookup Company After ARES", "type": "main", "index": 0 }],
+        [{ "node": "Prepare Discovery Input", "type": "main", "index": 0 }]
+      ]
+    },
+    "Prepare Discovery Input": {
+      "main": [[{ "node": "V3 Domain Discovery", "type": "main", "index": 0 }]]
+    },
+    "V3 Domain Discovery": {
+      "main": [[{ "node": "V3 Parse Discovery", "type": "main", "index": 0 }]]
+    },
+    "V3 Parse Discovery": {
+      "main": [[{ "node": "V3 IF Discovery Found", "type": "main", "index": 0 }]]
+    },
+    "V3 IF Discovery Found": {
       "main": [
         [{ "node": "Lookup Company After ARES", "type": "main", "index": 0 }],
         [{ "node": "No Domain Error", "type": "main", "index": 0 }]
