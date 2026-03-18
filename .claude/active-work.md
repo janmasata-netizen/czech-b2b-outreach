@@ -18,5 +18,4 @@
 
 | Branch | Agent | Files (exact paths) | Started | Last Updated | PR |
 |---|---|---|---|---|---|
-| claude/fix-wf8-splitinbatches | Claude | n8n-workflows/wf8-send-cron.json, n8n-workflows/test-waves.mjs | 2026-03-18 | 2026-03-18 | — |
 
