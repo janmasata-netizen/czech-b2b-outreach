@@ -18,4 +18,5 @@
 
 | Branch | Agent | Files (exact paths) | Started | Last Updated | PR |
 |---|---|---|---|---|---|
+| claude/fix-demo-toggle | claude | outreach-ui/src/contexts/DemoModeContext.tsx, outreach-ui/src/components/layout/TopBar.tsx | 2026-03-18 | 2026-03-18 | — |
 
