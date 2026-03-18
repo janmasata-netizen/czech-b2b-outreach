@@ -21,7 +21,11 @@ import { createTransport } from 'nodemailer';
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const PORT = process.env.PORT || 3002;
 const MAX_BODY_SIZE = 1024 * 1024; // 1MB
-const BEARER_TOKEN = process.env.PROXY_AUTH_TOKEN || '';
+const BEARER_TOKEN = process.env.PROXY_AUTH_TOKEN;
+if (!BEARER_TOKEN || BEARER_TOKEN.length < 8) {
+  console.error('FATAL: PROXY_AUTH_TOKEN must be set (min 8 chars). Set it in docker-compose.yml environment.');
+  process.exit(1);
+}
 
 // Supabase DB credential lookup
 const SUPABASE_URL = process.env.SUPABASE_URL || '';
@@ -181,9 +185,9 @@ function getTransporter(credName) {
   return getOrCreateTransporter(credName, creds);
 }
 
-/** Validate email format */
+/** Validate email format (also rejects header injection chars) */
 function isValidEmail(email) {
-  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
+  return /^[^\s@<>\r\n]+@[^\s@<>\r\n]+\.[^\s@<>\r\n]+$/.test(email);
 }
 
 /** Sanitize subject — reject header injection attempts */
@@ -204,6 +208,8 @@ async function sendEmail(payload) {
   const { credential_name, from, to, subject, html, replyTo, messageId, inReplyTo, references } = payload;
 
   if (!isValidEmail(to)) throw new Error('Invalid recipient email');
+  if (from && !isValidEmail(from)) throw new Error('Invalid sender email');
+  if (replyTo && !isValidEmail(replyTo)) throw new Error('Invalid replyTo email');
   const safeSubject = sanitizeSubject(subject);
 
   // 1. Try config.json lookup by credential_name (backward compat)
@@ -259,9 +265,8 @@ async function sendEmail(payload) {
   };
 }
 
-/** Check Bearer token if configured */
+/** Check Bearer token */
 function checkAuth(req) {
-  if (!BEARER_TOKEN) return true;
   const auth = req.headers['authorization'];
   return auth === `Bearer ${BEARER_TOKEN}`;
 }

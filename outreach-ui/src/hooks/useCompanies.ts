@@ -5,6 +5,10 @@ import { PAGE_SIZE } from '@/lib/constants';
 import { useDemoMode } from '@/contexts/DemoModeContext';
 import { DEMO_COMPANIES, getDemoCompanyDetail } from '@/lib/demo-data';
 
+function escapePostgrest(val: string): string {
+  return val.replace(/[%_\\(),."']/g, c => '\\' + c);
+}
+
 export function useCompanies(filters: CompanyFilters = {}, page = 1) {
   const { isDemoMode } = useDemoMode();
   return useQuery({
@@ -34,7 +38,8 @@ export function useCompanies(filters: CompanyFilters = {}, page = 1) {
       if (filters.master_status) q = q.eq('master_status', filters.master_status);
       if (filters.team_id) q = q.eq('team_id', filters.team_id);
       if (filters.search) {
-        q = q.or(`company_name.ilike.%${filters.search}%,ico.ilike.%${filters.search}%`);
+        const safe = escapePostgrest(filters.search);
+        q = q.or(`company_name.ilike.%${safe}%,ico.ilike.%${safe}%`);
       }
       if (tagCompanyIds) {
         q = q.in('id', tagCompanyIds);

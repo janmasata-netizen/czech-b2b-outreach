@@ -3,6 +3,7 @@
  * Usage: cd n8n-workflows && node test-small-firms.mjs
  */
 import http from 'http';
+import { VPS_IP, WEBHOOK_SECRET } from './env.mjs';
 
 const FIRMS = [
   { n: "Národní stavební centrum s.r.o.", i: "46965106" },
@@ -112,8 +113,8 @@ function test(firm) {
     const body = JSON.stringify({ company_name: firm.n, ico: firm.i });
     const timeout = setTimeout(() => resolve({ found: false, error: 'TIMEOUT' }), 90000);
     const req = http.request({
-      hostname: '72.62.53.244', port: 32770, path: '/webhook/wf-domain-discovery-test', method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'Content-Length': Buffer.byteLength(body), 'X-Webhook-Secret': 'reWDUmcjSRPTv3k-0CKdoASO_KY7Z3ux' },
+      hostname: VPS_IP, port: 32770, path: '/webhook/wf-domain-discovery-test', method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Content-Length': Buffer.byteLength(body), 'X-Webhook-Secret': WEBHOOK_SECRET },
     }, (res) => {
       let d = '';
       res.on('data', c => d += c);

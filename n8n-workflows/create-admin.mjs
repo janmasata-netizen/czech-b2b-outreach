@@ -1,5 +1,5 @@
 import https from 'https';
-import { SUPABASE_PROJECT_REF, SUPABASE_SERVICE_ROLE_KEY, SUPABASE_MANAGEMENT_TOKEN } from './env.mjs';
+import { SUPABASE_URL, SUPABASE_PROJECT_REF, SUPABASE_SERVICE_ROLE_KEY, SUPABASE_MANAGEMENT_TOKEN } from './env.mjs';
 
 function request(opts, body) {
   return new Promise((resolve) => {
@@ -52,9 +52,15 @@ function runSQL(label, query) {
 }
 
 // Step 1: Create auth user
+const adminPassword = process.env.ADMIN_PASSWORD || process.argv[2];
+if (!adminPassword) {
+  console.error('Usage: ADMIN_PASSWORD=... node create-admin.mjs  or  node create-admin.mjs <password>');
+  process.exit(1);
+}
+
 const body = JSON.stringify({
   email: 'admin@meisat.com',
-  password: 'Meisat123',
+  password: adminPassword,
   email_confirm: true,
 });
 const res = await request({
@@ -91,7 +97,7 @@ if (res.status === 200 || res.status === 201) {
     userId = existing.id;
     console.log(`✓ Found existing user (id: ${userId})`);
     // Update password
-    const upd = JSON.stringify({ password: 'Meisat123' });
+    const upd = JSON.stringify({ password: adminPassword });
     const updRes = await request({
       hostname: SUPABASE_URL,
       path: `/auth/v1/admin/users/${userId}`,
@@ -103,7 +109,7 @@ if (res.status === 200 || res.status === 201) {
         'Content-Length': Buffer.byteLength(upd),
       },
     }, upd);
-    if (updRes.status < 300) console.log('✓ Password updated to Meisat123');
+    if (updRes.status < 300) console.log('✓ Password updated');
     else console.log('✗ Password update failed:', updRes.body);
   } else {
     console.log('✗ Could not find existing user:', JSON.stringify(list.body).slice(0, 200));
@@ -113,6 +119,9 @@ if (res.status === 200 || res.status === 201) {
   console.log('✗ Failed to create user:', res.status, JSON.stringify(res.body).slice(0, 300));
   process.exit(1);
 }
+
+// Validate userId before SQL interpolation
+if (!/^[0-9a-f-]{36}$/i.test(userId)) throw new Error('Invalid userId format');
 
 // Step 2: Upsert profiles row
 const sql = `
@@ -136,4 +145,4 @@ if (sqlRes !== null) {
   console.log('✗ profiles upsert failed');
 }
 
-console.log('\nDone. Login: admin@meisat.com / Meisat123');
+console.log('\nDone. Login: admin@meisat.com');

@@ -6,7 +6,7 @@
  */
 import http from 'http';
 import https from 'https';
-import { SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY } from './env.mjs';
+import { SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, WEBHOOK_SECRET, VPS_IP } from './env.mjs';
 
 function supabaseGet(path) {
   return new Promise((resolve, reject) => {
@@ -56,11 +56,11 @@ function triggerWF4(leadId) {
   return new Promise((resolve, reject) => {
     const bodyStr = JSON.stringify({ lead_id: leadId });
     const req = http.request({
-      hostname: '72.62.53.244', port: 32770,
+      hostname: VPS_IP, port: 32770,
       path: '/webhook/wf4-email-gen', method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        'X-Webhook-Secret': 'reWDUmcjSRPTv3k-0CKdoASO_KY7Z3ux',
+        'X-Webhook-Secret': WEBHOOK_SECRET,
         'Content-Length': Buffer.byteLength(bodyStr),
       },
     }, (res) => {

@@ -35,7 +35,7 @@
           "parameters": [
             {
               "name": "X-N8N-API-KEY",
-              "value": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiI3NTI1ZDYwYS0zZmU3LTQyZmQtOWIwZi0xMDM4MDZlNmQwOWYiLCJpc3MiOiJuOG4iLCJhdWQiOiJwdWJsaWMtYXBpIiwianRpIjoiN2ViMjJkM2MtNzMyZi00YmJhLTgwMjctMWIzYjI3YTM1MzA1IiwiaWF0IjoxNzcxNTMyNDI1fQ.I__zvKEPw3p-TKR0GZ7I9n0Kd6OIYwElpprF7xovxrM"
+              "value": "N8N_API_KEY_PLACEHOLDER"
             }
           ]
         },
@@ -56,7 +56,7 @@
           "parameters": [
             {
               "name": "X-N8N-API-KEY",
-              "value": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiI3NTI1ZDYwYS0zZmU3LTQyZmQtOWIwZi0xMDM4MDZlNmQwOWYiLCJpc3MiOiJuOG4iLCJhdWQiOiJwdWJsaWMtYXBpIiwianRpIjoiN2ViMjJkM2MtNzMyZi00YmJhLTgwMjctMWIzYjI3YTM1MzA1IiwiaWF0IjoxNzcxNTMyNDI1fQ.I__zvKEPw3p-TKR0GZ7I9n0Kd6OIYwElpprF7xovxrM"
+              "value": "N8N_API_KEY_PLACEHOLDER"
             }
           ]
         },

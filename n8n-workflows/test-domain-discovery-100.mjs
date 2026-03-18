@@ -3,11 +3,11 @@
  * Usage: cd n8n-workflows && node test-domain-discovery-100.mjs
  */
 import http from 'http';
+import { VPS_IP, WEBHOOK_SECRET } from './env.mjs';
 
-const WEBHOOK_HOST = '72.62.53.244';
+const WEBHOOK_HOST = VPS_IP;
 const WEBHOOK_PORT = 32770;
 const WEBHOOK_PATH = '/webhook/wf-domain-discovery-test';
-const WEBHOOK_SECRET = 'reWDUmcjSRPTv3k-0CKdoASO_KY7Z3ux';
 
 const FIRMS = [
   { company_name: "Alza.cz a.s.", ico: "27082440", expected: "alza.cz" },

@@ -18,7 +18,11 @@ import { simpleParser } from 'mailparser';
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const PORT = process.env.PORT || 3001;
 const MAX_BODY_SIZE = 1024 * 1024; // 1MB
-const BEARER_TOKEN = process.env.PROXY_AUTH_TOKEN || '';
+const BEARER_TOKEN = process.env.PROXY_AUTH_TOKEN;
+if (!BEARER_TOKEN || BEARER_TOKEN.length < 8) {
+  console.error('FATAL: PROXY_AUTH_TOKEN must be set (min 8 chars). Set it in docker-compose.yml environment.');
+  process.exit(1);
+}
 
 // Simple in-memory rate limiter (per IP, sliding window)
 const RATE_LIMIT = parseInt(process.env.RATE_LIMIT || '60', 10); // requests per minute
@@ -189,9 +193,8 @@ function flattenHeaders(headers) {
   return obj;
 }
 
-/** Check Bearer token if configured */
+/** Check Bearer token */
 function checkAuth(req) {
-  if (!BEARER_TOKEN) return true;
   const auth = req.headers['authorization'];
   return auth === `Bearer ${BEARER_TOKEN}`;
 }
