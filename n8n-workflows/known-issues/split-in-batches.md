@@ -16,11 +16,13 @@
 - **Example:** WF8 Loop Emails changed from v3 to v1 with batchSize=1, options.reset=true.
 ---
 
-## SplitInBatches v1 Loop-Back With reset:true Causes Extra Iteration
-- **Date:** 2026-02-27
+## SplitInBatches v1 Loop-Back With reset:true Drops Remaining Items
+- **Date:** 2026-02-27 (updated 2026-03-18)
 - **Node/Service:** n8n-nodes-base.splitInBatches v1
-- **Error:** After processing all items, the loop-back connection feeds the last node's output back into SplitInBatches. With `reset: true`, SplitInBatches treats this as new input and outputs it on Branch 0, causing the downstream chain to fail on invalid data.
-- **Root Cause:** `reset: true` clears the internal batch counter when new data arrives. The loop-back sends processed data (e.g., Supabase PATCH response) which gets treated as a new batch item.
-- **Solution:** Add an IF guard node immediately after SplitInBatches output[0] that validates the item has the expected fields (e.g., `wave_lead_id` is not empty). False branch goes nowhere (end).
-- **Example:** WF8: "IF Valid Email Item" node added between Loop Emails[0] and Check Daily Limit. Checks `$json.wave_lead_id != ""`.
+- **Error:** When SplitInBatches v1 (batchSize=1, reset=true) receives N items, it processes only the FIRST item. On loop-back, `reset: true` clears the internal state, treating the loop-back data as a fresh batch of 1 invalid item. The remaining N-1 original items are permanently lost.
+- **Root Cause:** `reset: true` clears the internal batch counter when ANY new data arrives — including loop-back data. After batch 1 is processed, the loop-back sends the last node's output (e.g., `{}` from a PATCH response). SplitInBatches sees this as a new single-item batch, outputs it, and the IF guard rejects it (no `wave_lead_id`). The false branch has no connection → loop ends. The remaining N-1 items from the original claim are never processed.
+- **Critical consequence (WF8):** `claim_queued_emails` atomically sets claimed items to `status='sending'`. Only 1 gets processed → sent. The remaining N-1 items are stuck in `status='sending'` permanently — never re-claimed by future executions.
+- **Solution (applied 2026-03-18):** Set `p_limit: 1` in `claim_queued_emails` call so WF8 only claims 1 email per execution cycle. Combined with the IF guard (catches the spurious loop-back), this ensures exactly 1 email is reliably processed per minute. Throughput (1440/day) far exceeds daily send limit (130/day).
+- **Alternative (not yet applied):** Extract the per-email processing into a sub-workflow and use Execute Workflow in a loop. This would allow batch processing without SplitInBatches state issues.
+- **Example:** WF8: `claim_queued_emails(p_limit: 1)` + "IF Valid Email Item" guard.
 ---
