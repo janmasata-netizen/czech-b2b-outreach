@@ -12,6 +12,7 @@ export default {
     users: 'Users',
     apiKeys: 'API Keys',
     emailFinder: 'Email Finder',
+    outreachAccounts: 'Sending Accounts',
     system: 'System',
     settings: 'Settings',
   },
