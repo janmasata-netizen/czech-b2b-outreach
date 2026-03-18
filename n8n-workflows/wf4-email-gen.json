@@ -350,11 +350,27 @@
         "workflowId": "KdaIVaNnqj8eDx8D",
         "waitForSubWorkflow": true
       },
+      "parameters": {
+        "mode": "runOnceForEachItem",
+        "jsCode": "const prev = $('Check Has Domain').first().json;\nreturn { json: { lead_id: prev.lead_id || '', company_id: prev.company_id || '', company_name: prev.company_name || '', ico: prev.ico || '' } };"
+      },
+      "id": "wf04-prep-discovery",
+      "name": "Prepare Discovery Input",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1320, 540]
+    },
+    {
+      "parameters": {
+        "source": "database",
+        "workflowId": "KdaIVaNnqj8eDx8D",
+        "waitForSubWorkflow": true
+      },
       "id": "wf04-exec-discovery",
       "name": "Execute Domain Discovery",
       "type": "n8n-nodes-base.executeWorkflow",
       "typeVersion": 1,
-      "position": [1440, 540]
+      "position": [1560, 540]
     },
     {
       "parameters": {
@@ -776,6 +792,9 @@
       "main": [[{ "node": "Log Failed", "type": "main", "index": 0 }]]
     },
     "Log Discovery Started": {
+      "main": [[{ "node": "Prepare Discovery Input", "type": "main", "index": 0 }]]
+    },
+    "Prepare Discovery Input": {
       "main": [[{ "node": "Execute Domain Discovery", "type": "main", "index": 0 }]]
     },
     "Execute Domain Discovery": {
