@@ -222,7 +222,12 @@ export interface Salesman {
   team_id: string;
   name: string;
   email: string;
-  imap_credential_name: string;
+  imap_credential_name?: string;
+  imap_host?: string;
+  imap_port?: number;
+  imap_secure?: boolean;
+  imap_user?: string;
+  imap_password?: string;
   is_active?: boolean;
   created_at?: string;
   team?: { name: string };

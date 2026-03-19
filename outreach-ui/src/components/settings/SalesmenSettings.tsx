@@ -25,10 +25,15 @@ export default function SalesmenSettings() {
   async function handleSave() {
     if (!editing?.name?.trim()) { toast.error('Zadejte jméno obchodníka', { duration: 8000 }); return; }
     if (!editing?.email?.trim()) { toast.error('Zadejte e-mail obchodníka', { duration: 8000 }); return; }
-    if (!editing?.imap_credential_name?.trim()) { toast.error('Zadejte název IMAP credentialu v n8n', { duration: 8000 }); return; }
+    if (!editing?.imap_host?.trim()) { toast.error('Zadejte IMAP server', { duration: 8000 }); return; }
+    if (!editing?.imap_user?.trim()) { toast.error('Zadejte IMAP uživatele', { duration: 8000 }); return; }
     if (!editing?.team_id) { toast.error('Vyberte tým', { duration: 8000 }); return; }
     try {
-      await upsert.mutateAsync(editing);
+      const toSave = { ...editing };
+      if (toSave.id && !toSave.imap_password) {
+        delete toSave.imap_password; // don't overwrite with empty
+      }
+      await upsert.mutateAsync(toSave);
       toast.success('Obchodník uložen');
       setEditing(null);
     } catch (err: unknown) {
@@ -64,7 +69,7 @@ export default function SalesmenSettings() {
           size="sm"
           variant="primary"
           disabled={activeSalesmen.length >= 5}
-          onClick={() => setEditing({ name: '', email: '', imap_credential_name: '', team_id: teams?.[0]?.id ?? '', is_active: true })}
+          onClick={() => setEditing({ name: '', email: '', imap_host: '', imap_port: 993, imap_secure: true, imap_user: '', imap_password: '', team_id: teams?.[0]?.id ?? '', is_active: true })}
         >
           + Nový obchodník
         </GlassButton>
@@ -88,7 +93,7 @@ export default function SalesmenSettings() {
                   {s.email}
                 </div>
                 <div style={{ fontSize: 11, color: 'var(--text-dim)', marginTop: 2 }}>
-                  n8n credential: <span style={{ fontFamily: 'JetBrains Mono, monospace' }}>{s.imap_credential_name}</span>
+                  IMAP: <span style={{ fontFamily: 'JetBrains Mono, monospace' }}>{s.imap_host ? `${s.imap_user}@${s.imap_host}:${s.imap_port ?? 993}` : s.imap_credential_name ?? '—'}</span>
                 </div>
               </div>
               <div style={{ display: 'flex', gap: 6 }}>
@@ -142,20 +147,49 @@ export default function SalesmenSettings() {
               onChange={e => setEditing(p => ({ ...p!, email: e.target.value }))}
               required
             />
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 5 }}>
-              <label style={LABEL}>Název IMAP credentialu v n8n *</label>
-              <select
-                className="glass-input"
-                value={editing.imap_credential_name ?? ''}
-                onChange={e => setEditing(p => ({ ...p!, imap_credential_name: e.target.value }))}
-              >
-                <option value="">— Vyberte slot —</option>
-                {['Salesman IMAP 1', 'Salesman IMAP 2', 'Salesman IMAP 3', 'Salesman IMAP 4', 'Salesman IMAP 5'].map(slot => (
-                  <option key={slot} value={slot}>{slot}</option>
-                ))}
-              </select>
-              <p style={HINT}>Musí odpovídat názvu IMAP credentialu vytvořeného v n8n.</p>
+            <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--text)', marginTop: 4, borderTop: '1px solid var(--border)', paddingTop: 14 }}>
+              IMAP přihlášení (pro detekci odpovědí)
             </div>
+            <GlassInput
+              label="IMAP server"
+              placeholder="imap.gmail.com"
+              value={editing.imap_host ?? ''}
+              onChange={e => setEditing(p => ({ ...p!, imap_host: e.target.value }))}
+            />
+            <div style={{ display: 'flex', gap: 12 }}>
+              <div style={{ flex: 1 }}>
+                <GlassInput
+                  label="Port"
+                  type="number"
+                  placeholder="993"
+                  value={editing.imap_port ?? 993}
+                  onChange={e => setEditing(p => ({ ...p!, imap_port: parseInt(e.target.value) || 993 }))}
+                />
+              </div>
+              <div style={{ display: 'flex', alignItems: 'end', gap: 8, paddingBottom: 4 }}>
+                <input
+                  type="checkbox"
+                  id="imap_secure"
+                  checked={editing.imap_secure !== false}
+                  onChange={e => setEditing(p => ({ ...p!, imap_secure: e.target.checked }))}
+                  style={{ width: 16, height: 16, accentColor: 'var(--green)' }}
+                />
+                <label htmlFor="imap_secure" style={{ fontSize: 13, color: 'var(--text)', cursor: 'pointer' }}>SSL/TLS</label>
+              </div>
+            </div>
+            <GlassInput
+              label="IMAP uživatel"
+              placeholder="jan.novak@firma.cz"
+              value={editing.imap_user ?? ''}
+              onChange={e => setEditing(p => ({ ...p!, imap_user: e.target.value }))}
+            />
+            <GlassInput
+              label="IMAP heslo"
+              type="password"
+              placeholder={editing.id ? '(beze změny)' : ''}
+              value={editing.imap_password ?? ''}
+              onChange={e => setEditing(p => ({ ...p!, imap_password: e.target.value }))}
+            />
             {teams && teams.length > 1 && (
               <div style={{ display: 'flex', flexDirection: 'column', gap: 5 }}>
                 <label style={LABEL}>Tým</label>
