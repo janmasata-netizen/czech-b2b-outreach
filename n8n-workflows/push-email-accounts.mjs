@@ -42,10 +42,14 @@ function n8nAPI(method, apiPath, body) {
 }
 
 function stripForPush(wf) {
-  const ALLOWED = new Set(['name', 'nodes', 'connections', 'settings', 'meta', 'description']);
+  const ALLOWED = new Set(['name', 'nodes', 'connections', 'settings']);
   const copy = {};
   for (const [k, v] of Object.entries(wf)) {
-    if (ALLOWED.has(k)) copy[k] = v;
+    if (ALLOWED.has(k) && v != null) copy[k] = v;
+  }
+  // Strip settings keys the n8n API may not accept
+  if (copy.settings) {
+    delete copy.settings.availableInMCP;
   }
   return copy;
 }
