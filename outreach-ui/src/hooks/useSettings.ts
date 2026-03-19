@@ -213,6 +213,7 @@ export function useUpsertEmailAccount() {
     mutationFn: async (account: Partial<EmailAccount> & { id?: string }) => {
       if (isDemoMode) return;
       // Strip computed/joined fields before write
+      // eslint-disable-next-line @typescript-eslint/no-unused-vars
       const { team, ...rest } = account;
       if (rest.id) {
         const { id, ...updates } = rest;
