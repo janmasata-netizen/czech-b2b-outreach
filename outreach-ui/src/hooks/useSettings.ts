@@ -88,12 +88,14 @@ export function useUpsertSalesman() {
   return useMutation({
     mutationFn: async (salesman: Partial<Salesman> & { id?: string }) => {
       if (isDemoMode) return;
-      if (salesman.id) {
-        const { id, ...updates } = salesman;
-        const { error } = await supabase.from('salesmen').update(updates).eq('id', id!);
+      // Strip join/computed fields before writing to DB
+      // eslint-disable-next-line @typescript-eslint/no-unused-vars
+      const { id, team, created_at, ...fields } = salesman as Salesman & { id?: string };
+      if (id) {
+        const { error } = await supabase.from('salesmen').update(fields).eq('id', id);
         if (error) throw error;
       } else {
-        const { error } = await supabase.from('salesmen').insert(salesman);
+        const { error } = await supabase.from('salesmen').insert(fields);
         if (error) throw error;
       }
     },
