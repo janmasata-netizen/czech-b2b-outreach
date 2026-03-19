@@ -6,6 +6,7 @@ import GlassInput from '@/components/glass/GlassInput';
 import { useTeams, useCreateLeadWithEmail } from '@/hooks/useLeads';
 import { toast } from 'sonner';
 import { checkDuplicates, extractDomain, formatMatchMessage } from '@/lib/dedup';
+import { isLikelyCompanyName } from '@/lib/csv-utils';
 import { n8nWebhookUrl, n8nHeaders } from '@/lib/n8n';
 import { LEAD_LANGUAGE_MAP } from '@/lib/constants';
 
@@ -70,6 +71,9 @@ export default function AddLeadDialog({ open, onClose }: AddLeadDialogProps) {
     if (!form.contact_name.trim()) {
       toast.error(t('addLeadDialog.enterContactName'));
       return;
+    }
+    if (isLikelyCompanyName(form.contact_name.trim())) {
+      toast.warning(t('addLeadDialog.companyNameWarning'));
     }
     const hasEmail = !!form.email.trim();
     const canEnrich = enrichEmail && !hasEmail && (form.website.trim() || form.ico.trim());

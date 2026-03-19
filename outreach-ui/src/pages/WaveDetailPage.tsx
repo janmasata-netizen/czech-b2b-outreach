@@ -331,7 +331,7 @@ export default function WaveDetailPage() {
   const canLaunch = wave.status === 'draft'
     && waveLeads.length > 0
     && availableSeqs.length > 0
-    && !!wave.email_address
+    && !!wave.email_account_id
     && !!startDate;
 
   // Gap button options and defaults

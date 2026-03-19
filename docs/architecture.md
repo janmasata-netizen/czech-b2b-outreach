@@ -495,6 +495,7 @@ Kompletni seznam vsech n8n workflow s identifikatory:
 | `mark_jednatels_email_status()` | Oznaceni stavu emailu jednatelu (compat) |
 | `parse_full_name()` | Parsovani celeho jmena na casti |
 | `generate_salutation()` | Generovani oslovovani (cesky vokativ) |
+| `is_likely_company_name()` | Detekce nazvu firem v poli `full_name` (ceske pravni formy, ICO). IMMUTABLE. |
 | `backfill_salutations()` | Hromadne doplneni — iteruje contacts + jednatels |
 | `check_and_mark_reply_processed()` | Oznaceni odpovedi jako zpracovane (deduplikace) |
 | `auto_complete_waves()` | Automaticke dokonceni vln po odeslani vsech emailu |
@@ -504,7 +505,7 @@ Kompletni seznam vsech n8n workflow s identifikatory:
 
 | Trigger | Tabulka | Popis |
 |---|---|---|
-| `trg_auto_salutation` | `jednatels`, `contacts` | Pri INSERT/UPDATE vzdy re-derivuje `first_name`/`last_name` z `full_name` a regeneruje `salutation` (cesky vokativ). `full_name` je jediny zdroj pravdy. Vsechna muzska jmena se sklonovani bez vyjimek. |
+| `trg_auto_salutation` | `jednatels`, `contacts` | Pri INSERT/UPDATE vzdy re-derivuje `first_name`/`last_name` z `full_name` a regeneruje `salutation` (cesky vokativ). `full_name` je jediny zdroj pravdy. Vsechna muzska jmena se sklonovani bez vyjimek. **Pokud `is_likely_company_name(full_name)` vrati true, nastavi first_name/last_name/salutation na NULL** (nazvy firem nedostavaji oslovovani). |
 | `trg_refresh_salutations_on_wave_add` | `wave_leads` | Po INSERT touchne `contacts.updated_at` (pres leads.company_id) a `jednatels.updated_at`, cimz spusti `trg_auto_salutation` pro cerstve oslovovani. |
 
 ### Vokativni pravidla (ceska jmena)

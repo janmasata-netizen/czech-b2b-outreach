@@ -472,6 +472,7 @@ node migrate-team-lockout.mjs
 | `migrate-team-lockout.mjs` | Pridava sloupec `retarget_lockout_days` (integer) do tabulky `teams` |
 | `migrate-auto-complete-waves.mjs` | Funkce `auto_complete_waves()` pro automaticke dokonceni vln |
 | `migrate-vocative.mjs` | Cesky vokativ — trigger `trg_auto_salutation` na `jednatels` a `contacts` |
+| `migrate-company-name-detection.mjs` | Detekce nazvu firem v poli `full_name` — funkce `is_likely_company_name()`, update triggeru, backfill |
 | `migrate-rls.mjs` | Row Level Security politiky pro vsechny tabulky |
 
 ### Krok 5.3 — Seedovani dat

@@ -8,7 +8,7 @@ import GlassInput from '@/components/glass/GlassInput';
 import GlassProgress from '@/components/glass/GlassProgress';
 import { useTeams } from '@/hooks/useLeads';
 import { supabase } from '@/lib/supabase';
-import { parseCsv, autoDetect } from '@/lib/csv-utils';
+import { parseCsv, autoDetect, isLikelyCompanyName } from '@/lib/csv-utils';
 import { toast } from 'sonner';
 import { n8nWebhookUrl, n8nHeaders } from '@/lib/n8n';
 import { checkDuplicates, extractDomain, type DedupResult, type DuplicateMatch } from '@/lib/dedup';
@@ -541,6 +541,27 @@ export default function GoogleSheetImportDialog({ open, onClose }: GoogleSheetIm
         return (
           <div style={{ fontSize: 12, color: 'var(--cyan)', padding: '8px 12px', background: 'rgba(34,211,238,0.06)', border: '1px solid rgba(34,211,238,0.2)', borderRadius: 6 }}>
             Zbývající sloupce budou uloženy jako vlastní pole: <strong>{extra.join(', ')}</strong>
+          </div>
+        );
+      })()}
+
+      {/* Company name in contact_name warning */}
+      {(() => {
+        if (!mapping.contact_name) return null;
+        const companyRows = rows.filter(row => isLikelyCompanyName(getRowValue(row, 'contact_name')));
+        if (companyRows.length === 0) return null;
+        const examples = companyRows.slice(0, 5).map(row => getRowValue(row, 'contact_name'));
+        return (
+          <div style={{ fontSize: 12, color: '#fb923c', padding: '8px 12px', background: 'rgba(251,146,60,0.08)', border: '1px solid rgba(251,146,60,0.25)', borderRadius: 6 }}>
+            <div style={{ fontWeight: 500, marginBottom: 4 }}>
+              {t('csvImport.companyNameInContact', { count: companyRows.length })}
+            </div>
+            <div style={{ color: 'var(--text-dim)', marginBottom: 4 }}>
+              {t('csvImport.companyNameInContactNote')}
+            </div>
+            <div style={{ color: 'var(--text-dim)' }}>
+              {t('csvImport.companyNameInContactExamples')} {examples.join(', ')}
+            </div>
           </div>
         );
       })()}

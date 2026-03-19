@@ -284,6 +284,7 @@ export default {
     icoMustBe8: 'Company ID must be exactly 8 digits',
     createTeamFirst: 'Create a team in settings first',
     dedupFailed: 'Duplicate check failed — please try again',
+    companyNameWarning: 'Name looks like a company name — lead will not have a personalized salutation.',
     duplicateExists: 'A lead with this Company ID or domain already exists',
     leadAddedEnriching: 'Lead added — email search running in background',
     leadAddedReady: 'Lead added and ready to send',
@@ -362,6 +363,9 @@ export default {
     pipelineRunning: 'Pipeline running in background — emails will be generated and verified automatically.',
     failedToRead: 'Failed to read file',
     dedupFailed: 'Duplicate check failed — please try again',
+    companyNameInContact: '{{count}} rows have a company name in the Contact Name field',
+    companyNameInContactNote: 'These contacts will not receive a personalized salutation.',
+    companyNameInContactExamples: 'Examples:',
     domain: 'Domain',
     matchFields: {
       ico: 'Company ID',

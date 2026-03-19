@@ -300,6 +300,7 @@ export default {
     icoMustBe8: 'IČO musí mít přesně 8 číslic',
     createTeamFirst: 'Nejprve vytvořte tým v nastavení',
     dedupFailed: 'Kontrola duplicit selhala — zkuste to znovu',
+    companyNameWarning: 'Jméno vypadá jako název firmy — lead nebude mít personalizované oslovení.',
     duplicateExists: 'Lead s tímto IČO nebo doménou již existuje',
     leadAddedEnriching: 'Lead přidán — vyhledávání e-mailu běží na pozadí',
     leadAddedReady: 'Lead přidán a připraven k odeslání',
@@ -378,6 +379,9 @@ export default {
     pipelineRunning: 'Pipeline běží na pozadí — e-maily budou generovány a ověřovány automaticky.',
     failedToRead: 'Nepodařilo se přečíst soubor',
     dedupFailed: 'Kontrola duplicit selhala — zkuste to znovu',
+    companyNameInContact: '{{count}} řádků má název firmy v poli Jméno kontaktu',
+    companyNameInContactNote: 'Tyto kontakty neobdrží personalizované oslovení.',
+    companyNameInContactExamples: 'Příklady:',
     domain: 'Doména',
     matchFields: {
       ico: 'IČO',

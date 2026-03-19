@@ -376,6 +376,8 @@ System nabizi tri zpusoby importu leadu.
 
 > **TIP:** Kontrola duplicit porovnava ICO, domenu a nazev firmy. Duplicity se automaticky preskoci.
 
+> **UPOZORNENI:** Pokud sloupec *Jmeno kontaktu* obsahuje nazvy firem (napr. "Stavba Plus s.r.o."), system zobrazi oranzove varovani s poctem a priklady. Import pokracuje normalne, ale tyto kontakty neobdrzi personalizovane oslovovani (salutation bude NULL).
+
 ### 6.2 Import z Google Sheetu
 
 **Cil:** Importovat leady primo z Google tabulky.
