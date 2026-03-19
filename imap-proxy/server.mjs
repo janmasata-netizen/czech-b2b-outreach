@@ -6,6 +6,8 @@
  *
  * POST /check-inbox  { "credential_name": "Salesman IMAP 1" }
  * GET  /health       → { "status": "ok" }
+ *
+ * DB credential lookup: email_accounts table (by email_address)
  */
 import http from 'http';
 import https from 'https';
@@ -46,19 +48,19 @@ setInterval(() => {
   }
 }, 300_000);
 
-// DB credential cache keyed by salesman email (5-minute TTL)
+// DB credential cache keyed by account email (5-minute TTL)
 const dbCredCache = new Map();
 const DB_CACHE_TTL = 5 * 60 * 1000;
 
-async function getDbCredentials(salesmanEmail) {
-  const cached = dbCredCache.get(salesmanEmail);
+async function getDbCredentials(accountEmail) {
+  const cached = dbCredCache.get(accountEmail);
   if (cached && Date.now() - cached.fetchedAt < DB_CACHE_TTL) {
     return cached.creds;
   }
   if (!SUPABASE_URL || !SUPABASE_SERVICE_KEY) return null;
 
   const urlObj = new URL(SUPABASE_URL);
-  const path = `/rest/v1/salesmen?email=eq.${encodeURIComponent(salesmanEmail)}&is_active=eq.true&imap_host=not.is.null&select=imap_host,imap_port,imap_secure,imap_user,imap_password&limit=1`;
+  const path = `/rest/v1/email_accounts?email_address=eq.${encodeURIComponent(accountEmail)}&is_active=eq.true&select=imap_host,imap_port,imap_secure,imap_user,imap_password&limit=1`;
 
   const creds = await new Promise((resolve) => {
     const options = {
@@ -93,18 +95,18 @@ async function getDbCredentials(salesmanEmail) {
       });
     });
     req.on('error', (err) => {
-      console.warn('[imap-proxy] Supabase DB lookup failed for', salesmanEmail, '—', err.message);
+      console.warn('[imap-proxy] Supabase DB lookup failed for', accountEmail, '—', err.message);
       resolve(null);
     });
     req.setTimeout(5000, () => {
-      console.warn('[imap-proxy] Supabase DB lookup timed out for', salesmanEmail);
+      console.warn('[imap-proxy] Supabase DB lookup timed out for', accountEmail);
       req.destroy();
       resolve(null);
     });
     req.end();
   });
 
-  dbCredCache.set(salesmanEmail, { creds, fetchedAt: Date.now() });
+  dbCredCache.set(accountEmail, { creds, fetchedAt: Date.now() });
   return creds;
 }
 
@@ -325,20 +327,20 @@ async function handleRequest(req, res) {
     }
 
     const credName = payload.credential_name;
-    const salesmanEmail = payload.salesman_email;
+    const accountEmail = payload.account_email || payload.salesman_email;
 
-    if (!credName && !salesmanEmail) {
+    if (!credName && !accountEmail) {
       res.writeHead(400, { 'Content-Type': 'application/json' });
-      res.end(JSON.stringify({ success: false, error: 'Missing credential_name or salesman_email', emails: [] }));
+      res.end(JSON.stringify({ success: false, error: 'Missing credential_name or account_email', emails: [] }));
       return;
     }
 
     // 1. Try config.json lookup (backward compat)
     let creds = credName ? config.credentials?.[credName] : null;
 
-    // 2. Fallback: DB lookup by salesman email
-    if (!creds && salesmanEmail) {
-      creds = await getDbCredentials(salesmanEmail);
+    // 2. Fallback: DB lookup by account email
+    if (!creds && accountEmail) {
+      creds = await getDbCredentials(accountEmail);
     }
 
     if (!creds) {

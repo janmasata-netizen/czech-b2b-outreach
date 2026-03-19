@@ -21,7 +21,7 @@
     {
       "parameters": {
         "method": "GET",
-        "url": "https://cycapkswtucbucyegdsn.supabase.co/rest/v1/salesmen",
+        "url": "https://cycapkswtucbucyegdsn.supabase.co/rest/v1/email_accounts",
         "sendHeaders": true,
         "headerParameters": {
           "parameters": [
@@ -32,7 +32,7 @@
         "sendQuery": true,
         "queryParameters": {
           "parameters": [
-            { "name": "select", "value": "id,name,email,imap_credential_name,team_id" },
+            { "name": "select", "value": "id,name,email_address,team_id" },
             { "name": "is_active", "value": "eq.true" }
           ]
         },
@@ -42,7 +42,7 @@
         }
       },
       "id": "wf09-0000-0000-0000-000000000002",
-      "name": "Get Active Salesmen",
+      "name": "Get Active Email Accounts",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
       "position": [240, 300]
@@ -53,7 +53,7 @@
         "jsCode": "const items = $input.all().map(i => i.json);\nif (!items.length || (!items[0].id && !items[0].name)) return [];\nreturn items.map(s => ({ json: s }));"
       },
       "id": "wf09-0000-0000-0000-000000000003",
-      "name": "Flatten Salesmen",
+      "name": "Flatten Email Accounts",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [480, 300]
@@ -66,7 +66,7 @@
         }
       },
       "id": "wf09-0000-0000-0000-000000000004",
-      "name": "Loop Salesmen",
+      "name": "Loop Email Accounts",
       "type": "n8n-nodes-base.splitInBatches",
       "typeVersion": 1,
       "position": [720, 300]
@@ -77,7 +77,7 @@
         "workflowId": "WjbYMqMXDxkjIssL"
       },
       "id": "wf09-0000-0000-0000-000000000005",
-      "name": "Check Replies For Salesman",
+      "name": "Check Replies For Account",
       "type": "n8n-nodes-base.executeWorkflow",
       "typeVersion": 1,
       "position": [960, 300]
@@ -85,22 +85,22 @@
   ],
   "connections": {
     "Every 1 Minute": {
-      "main": [[{ "node": "Get Active Salesmen", "type": "main", "index": 0 }]]
+      "main": [[{ "node": "Get Active Email Accounts", "type": "main", "index": 0 }]]
     },
-    "Get Active Salesmen": {
-      "main": [[{ "node": "Flatten Salesmen", "type": "main", "index": 0 }]]
+    "Get Active Email Accounts": {
+      "main": [[{ "node": "Flatten Email Accounts", "type": "main", "index": 0 }]]
     },
-    "Flatten Salesmen": {
-      "main": [[{ "node": "Loop Salesmen", "type": "main", "index": 0 }]]
+    "Flatten Email Accounts": {
+      "main": [[{ "node": "Loop Email Accounts", "type": "main", "index": 0 }]]
     },
-    "Loop Salesmen": {
+    "Loop Email Accounts": {
       "main": [
-        [{ "node": "Check Replies For Salesman", "type": "main", "index": 0 }],
+        [{ "node": "Check Replies For Account", "type": "main", "index": 0 }],
         []
       ]
     },
-    "Check Replies For Salesman": {
-      "main": [[{ "node": "Loop Salesmen", "type": "main", "index": 0 }]]
+    "Check Replies For Account": {
+      "main": [[{ "node": "Loop Email Accounts", "type": "main", "index": 0 }]]
     }
   },
   "active": false,

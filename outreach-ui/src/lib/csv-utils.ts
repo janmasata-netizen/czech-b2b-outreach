@@ -6,8 +6,20 @@ export const ALIASES: Record<string, string[]> = {
   email:        ['email', 'e-mail', 'mail', 'email_address'],
 };
 
-export function parseCsv(text: string): string[][] {
+/**
+ * Auto-detect CSV delimiter by counting `,` vs `;` in the first line.
+ * Czech Excel exports typically use `;`.
+ */
+export function detectDelimiter(text: string): string {
+  const firstLine = text.split(/\r?\n/)[0] || '';
+  const commas = (firstLine.match(/,/g) || []).length;
+  const semicolons = (firstLine.match(/;/g) || []).length;
+  return semicolons > commas ? ';' : ',';
+}
+
+export function parseCsv(text: string, delimiter?: string): string[][] {
   const normalized = text.replace(/\r\n/g, '\n').replace(/\r/g, '\n');
+  const delim = delimiter ?? detectDelimiter(text);
   const rows: string[][] = [];
   let cur = '';
   let inQuote = false;
@@ -22,7 +34,7 @@ export function parseCsv(text: string): string[][] {
       } else {
         inQuote = !inQuote;
       }
-    } else if (ch === ',' && !inQuote) {
+    } else if (ch === delim && !inQuote) {
       row.push(cur.trim());
       cur = '';
     } else if (ch === '\n' && !inQuote) {

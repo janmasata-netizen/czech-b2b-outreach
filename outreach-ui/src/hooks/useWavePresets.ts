@@ -12,7 +12,7 @@ export function useWavePresets(teamId?: string) {
       if (isDemoMode) return DEMO_WAVE_PRESETS;
       let q = supabase
         .from('wave_presets')
-        .select('*, template_set:template_sets(id, name), salesman:salesmen(id, name, email)')
+        .select('*, template_set:template_sets(id, name), email_account:email_accounts(id, name, email_address)')
         .order('name');
       if (teamId) q = q.eq('team_id', teamId);
       const { data, error } = await q;
@@ -26,7 +26,7 @@ export function useCreateWavePreset() {
   const qc = useQueryClient();
   const { isDemoMode } = useDemoMode();
   return useMutation({
-    mutationFn: async (preset: { name: string; team_id: string; template_set_id?: string | null; from_email?: string | null; salesman_id?: string | null }) => {
+    mutationFn: async (preset: { name: string; team_id: string; template_set_id?: string | null; email_account_id?: string | null }) => {
       if (isDemoMode) return {} as Record<string, unknown>;
       const { data, error } = await supabase
         .from('wave_presets')
@@ -34,8 +34,7 @@ export function useCreateWavePreset() {
           name: preset.name,
           team_id: preset.team_id,
           template_set_id: preset.template_set_id || null,
-          from_email: preset.from_email || null,
-          salesman_id: preset.salesman_id || null,
+          email_account_id: preset.email_account_id || null,
         })
         .select()
         .single();

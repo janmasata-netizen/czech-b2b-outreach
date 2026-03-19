@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { Link, useLocation, useSearchParams } from 'react-router-dom';
 import {
   LayoutDashboard, Users, Send, Search, Database, RefreshCcw,
-  Building2, UserCheck, UserCog, Mail,
+  Building2, UserCog, Mail,
   Key, FileText, X, Activity,
   LayoutList, Zap, Archive, AlertTriangle, CircleCheck, Plus, Ban, Upload,
   Hash, UserSearch, MailCheck, Radar, Globe,
@@ -42,10 +42,9 @@ export default function Sidebar() {
   ];
 
   const PEOPLE_ITEMS = [
-    { to: '/nastaveni/tymy',       label: t('nav.teams'),             Icon: Building2, exact: true },
-    { to: '/nastaveni/obchodnici', label: t('nav.salesmen'),          Icon: UserCheck, exact: true },
-    { to: '/nastaveni/ucty',       label: t('nav.outreachAccounts'), Icon: Mail,      exact: true },
-    { to: '/nastaveni/uzivatele',  label: t('nav.users'),             Icon: UserCog,   exact: true },
+    { to: '/nastaveni/tymy',       label: t('nav.teams'),          Icon: Building2, exact: true },
+    { to: '/nastaveni/ucty',       label: t('nav.emailAccounts'), Icon: Mail,      exact: true },
+    { to: '/nastaveni/uzivatele',  label: t('nav.users'),          Icon: UserCog,   exact: true },
   ];
 
   const CONFIG_ITEMS = [

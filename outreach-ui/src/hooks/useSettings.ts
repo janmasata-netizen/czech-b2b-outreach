@@ -1,8 +1,8 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/lib/supabase';
-import type { Team, ConfigEntry, Salesman, TemplateVariable, OutreachAccount } from '@/types/database';
+import type { Team, ConfigEntry, TemplateVariable, EmailAccount } from '@/types/database';
 import { useDemoMode } from '@/contexts/DemoModeContext';
-import { DEMO_TEAMS, DEMO_SALESMEN, DEMO_TEMPLATE_SETS } from '@/lib/demo-data';
+import { DEMO_TEAMS, DEMO_EMAIL_ACCOUNTS, DEMO_TEMPLATE_SETS } from '@/lib/demo-data';
 
 export function useTeamsSettings() {
   const { isDemoMode } = useDemoMode();
@@ -62,57 +62,6 @@ export function useUpsertConfig() {
       if (error) throw error;
     },
     onSuccess: () => { if (!isDemoMode) qc.invalidateQueries({ queryKey: ['settings', 'config'] }); },
-  });
-}
-
-export function useSalesmen(teamId?: string) {
-  const { isDemoMode } = useDemoMode();
-  return useQuery<Salesman[]>({
-    queryKey: ['settings', 'salesmen', teamId ?? 'all'],
-    queryFn: async () => {
-      if (isDemoMode) return DEMO_SALESMEN;
-      let q = supabase.from('salesmen').select('*, team:teams(name)').order('name');
-      if (teamId) q = q.eq('team_id', teamId);
-      const { data, error } = await q;
-      if (error) throw error;
-      // Strip imap_password from list responses (security: don't expose to browser)
-      // eslint-disable-next-line @typescript-eslint/no-unused-vars
-      return (data ?? []).map(({ imap_password, ...rest }) => rest) as Salesman[];
-    },
-  });
-}
-
-export function useUpsertSalesman() {
-  const qc = useQueryClient();
-  const { isDemoMode } = useDemoMode();
-  return useMutation({
-    mutationFn: async (salesman: Partial<Salesman> & { id?: string }) => {
-      if (isDemoMode) return;
-      // Strip join/computed fields before writing to DB
-      // eslint-disable-next-line @typescript-eslint/no-unused-vars
-      const { id, team, created_at, ...fields } = salesman as Salesman & { id?: string };
-      if (id) {
-        const { error } = await supabase.from('salesmen').update(fields).eq('id', id);
-        if (error) throw error;
-      } else {
-        const { error } = await supabase.from('salesmen').insert(fields);
-        if (error) throw error;
-      }
-    },
-    onSuccess: () => { if (!isDemoMode) qc.invalidateQueries({ queryKey: ['settings', 'salesmen'] }); },
-  });
-}
-
-export function useDeleteSalesman() {
-  const qc = useQueryClient();
-  const { isDemoMode } = useDemoMode();
-  return useMutation({
-    mutationFn: async (id: string) => {
-      if (isDemoMode) return;
-      const { error } = await supabase.from('salesmen').delete().eq('id', id);
-      if (error) throw error;
-    },
-    onSuccess: () => { if (!isDemoMode) qc.invalidateQueries({ queryKey: ['settings', 'salesmen'] }); },
   });
 }
 
@@ -237,59 +186,59 @@ export function useUpsertTemplate() {
   });
 }
 
-// ── Outreach Accounts ──
+// ── Email Accounts ──
 
-export function useOutreachAccounts(teamId?: string) {
+export function useEmailAccounts(teamId?: string) {
   const { isDemoMode } = useDemoMode();
-  return useQuery<OutreachAccount[]>({
-    queryKey: ['settings', 'outreach-accounts', teamId ?? 'all'],
+  return useQuery<EmailAccount[]>({
+    queryKey: ['settings', 'email-accounts', teamId ?? 'all'],
     queryFn: async () => {
-      if (isDemoMode) return [];
+      if (isDemoMode) return DEMO_EMAIL_ACCOUNTS;
       let q = supabase
-        .from('outreach_accounts')
-        .select('id, team_id, email_address, display_name, smtp_host, smtp_port, smtp_secure, smtp_user, daily_send_limit, sends_today, is_active, created_at, updated_at, team:teams(name)')
+        .from('email_accounts')
+        .select('id, team_id, name, email_address, smtp_host, smtp_port, smtp_secure, smtp_user, imap_host, imap_port, imap_secure, imap_user, daily_send_limit, sends_today, is_active, created_at, updated_at, team:teams(name)')
         .order('email_address');
       if (teamId) q = q.eq('team_id', teamId);
       const { data, error } = await q;
       if (error) throw error;
-      return (data ?? []) as unknown as OutreachAccount[];
+      return (data ?? []) as unknown as EmailAccount[];
     },
   });
 }
 
-export function useUpsertOutreachAccount() {
+export function useUpsertEmailAccount() {
   const qc = useQueryClient();
   const { isDemoMode } = useDemoMode();
   return useMutation({
-    mutationFn: async (account: Partial<OutreachAccount> & { id?: string }) => {
+    mutationFn: async (account: Partial<EmailAccount> & { id?: string }) => {
       if (isDemoMode) return;
       // Strip computed/joined fields before write
-      // eslint-disable-next-line @typescript-eslint/no-unused-vars
-      const { team, active_wave, ...rest } = account;
+      const { team, ...rest } = account;
       if (rest.id) {
         const { id, ...updates } = rest;
-        // Don't send empty password on update (means "keep existing")
+        // Don't send empty passwords on update (means "keep existing")
         if (!updates.smtp_password) delete updates.smtp_password;
-        const { error } = await supabase.from('outreach_accounts').update(updates).eq('id', id!);
+        if (!updates.imap_password) delete updates.imap_password;
+        const { error } = await supabase.from('email_accounts').update(updates).eq('id', id!);
         if (error) throw error;
       } else {
-        const { error } = await supabase.from('outreach_accounts').insert(rest);
+        const { error } = await supabase.from('email_accounts').insert(rest);
         if (error) throw error;
       }
     },
-    onSuccess: () => { if (!isDemoMode) qc.invalidateQueries({ queryKey: ['settings', 'outreach-accounts'] }); },
+    onSuccess: () => { if (!isDemoMode) qc.invalidateQueries({ queryKey: ['settings', 'email-accounts'] }); },
   });
 }
 
-export function useDeleteOutreachAccount() {
+export function useDeleteEmailAccount() {
   const qc = useQueryClient();
   const { isDemoMode } = useDemoMode();
   return useMutation({
     mutationFn: async (id: string) => {
       if (isDemoMode) return;
-      const { error } = await supabase.from('outreach_accounts').delete().eq('id', id);
+      const { error } = await supabase.from('email_accounts').delete().eq('id', id);
       if (error) throw error;
     },
-    onSuccess: () => { if (!isDemoMode) qc.invalidateQueries({ queryKey: ['settings', 'outreach-accounts'] }); },
+    onSuccess: () => { if (!isDemoMode) qc.invalidateQueries({ queryKey: ['settings', 'email-accounts'] }); },
   });
 }

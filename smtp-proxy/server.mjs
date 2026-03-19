@@ -9,7 +9,7 @@
  *
  * Credential resolution order:
  *   1. config.json lookup by credential_name (backward compat)
- *   2. Supabase outreach_accounts lookup by from email address (fallback)
+ *   2. Supabase email_accounts lookup by from email address (fallback)
  */
 import http from 'http';
 import https from 'https';
@@ -65,7 +65,7 @@ const dbCredCache = new Map(); // key: email, value: { creds, fetchedAt }
 const DB_CACHE_TTL = 5 * 60 * 1000; // 5 minutes
 
 /**
- * Fetch SMTP credentials from Supabase outreach_accounts table by from email.
+ * Fetch SMTP credentials from Supabase email_accounts table by from email.
  * Returns { host, port, secure, user, pass } or null.
  */
 async function getDbCredentials(fromEmail) {
@@ -80,7 +80,7 @@ async function getDbCredentials(fromEmail) {
   }
 
   const urlObj = new URL(SUPABASE_URL);
-  const path = `/rest/v1/outreach_accounts?email_address=eq.${encodeURIComponent(fromEmail)}&is_active=eq.true&select=smtp_host,smtp_port,smtp_secure,smtp_user,smtp_password&limit=1`;
+  const path = `/rest/v1/email_accounts?email_address=eq.${encodeURIComponent(fromEmail)}&is_active=eq.true&select=smtp_host,smtp_port,smtp_secure,smtp_user,smtp_password&limit=1`;
 
   const creds = await new Promise((resolve) => {
     const options = {
@@ -198,7 +198,7 @@ function sanitizeSubject(subject) {
  * Send an email with proper threading headers.
  * Credential resolution order:
  *   1. config.json by credential_name
- *   2. Supabase outreach_accounts by from email address
+ *   2. Supabase email_accounts by from email address
  */
 async function sendEmail(payload) {
   const { credential_name, from, to, subject, html, replyTo, messageId, inReplyTo, references } = payload;

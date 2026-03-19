@@ -45,8 +45,7 @@ export default function CreateWaveDialog({ open, onClose, onCreated, preselected
         ...(sourceWaveId ? { source_wave_id: sourceWaveId } : {}),
         ...(presets?.find((p: WavePreset) => p.id === presetId) ? {
           template_set_id: presets.find((p: WavePreset) => p.id === presetId)!.template_set_id,
-          from_email: presets.find((p: WavePreset) => p.id === presetId)!.from_email,
-          salesman_id: presets.find((p: WavePreset) => p.id === presetId)!.salesman_id,
+          email_account_id: presets.find((p: WavePreset) => p.id === presetId)!.email_account_id,
         } : {}),
       });
 

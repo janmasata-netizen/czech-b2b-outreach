@@ -339,7 +339,7 @@ node deploy.mjs
 
 > **POZOR:** Na VPS musite nastavit promennou `PROXY_AUTH_TOKEN` v `.env` souboru vedle `docker-compose.yml`. Bez ni kontejner nenastartuje.
 
-> **POZOR:** Nazev klice v `config.json` (napr. `"Salesman IMAP 1"`) musi **presne** odpovidat nazvu credential v databazi (`salesmen.imap_credential_name`). Rozdil v jedinem znaku zpusobi, ze detekce odpovedi nebude fungovat.
+> **POZOR:** Nazev klice v `config.json` (napr. `"Salesman IMAP 1"`) musi **presne** odpovidat nazvu credential v databazi (`email_accounts.name`). Rozdil v jedinem znaku zpusobi, ze detekce odpovedi nebude fungovat.
 
 ### Krok 4.3 — Nasadit SMTP Proxy
 
@@ -380,18 +380,17 @@ node deploy.mjs
 
 > **POZOR:** Nazev credential v `config.json` musi presne odpovidat nazvu SMTP credential pouzitemu v n8n workflow.
 
-### Krok 4.4 — Pridani noveho obchodnika (salesman)
+### Krok 4.4 — Pridani noveho emailoveho uctu
 
-**Cil:** Pridat novy IMAP/SMTP ucet pro dalsiho obchodnika.
+**Cil:** Pridat novy IMAP/SMTP ucet do systemu.
 
 **Postup:**
 
-1. Pridejte IMAP zaznam do `imap-proxy/config.json` na VPS
-2. Pridejte SMTP zaznam do `smtp-proxy/config.json` na VPS
-3. Restartujte oba kontejnery: `docker restart imap-proxy smtp-proxy`
-4. Pridejte obchodnika do tabulky `salesmen` v Supabase s odpovidajicimi nazvy credentials
+1. Pridejte zaznam do tabulky `email_accounts` v Supabase (SMTP i IMAP credentials)
+2. Credentials jsou automaticky dostupne proxim z DB — restart neni potreba
+3. Volitelne: pokud pouzivate legacy `config.json`, pridejte zaznamy do `imap-proxy/config.json` a `smtp-proxy/config.json` na VPS a restartujte kontejnery
 
-> **TIP:** Nazvy credentials v `config.json` musi presne odpovidat hodnotam v databazovych tabulkach (`salesmen.imap_credential_name`).
+> **TIP:** Hodnota `email_accounts.name` musi presne odpovidat nazvu credential predavanemu proxim (`credential_name` v POST requestu).
 
 ---
 
@@ -413,7 +412,7 @@ cd n8n-workflows
 node db-setup.mjs
 ```
 
-**Vysledek:** 23 tabulek, RPC funkce, triggery a RLS politiky vytvoreny v Supabase.
+**Vysledek:** 24 tabulek, RPC funkce, triggery a RLS politiky vytvoreny v Supabase.
 
 ### Krok 5.2 — Migrace
 
@@ -466,7 +465,7 @@ node migrate-team-lockout.mjs
 | Migrace | Popis |
 |---------|-------|
 | `migrate-from-email.mjs` | Presunula FROM e-mail do `waves.from_email`; denni limity do `teams` |
-| `migrate-drop-outreach-accounts.sql` | Odstranila tabulku `outreach_accounts` (nahrazena `teams` + `waves.from_email`) |
+| `migrate-drop-outreach-accounts.sql` | Odstranila tabulku `outreach_accounts` (nahrazena `email_accounts` s SMTP+IMAP credentials) |
 | `migrate-companies.mjs` | Vytvorila tabulky `companies`, `contacts`, `company_tags`; pridala FK vazby |
 | `migrate-companies-rpc.mjs` | Nove RPC funkce (`get_contacts_for_company`, `get_contacts_for_lead`, `mark_contacts_email_status`) |
 | `migrate-scheduling-report.mjs` | Pridava sloupec `scheduling_report` (jsonb) do tabulky `waves` |

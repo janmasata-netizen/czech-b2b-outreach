@@ -50,8 +50,8 @@ An automated Czech B2B cold email outreach system built on n8n + Supabase. It en
 - **Hostinger API token**: `.env.local` → `HOSTINGER_API_TOKEN`
 - **Workflow files**: `n8n-workflows/` (relative to repo root)
 - **UI**: `outreach-ui/` — React + Vite, `npm run dev` for local, `npm run build` + `node deploy-ssh2.mjs` to deploy
-- **IMAP proxy**: `imap-proxy/` — Docker microservice on VPS port 3001 (127.0.0.1 only), reached by n8n via `http://imap-proxy:3001`
-- **SMTP proxy**: `smtp-proxy/` — Docker microservice on VPS port 3002 (127.0.0.1 only), reached by n8n via `http://smtp-proxy:3002`
+- **IMAP proxy**: `imap-proxy/` — Docker microservice on VPS port 3001 (127.0.0.1 only), reached by n8n via `http://imap-proxy:3001`. Credentials from `email_accounts` table (DB) or `config.json` (legacy)
+- **SMTP proxy**: `smtp-proxy/` — Docker microservice on VPS port 3002 (127.0.0.1 only), reached by n8n via `http://smtp-proxy:3002`. Credentials from `email_accounts` table (DB) or `config.json` (legacy)
 - Both proxies: config in `config.json` (gitignored), see `config.example.json` for template. Deploy via `node deploy.mjs`
 - **Search proxy**: `search-proxy/` — Cloudflare Worker at `https://search-proxy.czech-b2b.workers.dev`. Proxies DuckDuckGo searches (VPS datacenter IPs blocked by DDG). Auth via `X-Proxy-Secret` header. Secret stored in Supabase `config` table (`search_proxy_secret`). Deploy via `cd search-proxy && npx wrangler deploy`
 
@@ -90,17 +90,17 @@ An automated Czech B2B cold email outreach system built on n8n + Supabase. It en
 | test-reply-detection | q4vUTl37yIJoTeDO | webhook:test-reply-detection |
 
 ## Database schema (Supabase)
-25 tables: `teams`, **`companies`** (master CRM), `leads` (email outreach, has `company_id` FK → companies), `enrichment_log`, `jednatels` (deprecated — kept for backward compat), **`contacts`** (replaces jednatels, has `company_id` FK → companies), `email_candidates` (has both `jednatel_id` and `contact_id`), `template_sets`, `email_templates`, `waves`, `wave_leads`, `email_queue`, `sent_emails`, `lead_replies`, `config`, `salesmen`, `email_verifications`, `email_probe_bounces`, `profiles`, `processed_reply_emails`, `unmatched_replies`, `lead_tags`, **`company_tags`** (company_id, tag_id), `tags`, **`wave_presets`** (reusable wave configs: template_set_id, from_email, salesman_id), **`outreach_accounts`** (SMTP sending accounts per team, has `team_id` FK → teams)
+24 tables: `teams`, **`companies`** (master CRM), `leads` (email outreach, has `company_id` FK → companies), `enrichment_log`, `jednatels` (deprecated — kept for backward compat), **`contacts`** (replaces jednatels, has `company_id` FK → companies), `email_candidates` (has both `jednatel_id` and `contact_id`), `template_sets`, `email_templates`, `waves`, `wave_leads`, `email_queue`, `sent_emails`, `lead_replies`, `config`, `email_verifications`, `email_probe_bounces`, `profiles`, `processed_reply_emails`, `unmatched_replies`, `lead_tags`, **`company_tags`** (company_id, tag_id), `tags`, **`wave_presets`** (reusable wave configs: template_set_id, email_account_id), **`email_accounts`** (unified SMTP+IMAP per team: name, email_address, smtp/imap credentials, daily_send_limit, sends_today)
 
 **Two-layer architecture:**
-- **`outreach_accounts`** = SMTP sending accounts. Columns: id, team_id, email_address (unique), display_name, smtp_host, smtp_port, smtp_secure, smtp_user, smtp_password, daily_send_limit, sends_today, is_active, created_at, updated_at. Safe view `outreach_accounts_safe` excludes smtp_password. Waves link via `waves.outreach_account_id`.
+- **`email_accounts`** = Unified email accounts with both SMTP (sending) and IMAP (reply detection) credentials. Columns: id, team_id, name, email_address, smtp_host, smtp_port, smtp_secure, smtp_user, smtp_password, imap_host, imap_port, imap_secure, imap_user, imap_password, daily_send_limit, sends_today, is_active, created_at, updated_at. Safe view `email_accounts_safe` excludes smtp_password and imap_password. Waves link via `waves.email_account_id`.
 - **`companies`** = Master CRM (all firms, any channel). Shown at `/databaze`. Columns: id, company_name, ico, website, domain, master_status, team_id, created_at, updated_at. Unique indexes on ico (WHERE NOT NULL) and domain (WHERE NOT NULL).
 - **`leads`** = Email outreach layer, linked to companies via `company_id`. Shown at `/leady`.
 - **`contacts`** = Contact people linked to companies (replaces jednatels). Columns: id, company_id, full_name, first_name, last_name, salutation, role, phone, linkedin, other_contact, **notes** (free text for "jednatel", "employee", etc.), created_at, updated_at. Same UUIDs as jednatels for backward compat.
 
 `config` table (key/value) for runtime secrets — `seznam_from_email`, `search_proxy_url`, `search_proxy_secret`. QEV keys (`qev_api_key_1/2/3`) are deprecated — WF6 is deactivated.
 
-DB functions: `reset_daily_sends()` (resets `teams.sends_today` AND `outreach_accounts.sends_today`), `increment_and_check_sends_account(p_account_id)` (increments outreach_accounts.sends_today, returns JSON with sends_today/daily_send_limit/is_over_limit), `handle_lead_reply()` trigger, `get_dashboard_stats()`, `claim_queued_emails()`, `ingest_lead()` (now creates/finds company first, then lead), `get_jednatels_for_lead()` (wrapper — reads from contacts via leads.company_id), **`get_contacts_for_lead()`**, **`get_contacts_for_company()`**, `check_email_cache()`, `mark_jednatels_email_status()`, **`mark_contacts_email_status()`**, `check_max_salesmen()`, `increment_and_check_sends(p_team_id)` (increments `teams.sends_today`), `parse_full_name()`, `generate_salutation()`, `backfill_salutations()` (now iterates contacts + jednatels), `check_and_mark_reply_processed()`, `auto_complete_waves()`, `reorder_template_sequences()`.
+DB functions: `reset_daily_sends()` (resets `teams.sends_today` AND `email_accounts.sends_today`), `increment_and_check_sends_account(p_account_id)` (increments email_accounts.sends_today, returns JSON with sends_today/daily_send_limit/is_over_limit), `handle_lead_reply()` trigger, `get_dashboard_stats()`, `claim_queued_emails()`, `ingest_lead()` (now creates/finds company first, then lead), `get_jednatels_for_lead()` (wrapper — reads from contacts via leads.company_id), **`get_contacts_for_lead()`**, **`get_contacts_for_company()`**, `check_email_cache()`, `mark_jednatels_email_status()`, **`mark_contacts_email_status()`**, `increment_and_check_sends(p_team_id)` (increments `teams.sends_today`), `parse_full_name()`, `generate_salutation()`, `backfill_salutations()` (now iterates contacts + jednatels), `check_and_mark_reply_processed()`, `auto_complete_waves()`, `reorder_template_sequences()`.
 
 DB trigger: `trg_auto_salutation` on `jednatels` AND `contacts` — ALWAYS re-derives `first_name`/`last_name` from `full_name` and regenerates `salutation` (Czech vocative) on INSERT/UPDATE. `full_name` is the source of truth. All male names inflected (no foreign-name exemption).
 
@@ -115,10 +115,10 @@ DB trigger: `trg_refresh_salutations_on_wave_add` on `wave_leads` — AFTER INSE
 ## Current workflow state
 - **No `$env.*` variables in n8n** — Supabase URL/key are hardcoded in workflow JSON, n8n webhook URLs are hardcoded. This is intentional (workflows run on VPS)
 - **Email sending**: SMTP via smtp-proxy (nodemailer), supports proper threading headers (Message-ID, In-Reply-To, References)
-- **FROM email is set per wave** (free text `waves.from_email`, not outreach_accounts)
+- **FROM email and IMAP inbox come from `email_accounts`** via `waves.email_account_id`
 - **Daily send limits tracked on teams** (`teams.daily_send_limit`, `teams.sends_today`)
 - **Threading**: smtp-proxy uses nodemailer's dedicated `messageId`, `inReplyTo`, `references` mail options (NOT headers object)
-- **Reply-To**: set to `salesman_email` from `teams` table
+- **Reply-To**: set to email address from `email_accounts` table (same as FROM)
 - **WF5** fetches `seznam_from_email` from `config` table at runtime. SMTP-only verification (no QEV). Sets `seznam_status='verified'` + `is_verified=true` for SMTP-verified emails (previously `'likely_valid'`). Always triggers WF11 after verification. Does NOT set final lead status (WF11 does).
 - **WF6** is **DEACTIVATED** — QEV verification removed. SMTP verification in WF5 produces same results. QEV had a `safe_to_send: "true"` string-vs-boolean bug.
 - **WF11** always runs (triggered by WF5). Scrapes website for additional emails (Fetch nodes use `neverError:true` WITHOUT `fullResponse:true` to avoid 0-items bug). Sets final lead status based on ALL email_candidates (from both WF5 SMTP and WF11 scraping): `ready` > `staff_email` > `info_email` > `failed`. Recognizes both `seznam_status='verified'` and legacy `'likely_valid'`.
@@ -126,20 +126,20 @@ DB trigger: `trg_refresh_salutations_on_wave_add` on `wave_leads` — AFTER INSE
 - **sub-domain-discovery**: Execute Workflow sub-wf. Input: `{ lead_id, company_id, company_name, ico }`. Output: `{ found, domain, source }`. Called from WF4 when lead has no domain, and from Email Finder V3 as fallback. n8n ID: `KdaIVaNnqj8eDx8D`. Sources (in order): ARES BE → DNS probe (.cz/.com) → DuckDuckGo (via Cloudflare search-proxy).
 - **Email Finder V3**: Now calls sub-domain-discovery as fallback when ARES+Kurzy fail to find a domain (instead of returning error). Kurzy URL fixed to `rejstrik-firem.kurzy.cz`.
 - **Drip mode**: `waves.daily_lead_count` (integer, nullable). NULL = all leads on day 1. Positive integer = spread seq1 across multiple days (e.g., 50/day). WF7 computes `dayOffset = floor(leadIdx / leadsPerDay)` per lead; each lead's seq2/seq3 dates are relative to their own seq1 date. `delay_seq1_to_seq2_days` / `delay_seq2_to_seq3_days` columns now used by WF7 for inter-sequence gaps. WF8 unchanged.
-- **WF8** uses atomic `claim_queued_emails()` RPC + `increment_and_check_sends_account(p_account_id)` for account-based daily limits (falls back to `increment_and_check_sends(p_team_id)` for waves without outreach_account_id)
+- **WF8** uses atomic `claim_queued_emails()` RPC + `increment_and_check_sends_account(p_account_id)` for account-based daily limits (falls back to `increment_and_check_sends(p_team_id)` for waves without email_account_id)
 - **WF8** calls `auto_complete_waves()` on loop done
-- **WF10** calls `reset_daily_sends()` RPC at midnight (resets both teams + outreach_accounts) + deletes old `email_probe_bounces`
+- **WF10** calls `reset_daily_sends()` RPC at midnight (resets both teams + email_accounts) + deletes old `email_probe_bounces`
 
 ## IMAP Proxy (`imap-proxy/`)
 - **Why**: n8n emailReadImap marks emails `\Seen` despite workarounds + leaks IMAP connections
 - `POST /check-inbox { "credential_name": "Salesman IMAP 1" }` → `{ success, emails: [...] }`
-- Config: `config.json` (IMAP creds keyed by slot name)
-- **Adding new salesman**: add entry to `config.json` on VPS → `docker restart imap-proxy` → update DB
+- Config: credentials sourced from `email_accounts` table (DB) or `config.json` (legacy fallback)
+- **Adding new account**: add entry to `email_accounts` in Supabase → credentials served from DB automatically
 
 ## SMTP Proxy (`smtp-proxy/`)
 - **Why**: n8n emailSend/betterEmailSend can't set threading headers (nodemailer overwrites protected headers)
 - `POST /send-email { credential_name, from, to, subject, html, replyTo, messageId, inReplyTo, references }` → `{ success, messageId, response }`
-- Config: `config.json` (SMTP creds keyed by credential name)
+- Config: credentials sourced from `email_accounts` table (DB) or `config.json` (legacy fallback)
 
 ## n8n Critical Notes
 - **Code node**: `fetch` AND `require('https')` are BOTH disallowed — use HTTP Request nodes for external calls

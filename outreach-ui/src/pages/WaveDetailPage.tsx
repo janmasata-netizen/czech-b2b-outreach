@@ -331,7 +331,7 @@ export default function WaveDetailPage() {
   const canLaunch = wave.status === 'draft'
     && waveLeads.length > 0
     && availableSeqs.length > 0
-    && !!wave.from_email
+    && !!wave.email_address
     && !!startDate;
 
   // Gap button options and defaults
@@ -463,7 +463,17 @@ export default function WaveDetailPage() {
   }
 
   async function handleSchedule() {
-    if (!canLaunch) return;
+    if (!canLaunch) {
+      const reasons: string[] = [];
+      if (wave.status !== 'draft') reasons.push('status=' + wave.status);
+      if (!waveLeads.length) reasons.push('no leads');
+      if (!availableSeqs.length) reasons.push('no templates');
+      if (!wave.email_address) reasons.push('no email account');
+      if (!startDate) reasons.push('no start date');
+      toast.error('Nelze naplánovat: ' + (reasons.join(', ') || 'neznámý důvod'), { duration: 8000 });
+      setConfirmSchedule(false);
+      return;
+    }
     setScheduling(true);
     try {
       const seqDatesComputed = computeSeqDates();
@@ -620,7 +630,7 @@ export default function WaveDetailPage() {
       });
       if (!res.ok) throw new Error(`WF7 vrátil ${res.status}`);
 
-      toast.success(t('waves.testWaveLaunched', { email: wave.dummy_email }));
+      toast.success(wave.is_dummy ? t('waves.testWaveLaunched', { email: wave.dummy_email }) : 'Vlna naplánována k okamžitému odeslání');
       qc.invalidateQueries({ queryKey: ['waves', id] });
       qc.invalidateQueries({ queryKey: ['waves'] });
     } catch (e: unknown) {
@@ -702,9 +712,7 @@ export default function WaveDetailPage() {
           const newWave = await createWave.mutateAsync({
             name: `${wave.name} ${t('waves.copy')}`,
             template_set_id: wave.template_set_id,
-            salesman_id: wave.salesman_id,
-            outreach_account_id: wave.outreach_account_id,
-            from_email: wave.from_email,
+            email_account_id: wave.email_account_id,
             team_id: wave.team_id,
             is_dummy: wave.is_dummy,
             dummy_email: wave.dummy_email,
@@ -1022,18 +1030,18 @@ export default function WaveDetailPage() {
             >
               {scheduling ? t('waves.launching') : t('waves.launchWave')}
             </GlassButton>
-            {wave.is_dummy && (
+            {canLaunch && (
               <GlassButton
                 variant="secondary"
                 onClick={() => setConfirmSendNow(true)}
-                disabled={sendingNow || !waveLeads.length || !wave.template_set_id || (!wave.dummy_email)}
+                disabled={sendingNow}
                 style={{
                   background: 'rgba(251,191,36,0.12)',
                   borderColor: 'rgba(251,191,36,0.35)',
                   color: '#fbbf24',
                 }}
               >
-                {sendingNow ? t('waves.launching') : t('waves.sendNowTest')}
+                {sendingNow ? t('waves.launching') : 'Odeslat hned'}
               </GlassButton>
             )}
           </div>
@@ -1297,17 +1305,21 @@ export default function WaveDetailPage() {
         open={confirmSendNow}
         onClose={() => setConfirmSendNow(false)}
         onConfirm={handleSendNow}
-        title={t('waves.confirmSendNowTitle')}
-        confirmLabel={t('waves.confirmSendNowLabel')}
+        title="Odeslat hned"
+        confirmLabel="Ano, odeslat hned"
+        variant="danger"
         loading={sendingNow}
       >
         <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
           <div style={{ fontSize: 13, color: 'var(--text-dim)', lineHeight: 1.5 }}>
-            {t('waves.confirmSendNowDesc')}{' '}
-            <strong style={{ color: '#fbbf24', fontFamily: 'JetBrains Mono, monospace' }}>
-              {wave.dummy_email}
-            </strong>{' '}
-            {t('waves.confirmSendNowSuffix')}
+            {wave.is_dummy ? (
+              <>Všechny e-maily budou odeslány na{' '}
+                <strong style={{ color: '#fbbf24', fontFamily: 'JetBrains Mono, monospace' }}>{wave.dummy_email}</strong>{' '}
+                ihned.
+              </>
+            ) : (
+              <>Vlna <strong style={{ color: 'var(--text)' }}>{wave.name}</strong> bude naplánována a odeslána ihned. Všechny sekvence budou nastaveny na dnešní datum.</>
+            )}
           </div>
           <div style={{ display: 'flex', gap: 16 }}>
             <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>

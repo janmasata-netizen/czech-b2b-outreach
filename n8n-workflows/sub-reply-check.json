@@ -26,7 +26,7 @@
         "specifyBody": "raw",
         "contentType": "raw",
         "rawContentType": "application/json",
-        "body": "={{ JSON.stringify({ credential_name: $json.imap_credential_name, salesman_email: $json.email }) }}",
+        "body": "={{ JSON.stringify({ account_email: $json.email_address }) }}",
         "options": {
           "timeout": 60000,
           "neverError": true
@@ -59,7 +59,7 @@
     {
       "parameters": {
         "mode": "runOnceForAllItems",
-        "jsCode": "const salesmanId = $('Execute Workflow Trigger').first().json.id;\nconst salesmanTeamId = $('Execute Workflow Trigger').first().json.team_id;\nconst items = $input.all();\nconst emails = items.filter(i => i.json.error === undefined && !i.json.__proxy_empty && (i.json.from || i.json.subject)).map(i => ({\n  json: { ...i.json, salesman_id: salesmanId, team_id: salesmanTeamId, has_emails: true }\n}));\nif (emails.length === 0) return [{ json: { has_emails: false } }];\nreturn emails;"
+        "jsCode": "const accountId = $('Execute Workflow Trigger').first().json.id;\nconst accountTeamId = $('Execute Workflow Trigger').first().json.team_id;\nconst items = $input.all();\nconst emails = items.filter(i => i.json.error === undefined && !i.json.__proxy_empty && (i.json.from || i.json.subject)).map(i => ({\n  json: { ...i.json, email_account_id: accountId, team_id: accountTeamId, has_emails: true }\n}));\nif (emails.length === 0) return [{ json: { has_emails: false } }];\nreturn emails;"
       },
       "id": "src-0000-0000-0000-000000000008",
       "name": "Stamp Salesman",
@@ -150,7 +150,7 @@
         },
         "sendBody": true,
         "specifyBody": "json",
-        "jsonBody": "={{ JSON.stringify({ p_message_id: $json.__message_id, p_salesman_id: $json.salesman_id }) }}",
+        "jsonBody": "={{ JSON.stringify({ p_message_id: $json.__message_id, p_account_id: $json.email_account_id }) }}",
         "options": {
           "timeout": 30000,
           "neverError": true
@@ -209,7 +209,7 @@
     {
       "parameters": {
         "mode": "runOnceForEachItem",
-        "jsCode": "const email = $input.item.json;\nconst fromStr = (email.from || '').toString();\nconst emailMatch = fromStr.match(/<?([a-zA-Z0-9._%+\\-]+@[a-zA-Z0-9.\\-]+\\.[a-zA-Z]{2,})>?/);\nconst fromEmail = emailMatch ? emailMatch[1].toLowerCase() : '';\nconst domainMatch = fromStr.match(/@([a-zA-Z0-9.\\-]+\\.[a-zA-Z]{2,})/);\nconst senderDomain = domainMatch ? domainMatch[1].toLowerCase() : '';\nconst bodyText = (email.text || email.textHtml || '').toString();\nconst inReplyTo = (email.headers && email.headers['in-reply-to']) ? String(email.headers['in-reply-to']).trim() : '';\nreturn { json: {\n  from_email: fromEmail || fromStr,\n  sender_domain: senderDomain,\n  subject: email.subject || '',\n  body_preview: bodyText.substring(0, 200),\n  received_at: email.date || new Date().toISOString(),\n  salesman_id: email.salesman_id,\n  in_reply_to: inReplyTo\n}};"
+        "jsCode": "const email = $input.item.json;\nconst fromStr = (email.from || '').toString();\nconst emailMatch = fromStr.match(/<?([a-zA-Z0-9._%+\\-]+@[a-zA-Z0-9.\\-]+\\.[a-zA-Z]{2,})>?/);\nconst fromEmail = emailMatch ? emailMatch[1].toLowerCase() : '';\nconst domainMatch = fromStr.match(/@([a-zA-Z0-9.\\-]+\\.[a-zA-Z]{2,})/);\nconst senderDomain = domainMatch ? domainMatch[1].toLowerCase() : '';\nconst bodyText = (email.text || email.textHtml || '').toString();\nconst inReplyTo = (email.headers && email.headers['in-reply-to']) ? String(email.headers['in-reply-to']).trim() : '';\nreturn { json: {\n  from_email: fromEmail || fromStr,\n  sender_domain: senderDomain,\n  subject: email.subject || '',\n  body_preview: bodyText.substring(0, 200),\n  received_at: email.date || new Date().toISOString(),\n  email_account_id: email.email_account_id,\n  in_reply_to: inReplyTo\n}};"
       },
       "id": "src-0000-0000-0000-000000000011",
       "name": "Extract Sender Domain",
@@ -276,7 +276,7 @@
     {
       "parameters": {
         "mode": "runOnceForAllItems",
-        "jsCode": "const items = $input.all().map(i => i.json);\nconst prev = $('Extract Sender Domain').first().json;\nif (!prev.in_reply_to) {\n  return [{ json: { ...prev, lead_found: false, match_method: 'none' } }];\n}\nconst se = items.find(s => s && s.wave_leads && s.wave_leads.leads && s.wave_leads.leads.id);\nif (se) {\n  return [{ json: {\n    lead_found: true,\n    lead_id: se.wave_leads.leads.id,\n    lead_status: se.wave_leads.leads.status,\n    match_method: 'header',\n    from_email: prev.from_email,\n    sender_domain: prev.sender_domain,\n    subject: prev.subject,\n    body_preview: prev.body_preview,\n    received_at: prev.received_at,\n    salesman_id: prev.salesman_id\n  }}];\n}\nreturn [{ json: { ...prev, lead_found: false, match_method: 'none' } }];"
+        "jsCode": "const items = $input.all().map(i => i.json);\nconst prev = $('Extract Sender Domain').first().json;\nif (!prev.in_reply_to) {\n  return [{ json: { ...prev, lead_found: false, match_method: 'none' } }];\n}\nconst se = items.find(s => s && s.wave_leads && s.wave_leads.leads && s.wave_leads.leads.id);\nif (se) {\n  return [{ json: {\n    lead_found: true,\n    lead_id: se.wave_leads.leads.id,\n    lead_status: se.wave_leads.leads.status,\n    match_method: 'header',\n    from_email: prev.from_email,\n    sender_domain: prev.sender_domain,\n    subject: prev.subject,\n    body_preview: prev.body_preview,\n    received_at: prev.received_at,\n    email_account_id: prev.email_account_id\n  }}];\n}\nreturn [{ json: { ...prev, lead_found: false, match_method: 'none' } }];"
       },
       "id": "src-0000-0000-0000-000000000061",
       "name": "Check Header Match",
@@ -397,7 +397,7 @@
     {
       "parameters": {
         "mode": "runOnceForAllItems",
-        "jsCode": "const items = $input.all().map(i => i.json);\nconst candidate = items.find(c => c && c.id && c.jednatels && c.jednatels.leads && c.jednatels.leads.id);\nconst prev = $('Extract Sender Domain').first().json;\nif (candidate) {\n  return [{ json: {\n    lead_found: true,\n    lead_id: candidate.jednatels.leads.id,\n    lead_status: candidate.jednatels.leads.status,\n    match_method: 'email',\n    from_email: prev.from_email,\n    sender_domain: prev.sender_domain,\n    subject: prev.subject,\n    body_preview: prev.body_preview,\n    received_at: prev.received_at,\n    salesman_id: prev.salesman_id\n  }}];\n}\nreturn [{ json: { ...prev, lead_found: false, match_method: 'none' } }];"
+        "jsCode": "const items = $input.all().map(i => i.json);\nconst candidate = items.find(c => c && c.id && c.jednatels && c.jednatels.leads && c.jednatels.leads.id);\nconst prev = $('Extract Sender Domain').first().json;\nif (candidate) {\n  return [{ json: {\n    lead_found: true,\n    lead_id: candidate.jednatels.leads.id,\n    lead_status: candidate.jednatels.leads.status,\n    match_method: 'email',\n    from_email: prev.from_email,\n    sender_domain: prev.sender_domain,\n    subject: prev.subject,\n    body_preview: prev.body_preview,\n    received_at: prev.received_at,\n    email_account_id: prev.email_account_id\n  }}];\n}\nreturn [{ json: { ...prev, lead_found: false, match_method: 'none' } }];"
       },
       "id": "src-0000-0000-0000-000000000041",
       "name": "Check Email Match",
@@ -491,7 +491,7 @@
     {
       "parameters": {
         "mode": "runOnceForAllItems",
-        "jsCode": "const items = $input.all().map(i => i.json);\nconst candidate = items.find(c => c && c.contacts && c.contacts.companies && c.contacts.companies.leads && c.contacts.companies.leads.length > 0);\nconst prev = $('Extract Sender Domain').first().json;\nif (candidate) {\n  const lead = candidate.contacts.companies.leads[0];\n  return [{ json: {\n    lead_found: true,\n    lead_id: lead.id,\n    lead_status: lead.status,\n    match_method: 'email_contact',\n    from_email: prev.from_email,\n    sender_domain: prev.sender_domain,\n    subject: prev.subject,\n    body_preview: prev.body_preview,\n    received_at: prev.received_at,\n    salesman_id: prev.salesman_id\n  }}];\n}\nreturn [{ json: { ...prev, lead_found: false, match_method: 'none' } }];"
+        "jsCode": "const items = $input.all().map(i => i.json);\nconst candidate = items.find(c => c && c.contacts && c.contacts.companies && c.contacts.companies.leads && c.contacts.companies.leads.length > 0);\nconst prev = $('Extract Sender Domain').first().json;\nif (candidate) {\n  const lead = candidate.contacts.companies.leads[0];\n  return [{ json: {\n    lead_found: true,\n    lead_id: lead.id,\n    lead_status: lead.status,\n    match_method: 'email_contact',\n    from_email: prev.from_email,\n    sender_domain: prev.sender_domain,\n    subject: prev.subject,\n    body_preview: prev.body_preview,\n    received_at: prev.received_at,\n    email_account_id: prev.email_account_id\n  }}];\n}\nreturn [{ json: { ...prev, lead_found: false, match_method: 'none' } }];"
       },
       "id": "src-0000-0000-0000-000000000071",
       "name": "Check Contacts Match",
@@ -585,7 +585,7 @@
     {
       "parameters": {
         "mode": "runOnceForAllItems",
-        "jsCode": "const items = $input.all().map(i => i.json);\nconst lead = items.find(l => l && l.id) || null;\nconst prev = $('Extract Sender Domain').first().json;\nif (lead) {\n  return [{ json: {\n    lead_found: true,\n    lead_id: lead.id,\n    lead_status: lead.status,\n    match_method: 'domain',\n    from_email: prev.from_email,\n    sender_domain: prev.sender_domain,\n    subject: prev.subject,\n    body_preview: prev.body_preview,\n    received_at: prev.received_at,\n    salesman_id: prev.salesman_id\n  }}];\n}\nreturn [{ json: { ...prev, lead_found: false, match_method: 'none' } }];"
+        "jsCode": "const items = $input.all().map(i => i.json);\nconst lead = items.find(l => l && l.id) || null;\nconst prev = $('Extract Sender Domain').first().json;\nif (lead) {\n  return [{ json: {\n    lead_found: true,\n    lead_id: lead.id,\n    lead_status: lead.status,\n    match_method: 'domain',\n    from_email: prev.from_email,\n    sender_domain: prev.sender_domain,\n    subject: prev.subject,\n    body_preview: prev.body_preview,\n    received_at: prev.received_at,\n    email_account_id: prev.email_account_id\n  }}];\n}\nreturn [{ json: { ...prev, lead_found: false, match_method: 'none' } }];"
       },
       "id": "src-0000-0000-0000-000000000014",
       "name": "Check Domain Match",
@@ -679,7 +679,7 @@
     {
       "parameters": {
         "mode": "runOnceForAllItems",
-        "jsCode": "const candidates = $input.all().map(i => i.json).filter(l => l && l.id);\nconst prev = $('Extract Sender Domain').first().json;\nconst senderDomain = prev.sender_domain;\n\nif (candidates.length === 0) {\n  return [{ json: { ...prev, lead_found: false, match_method: 'none' } }];\n}\n\nfunction rootDomain(d) {\n  return (d || '').replace(/\\.[a-z]{2,}$/i, '').replace(/^(www\\.)?/, '').toLowerCase();\n}\n\nfunction levenshtein(a, b) {\n  const m = a.length, n = b.length;\n  const dp = Array.from({ length: m + 1 }, () => new Array(n + 1).fill(0));\n  for (let i = 0; i <= m; i++) dp[i][0] = i;\n  for (let j = 0; j <= n; j++) dp[0][j] = j;\n  for (let i = 1; i <= m; i++) {\n    for (let j = 1; j <= n; j++) {\n      dp[i][j] = Math.min(\n        dp[i-1][j] + 1,\n        dp[i][j-1] + 1,\n        dp[i-1][j-1] + (a[i-1] !== b[j-1] ? 1 : 0)\n      );\n    }\n  }\n  return dp[m][n];\n}\n\nconst senderRoot = rootDomain(senderDomain);\nlet bestMatch = null;\nlet bestScore = 0;\n\nfor (const lead of candidates) {\n  const leadDomain = (lead.domain || '').toLowerCase();\n  const leadRoot = rootDomain(leadDomain);\n  let score = 0;\n  if (senderDomain.includes(leadDomain) || leadDomain.includes(senderDomain)) score += 3;\n  if (senderRoot.includes(leadRoot) || leadRoot.includes(senderRoot)) score += 2;\n  if (senderRoot === leadRoot && senderRoot.length >= 3) score += 5;\n  const dist = levenshtein(senderDomain, leadDomain);\n  if (dist <= 2) score += (3 - dist);\n  if (score > bestScore) {\n    bestScore = score;\n    bestMatch = lead;\n  }\n}\n\nif (bestMatch && bestScore >= 2) {\n  return [{ json: {\n    lead_found: true,\n    lead_id: bestMatch.id,\n    lead_status: bestMatch.status,\n    match_method: 'fuzzy',\n    from_email: prev.from_email,\n    sender_domain: prev.sender_domain,\n    subject: prev.subject,\n    body_preview: prev.body_preview,\n    received_at: prev.received_at,\n    salesman_id: prev.salesman_id\n  }}];\n}\n\nreturn [{ json: { ...prev, lead_found: false, match_method: 'none' } }];"
+        "jsCode": "const candidates = $input.all().map(i => i.json).filter(l => l && l.id);\nconst prev = $('Extract Sender Domain').first().json;\nconst senderDomain = prev.sender_domain;\n\nif (candidates.length === 0) {\n  return [{ json: { ...prev, lead_found: false, match_method: 'none' } }];\n}\n\nfunction rootDomain(d) {\n  return (d || '').replace(/\\.[a-z]{2,}$/i, '').replace(/^(www\\.)?/, '').toLowerCase();\n}\n\nfunction levenshtein(a, b) {\n  const m = a.length, n = b.length;\n  const dp = Array.from({ length: m + 1 }, () => new Array(n + 1).fill(0));\n  for (let i = 0; i <= m; i++) dp[i][0] = i;\n  for (let j = 0; j <= n; j++) dp[0][j] = j;\n  for (let i = 1; i <= m; i++) {\n    for (let j = 1; j <= n; j++) {\n      dp[i][j] = Math.min(\n        dp[i-1][j] + 1,\n        dp[i][j-1] + 1,\n        dp[i-1][j-1] + (a[i-1] !== b[j-1] ? 1 : 0)\n      );\n    }\n  }\n  return dp[m][n];\n}\n\nconst senderRoot = rootDomain(senderDomain);\nlet bestMatch = null;\nlet bestScore = 0;\n\nfor (const lead of candidates) {\n  const leadDomain = (lead.domain || '').toLowerCase();\n  const leadRoot = rootDomain(leadDomain);\n  let score = 0;\n  if (senderDomain.includes(leadDomain) || leadDomain.includes(senderDomain)) score += 3;\n  if (senderRoot.includes(leadRoot) || leadRoot.includes(senderRoot)) score += 2;\n  if (senderRoot === leadRoot && senderRoot.length >= 3) score += 5;\n  const dist = levenshtein(senderDomain, leadDomain);\n  if (dist <= 2) score += (3 - dist);\n  if (score > bestScore) {\n    bestScore = score;\n    bestMatch = lead;\n  }\n}\n\nif (bestMatch && bestScore >= 2) {\n  return [{ json: {\n    lead_found: true,\n    lead_id: bestMatch.id,\n    lead_status: bestMatch.status,\n    match_method: 'fuzzy',\n    from_email: prev.from_email,\n    sender_domain: prev.sender_domain,\n    subject: prev.subject,\n    body_preview: prev.body_preview,\n    received_at: prev.received_at,\n    email_account_id: prev.email_account_id\n  }}];\n}\n\nreturn [{ json: { ...prev, lead_found: false, match_method: 'none' } }];"
       },
       "id": "src-0000-0000-0000-000000000044",
       "name": "Fuzzy Domain Match",
@@ -740,7 +740,7 @@
         },
         "sendBody": true,
         "specifyBody": "json",
-        "jsonBody": "={{ JSON.stringify({ from_email: $json.from_email, sender_domain: $json.sender_domain, subject: $json.subject, body_preview: $json.body_preview, salesman_id: $json.salesman_id, received_at: $json.received_at }) }}",
+        "jsonBody": "={{ JSON.stringify({ from_email: $json.from_email, sender_domain: $json.sender_domain, subject: $json.subject, body_preview: $json.body_preview, email_account_id: $json.email_account_id, received_at: $json.received_at }) }}",
         "options": {
           "timeout": 30000,
           "neverError": true
@@ -1010,7 +1010,7 @@
         },
         "sendBody": true,
         "specifyBody": "json",
-        "jsonBody": "={{ JSON.stringify({ lead_id: $('Extract Wave Lead').first().json.lead_id, wave_lead_id: $('Extract Wave Lead').first().json.wave_lead_id, salesman_id: $('Extract Wave Lead').first().json.salesman_id, from_email: $('Extract Wave Lead').first().json.from_email, subject: $('Extract Wave Lead').first().json.subject, body_preview: $('Extract Wave Lead').first().json.body_preview, received_at: $('Extract Wave Lead').first().json.received_at }) }}",
+        "jsonBody": "={{ JSON.stringify({ lead_id: $('Extract Wave Lead').first().json.lead_id, wave_lead_id: $('Extract Wave Lead').first().json.wave_lead_id, email_account_id: $('Extract Wave Lead').first().json.email_account_id, from_email: $('Extract Wave Lead').first().json.from_email, subject: $('Extract Wave Lead').first().json.subject, body_preview: $('Extract Wave Lead').first().json.body_preview, received_at: $('Extract Wave Lead').first().json.received_at }) }}",
         "options": {
           "timeout": 30000,
           "neverError": true
@@ -1095,7 +1095,7 @@
         },
         "sendBody": true,
         "specifyBody": "json",
-        "jsonBody": "={{ JSON.stringify({ lead_id: $json.lead_id, wave_lead_id: null, salesman_id: $json.salesman_id, from_email: $json.from_email, subject: $json.subject, body_preview: $json.body_preview, received_at: $json.received_at }) }}",
+        "jsonBody": "={{ JSON.stringify({ lead_id: $json.lead_id, wave_lead_id: null, email_account_id: $json.email_account_id, from_email: $json.from_email, subject: $json.subject, body_preview: $json.body_preview, received_at: $json.received_at }) }}",
         "options": {
           "timeout": 30000,
           "neverError": true
@@ -1757,7 +1757,7 @@
           "specifyBody": "raw",
           "contentType": "raw",
           "rawContentType": "application/json",
-          "body": "={{ JSON.stringify({ credential_name: $json.imap_credential_name, salesman_email: $json.email }) }}",
+          "body": "={{ JSON.stringify({ account_email: $json.email_address }) }}",
           "options": {
             "timeout": 60000,
             "neverError": true
@@ -1790,7 +1790,7 @@
       {
         "parameters": {
           "mode": "runOnceForAllItems",
-          "jsCode": "const salesmanId = $('Execute Workflow Trigger').first().json.id;\nconst salesmanTeamId = $('Execute Workflow Trigger').first().json.team_id;\nconst items = $input.all();\nconst emails = items.filter(i => i.json.error === undefined && !i.json.__proxy_empty && (i.json.from || i.json.subject)).map(i => ({\n  json: { ...i.json, salesman_id: salesmanId, team_id: salesmanTeamId, has_emails: true }\n}));\nif (emails.length === 0) return [{ json: { has_emails: false } }];\nreturn emails;"
+          "jsCode": "const accountId = $('Execute Workflow Trigger').first().json.id;\nconst accountTeamId = $('Execute Workflow Trigger').first().json.team_id;\nconst items = $input.all();\nconst emails = items.filter(i => i.json.error === undefined && !i.json.__proxy_empty && (i.json.from || i.json.subject)).map(i => ({\n  json: { ...i.json, email_account_id: accountId, team_id: accountTeamId, has_emails: true }\n}));\nif (emails.length === 0) return [{ json: { has_emails: false } }];\nreturn emails;"
         },
         "id": "src-0000-0000-0000-000000000008",
         "name": "Stamp Salesman",
@@ -1881,7 +1881,7 @@
           },
           "sendBody": true,
           "specifyBody": "json",
-          "jsonBody": "={{ JSON.stringify({ p_message_id: $json.__message_id, p_salesman_id: $json.salesman_id }) }}",
+          "jsonBody": "={{ JSON.stringify({ p_message_id: $json.__message_id, p_account_id: $json.email_account_id }) }}",
           "options": {
             "timeout": 30000,
             "neverError": true
@@ -1940,7 +1940,7 @@
       {
         "parameters": {
           "mode": "runOnceForEachItem",
-          "jsCode": "const email = $input.item.json;\nconst fromStr = (email.from || '').toString();\nconst emailMatch = fromStr.match(/<?([a-zA-Z0-9._%+\\-]+@[a-zA-Z0-9.\\-]+\\.[a-zA-Z]{2,})>?/);\nconst fromEmail = emailMatch ? emailMatch[1].toLowerCase() : '';\nconst domainMatch = fromStr.match(/@([a-zA-Z0-9.\\-]+\\.[a-zA-Z]{2,})/);\nconst senderDomain = domainMatch ? domainMatch[1].toLowerCase() : '';\nconst bodyText = (email.text || email.textHtml || '').toString();\nconst inReplyTo = (email.headers && email.headers['in-reply-to']) ? String(email.headers['in-reply-to']).trim() : '';\nreturn { json: {\n  from_email: fromEmail || fromStr,\n  sender_domain: senderDomain,\n  subject: email.subject || '',\n  body_preview: bodyText.substring(0, 200),\n  received_at: email.date || new Date().toISOString(),\n  salesman_id: email.salesman_id,\n  in_reply_to: inReplyTo\n}};"
+          "jsCode": "const email = $input.item.json;\nconst fromStr = (email.from || '').toString();\nconst emailMatch = fromStr.match(/<?([a-zA-Z0-9._%+\\-]+@[a-zA-Z0-9.\\-]+\\.[a-zA-Z]{2,})>?/);\nconst fromEmail = emailMatch ? emailMatch[1].toLowerCase() : '';\nconst domainMatch = fromStr.match(/@([a-zA-Z0-9.\\-]+\\.[a-zA-Z]{2,})/);\nconst senderDomain = domainMatch ? domainMatch[1].toLowerCase() : '';\nconst bodyText = (email.text || email.textHtml || '').toString();\nconst inReplyTo = (email.headers && email.headers['in-reply-to']) ? String(email.headers['in-reply-to']).trim() : '';\nreturn { json: {\n  from_email: fromEmail || fromStr,\n  sender_domain: senderDomain,\n  subject: email.subject || '',\n  body_preview: bodyText.substring(0, 200),\n  received_at: email.date || new Date().toISOString(),\n  email_account_id: email.email_account_id,\n  in_reply_to: inReplyTo\n}};"
         },
         "id": "src-0000-0000-0000-000000000011",
         "name": "Extract Sender Domain",
@@ -2007,7 +2007,7 @@
       {
         "parameters": {
           "mode": "runOnceForAllItems",
-          "jsCode": "const items = $input.all().map(i => i.json);\nconst prev = $('Extract Sender Domain').first().json;\nif (!prev.in_reply_to) {\n  return [{ json: { ...prev, lead_found: false, match_method: 'none' } }];\n}\nconst se = items.find(s => s && s.wave_leads && s.wave_leads.leads && s.wave_leads.leads.id);\nif (se) {\n  return [{ json: {\n    lead_found: true,\n    lead_id: se.wave_leads.leads.id,\n    lead_status: se.wave_leads.leads.status,\n    match_method: 'header',\n    from_email: prev.from_email,\n    sender_domain: prev.sender_domain,\n    subject: prev.subject,\n    body_preview: prev.body_preview,\n    received_at: prev.received_at,\n    salesman_id: prev.salesman_id\n  }}];\n}\nreturn [{ json: { ...prev, lead_found: false, match_method: 'none' } }];"
+          "jsCode": "const items = $input.all().map(i => i.json);\nconst prev = $('Extract Sender Domain').first().json;\nif (!prev.in_reply_to) {\n  return [{ json: { ...prev, lead_found: false, match_method: 'none' } }];\n}\nconst se = items.find(s => s && s.wave_leads && s.wave_leads.leads && s.wave_leads.leads.id);\nif (se) {\n  return [{ json: {\n    lead_found: true,\n    lead_id: se.wave_leads.leads.id,\n    lead_status: se.wave_leads.leads.status,\n    match_method: 'header',\n    from_email: prev.from_email,\n    sender_domain: prev.sender_domain,\n    subject: prev.subject,\n    body_preview: prev.body_preview,\n    received_at: prev.received_at,\n    email_account_id: prev.email_account_id\n  }}];\n}\nreturn [{ json: { ...prev, lead_found: false, match_method: 'none' } }];"
         },
         "id": "src-0000-0000-0000-000000000061",
         "name": "Check Header Match",
@@ -2128,7 +2128,7 @@
       {
         "parameters": {
           "mode": "runOnceForAllItems",
-          "jsCode": "const items = $input.all().map(i => i.json);\nconst candidate = items.find(c => c && c.id && c.jednatels && c.jednatels.leads && c.jednatels.leads.id);\nconst prev = $('Extract Sender Domain').first().json;\nif (candidate) {\n  return [{ json: {\n    lead_found: true,\n    lead_id: candidate.jednatels.leads.id,\n    lead_status: candidate.jednatels.leads.status,\n    match_method: 'email',\n    from_email: prev.from_email,\n    sender_domain: prev.sender_domain,\n    subject: prev.subject,\n    body_preview: prev.body_preview,\n    received_at: prev.received_at,\n    salesman_id: prev.salesman_id\n  }}];\n}\nreturn [{ json: { ...prev, lead_found: false, match_method: 'none' } }];"
+          "jsCode": "const items = $input.all().map(i => i.json);\nconst candidate = items.find(c => c && c.id && c.jednatels && c.jednatels.leads && c.jednatels.leads.id);\nconst prev = $('Extract Sender Domain').first().json;\nif (candidate) {\n  return [{ json: {\n    lead_found: true,\n    lead_id: candidate.jednatels.leads.id,\n    lead_status: candidate.jednatels.leads.status,\n    match_method: 'email',\n    from_email: prev.from_email,\n    sender_domain: prev.sender_domain,\n    subject: prev.subject,\n    body_preview: prev.body_preview,\n    received_at: prev.received_at,\n    email_account_id: prev.email_account_id\n  }}];\n}\nreturn [{ json: { ...prev, lead_found: false, match_method: 'none' } }];"
         },
         "id": "src-0000-0000-0000-000000000041",
         "name": "Check Email Match",
@@ -2222,7 +2222,7 @@
       {
         "parameters": {
           "mode": "runOnceForAllItems",
-          "jsCode": "const items = $input.all().map(i => i.json);\nconst candidate = items.find(c => c && c.contacts && c.contacts.companies && c.contacts.companies.leads && c.contacts.companies.leads.length > 0);\nconst prev = $('Extract Sender Domain').first().json;\nif (candidate) {\n  const lead = candidate.contacts.companies.leads[0];\n  return [{ json: {\n    lead_found: true,\n    lead_id: lead.id,\n    lead_status: lead.status,\n    match_method: 'email_contact',\n    from_email: prev.from_email,\n    sender_domain: prev.sender_domain,\n    subject: prev.subject,\n    body_preview: prev.body_preview,\n    received_at: prev.received_at,\n    salesman_id: prev.salesman_id\n  }}];\n}\nreturn [{ json: { ...prev, lead_found: false, match_method: 'none' } }];"
+          "jsCode": "const items = $input.all().map(i => i.json);\nconst candidate = items.find(c => c && c.contacts && c.contacts.companies && c.contacts.companies.leads && c.contacts.companies.leads.length > 0);\nconst prev = $('Extract Sender Domain').first().json;\nif (candidate) {\n  const lead = candidate.contacts.companies.leads[0];\n  return [{ json: {\n    lead_found: true,\n    lead_id: lead.id,\n    lead_status: lead.status,\n    match_method: 'email_contact',\n    from_email: prev.from_email,\n    sender_domain: prev.sender_domain,\n    subject: prev.subject,\n    body_preview: prev.body_preview,\n    received_at: prev.received_at,\n    email_account_id: prev.email_account_id\n  }}];\n}\nreturn [{ json: { ...prev, lead_found: false, match_method: 'none' } }];"
         },
         "id": "src-0000-0000-0000-000000000071",
         "name": "Check Contacts Match",
@@ -2316,7 +2316,7 @@
       {
         "parameters": {
           "mode": "runOnceForAllItems",
-          "jsCode": "const items = $input.all().map(i => i.json);\nconst lead = items.find(l => l && l.id) || null;\nconst prev = $('Extract Sender Domain').first().json;\nif (lead) {\n  return [{ json: {\n    lead_found: true,\n    lead_id: lead.id,\n    lead_status: lead.status,\n    match_method: 'domain',\n    from_email: prev.from_email,\n    sender_domain: prev.sender_domain,\n    subject: prev.subject,\n    body_preview: prev.body_preview,\n    received_at: prev.received_at,\n    salesman_id: prev.salesman_id\n  }}];\n}\nreturn [{ json: { ...prev, lead_found: false, match_method: 'none' } }];"
+          "jsCode": "const items = $input.all().map(i => i.json);\nconst lead = items.find(l => l && l.id) || null;\nconst prev = $('Extract Sender Domain').first().json;\nif (lead) {\n  return [{ json: {\n    lead_found: true,\n    lead_id: lead.id,\n    lead_status: lead.status,\n    match_method: 'domain',\n    from_email: prev.from_email,\n    sender_domain: prev.sender_domain,\n    subject: prev.subject,\n    body_preview: prev.body_preview,\n    received_at: prev.received_at,\n    email_account_id: prev.email_account_id\n  }}];\n}\nreturn [{ json: { ...prev, lead_found: false, match_method: 'none' } }];"
         },
         "id": "src-0000-0000-0000-000000000014",
         "name": "Check Domain Match",
@@ -2410,7 +2410,7 @@
       {
         "parameters": {
           "mode": "runOnceForAllItems",
-          "jsCode": "const candidates = $input.all().map(i => i.json).filter(l => l && l.id);\nconst prev = $('Extract Sender Domain').first().json;\nconst senderDomain = prev.sender_domain;\n\nif (candidates.length === 0) {\n  return [{ json: { ...prev, lead_found: false, match_method: 'none' } }];\n}\n\nfunction rootDomain(d) {\n  return (d || '').replace(/\\.[a-z]{2,}$/i, '').replace(/^(www\\.)?/, '').toLowerCase();\n}\n\nfunction levenshtein(a, b) {\n  const m = a.length, n = b.length;\n  const dp = Array.from({ length: m + 1 }, () => new Array(n + 1).fill(0));\n  for (let i = 0; i <= m; i++) dp[i][0] = i;\n  for (let j = 0; j <= n; j++) dp[0][j] = j;\n  for (let i = 1; i <= m; i++) {\n    for (let j = 1; j <= n; j++) {\n      dp[i][j] = Math.min(\n        dp[i-1][j] + 1,\n        dp[i][j-1] + 1,\n        dp[i-1][j-1] + (a[i-1] !== b[j-1] ? 1 : 0)\n      );\n    }\n  }\n  return dp[m][n];\n}\n\nconst senderRoot = rootDomain(senderDomain);\nlet bestMatch = null;\nlet bestScore = 0;\n\nfor (const lead of candidates) {\n  const leadDomain = (lead.domain || '').toLowerCase();\n  const leadRoot = rootDomain(leadDomain);\n  let score = 0;\n  if (senderDomain.includes(leadDomain) || leadDomain.includes(senderDomain)) score += 3;\n  if (senderRoot.includes(leadRoot) || leadRoot.includes(senderRoot)) score += 2;\n  if (senderRoot === leadRoot && senderRoot.length >= 3) score += 5;\n  const dist = levenshtein(senderDomain, leadDomain);\n  if (dist <= 2) score += (3 - dist);\n  if (score > bestScore) {\n    bestScore = score;\n    bestMatch = lead;\n  }\n}\n\nif (bestMatch && bestScore >= 2) {\n  return [{ json: {\n    lead_found: true,\n    lead_id: bestMatch.id,\n    lead_status: bestMatch.status,\n    match_method: 'fuzzy',\n    from_email: prev.from_email,\n    sender_domain: prev.sender_domain,\n    subject: prev.subject,\n    body_preview: prev.body_preview,\n    received_at: prev.received_at,\n    salesman_id: prev.salesman_id\n  }}];\n}\n\nreturn [{ json: { ...prev, lead_found: false, match_method: 'none' } }];"
+          "jsCode": "const candidates = $input.all().map(i => i.json).filter(l => l && l.id);\nconst prev = $('Extract Sender Domain').first().json;\nconst senderDomain = prev.sender_domain;\n\nif (candidates.length === 0) {\n  return [{ json: { ...prev, lead_found: false, match_method: 'none' } }];\n}\n\nfunction rootDomain(d) {\n  return (d || '').replace(/\\.[a-z]{2,}$/i, '').replace(/^(www\\.)?/, '').toLowerCase();\n}\n\nfunction levenshtein(a, b) {\n  const m = a.length, n = b.length;\n  const dp = Array.from({ length: m + 1 }, () => new Array(n + 1).fill(0));\n  for (let i = 0; i <= m; i++) dp[i][0] = i;\n  for (let j = 0; j <= n; j++) dp[0][j] = j;\n  for (let i = 1; i <= m; i++) {\n    for (let j = 1; j <= n; j++) {\n      dp[i][j] = Math.min(\n        dp[i-1][j] + 1,\n        dp[i][j-1] + 1,\n        dp[i-1][j-1] + (a[i-1] !== b[j-1] ? 1 : 0)\n      );\n    }\n  }\n  return dp[m][n];\n}\n\nconst senderRoot = rootDomain(senderDomain);\nlet bestMatch = null;\nlet bestScore = 0;\n\nfor (const lead of candidates) {\n  const leadDomain = (lead.domain || '').toLowerCase();\n  const leadRoot = rootDomain(leadDomain);\n  let score = 0;\n  if (senderDomain.includes(leadDomain) || leadDomain.includes(senderDomain)) score += 3;\n  if (senderRoot.includes(leadRoot) || leadRoot.includes(senderRoot)) score += 2;\n  if (senderRoot === leadRoot && senderRoot.length >= 3) score += 5;\n  const dist = levenshtein(senderDomain, leadDomain);\n  if (dist <= 2) score += (3 - dist);\n  if (score > bestScore) {\n    bestScore = score;\n    bestMatch = lead;\n  }\n}\n\nif (bestMatch && bestScore >= 2) {\n  return [{ json: {\n    lead_found: true,\n    lead_id: bestMatch.id,\n    lead_status: bestMatch.status,\n    match_method: 'fuzzy',\n    from_email: prev.from_email,\n    sender_domain: prev.sender_domain,\n    subject: prev.subject,\n    body_preview: prev.body_preview,\n    received_at: prev.received_at,\n    email_account_id: prev.email_account_id\n  }}];\n}\n\nreturn [{ json: { ...prev, lead_found: false, match_method: 'none' } }];"
         },
         "id": "src-0000-0000-0000-000000000044",
         "name": "Fuzzy Domain Match",
@@ -2471,7 +2471,7 @@
           },
           "sendBody": true,
           "specifyBody": "json",
-          "jsonBody": "={{ JSON.stringify({ from_email: $json.from_email, sender_domain: $json.sender_domain, subject: $json.subject, body_preview: $json.body_preview, salesman_id: $json.salesman_id, received_at: $json.received_at }) }}",
+          "jsonBody": "={{ JSON.stringify({ from_email: $json.from_email, sender_domain: $json.sender_domain, subject: $json.subject, body_preview: $json.body_preview, email_account_id: $json.email_account_id, received_at: $json.received_at }) }}",
           "options": {
             "timeout": 30000,
             "neverError": true
@@ -2737,7 +2737,7 @@
           },
           "sendBody": true,
           "specifyBody": "json",
-          "jsonBody": "={{ JSON.stringify({ lead_id: $json.lead_id, wave_lead_id: $json.wave_lead_id, salesman_id: $json.salesman_id, from_email: $json.from_email, subject: $json.subject, body_preview: $json.body_preview, received_at: $json.received_at }) }}",
+          "jsonBody": "={{ JSON.stringify({ lead_id: $json.lead_id, wave_lead_id: $json.wave_lead_id, email_account_id: $json.email_account_id, from_email: $json.from_email, subject: $json.subject, body_preview: $json.body_preview, received_at: $json.received_at }) }}",
           "options": {
             "timeout": 30000,
             "neverError": true

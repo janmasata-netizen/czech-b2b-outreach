@@ -3,8 +3,8 @@ import GlassCard from '@/components/glass/GlassCard';
 import GlassButton from '@/components/glass/GlassButton';
 import GlassInput from '@/components/glass/GlassInput';
 import GlassModal from '@/components/glass/GlassModal';
-import { useUpdateWave, useTemplateSets, useFromEmailSuggestions } from '@/hooks/useWaves';
-import { useSalesmen, useOutreachAccounts } from '@/hooks/useSettings';
+import { useUpdateWave, useTemplateSets } from '@/hooks/useWaves';
+import { useEmailAccounts } from '@/hooks/useSettings';
 import { useCreateWavePreset } from '@/hooks/useWavePresets';
 import type { WaveAnalytics, Wave } from '@/types/database';
 import { toast } from 'sonner';
@@ -17,11 +17,8 @@ const LABEL: React.CSSProperties = { fontSize: 12, fontWeight: 500, color: 'var(
 
 export default function WaveConfigForm({ wave }: WaveConfigFormProps) {
   const { data: templateSets } = useTemplateSets(wave.team_id ?? undefined);
-  const { data: salesmen } = useSalesmen(wave.team_id ?? undefined);
-  const { data: outreachAccounts } = useOutreachAccounts(wave.team_id ?? undefined);
-  const { data: emailSuggestions } = useFromEmailSuggestions();
-  const activeAccounts = (outreachAccounts ?? []).filter(a => a.is_active);
-  const hasAccounts = activeAccounts.length > 0;
+  const { data: emailAccounts } = useEmailAccounts(wave.team_id ?? undefined);
+  const activeAccounts = (emailAccounts ?? []).filter(a => a.is_active);
   const updateWave = useUpdateWave();
   const createPreset = useCreateWavePreset();
   const [showPresetModal, setShowPresetModal] = useState(false);
@@ -30,9 +27,7 @@ export default function WaveConfigForm({ wave }: WaveConfigFormProps) {
   const [form, setForm] = useState({
     name: wave.name ?? '',
     template_set_id: wave.template_set_id ?? '',
-    salesman_id: wave.salesman_id ?? '',
-    outreach_account_id: wave.outreach_account_id ?? '',
-    from_email: wave.from_email ?? '',
+    email_account_id: wave.email_account_id ?? '',
     is_dummy: Boolean(wave.is_dummy),
     dummy_email: wave.dummy_email ?? '',
   });
@@ -41,23 +36,19 @@ export default function WaveConfigForm({ wave }: WaveConfigFormProps) {
     setForm({
       name: wave.name ?? '',
       template_set_id: wave.template_set_id ?? '',
-      salesman_id: wave.salesman_id ?? '',
-      outreach_account_id: wave.outreach_account_id ?? '',
-      from_email: wave.from_email ?? '',
+      email_account_id: wave.email_account_id ?? '',
       is_dummy: Boolean(wave.is_dummy),
       dummy_email: wave.dummy_email ?? '',
     });
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [wave.id, wave.template_set_id, wave.salesman_id, wave.outreach_account_id, wave.from_email, wave.is_dummy, wave.dummy_email]);
+  }, [wave.id, wave.template_set_id, wave.email_account_id, wave.is_dummy, wave.dummy_email]);
 
   const savedForm = useRef(form);
   useEffect(() => {
     savedForm.current = {
       name: wave.name ?? '',
       template_set_id: wave.template_set_id ?? '',
-      salesman_id: wave.salesman_id ?? '',
-      outreach_account_id: wave.outreach_account_id ?? '',
-      from_email: wave.from_email ?? '',
+      email_account_id: wave.email_account_id ?? '',
       is_dummy: Boolean(wave.is_dummy),
       dummy_email: wave.dummy_email ?? '',
     };
@@ -84,9 +75,7 @@ export default function WaveConfigForm({ wave }: WaveConfigFormProps) {
         updates: {
           name: form.name,
           template_set_id: form.template_set_id || null,
-          salesman_id: form.salesman_id || null,
-          outreach_account_id: form.outreach_account_id || null,
-          from_email: form.from_email || null,
+          email_account_id: form.email_account_id || null,
           is_dummy: form.is_dummy,
           dummy_email: form.is_dummy ? (form.dummy_email || null) : null,
         } as Partial<Wave>,
@@ -98,7 +87,7 @@ export default function WaveConfigForm({ wave }: WaveConfigFormProps) {
     }
   }
 
-  const hasConfigValues = !!(form.template_set_id || form.from_email || form.salesman_id);
+  const hasConfigValues = !!(form.template_set_id || form.email_account_id);
 
   async function handleSavePreset() {
     if (!presetName.trim() || !wave.team_id) return;
@@ -107,8 +96,7 @@ export default function WaveConfigForm({ wave }: WaveConfigFormProps) {
         name: presetName.trim(),
         team_id: wave.team_id,
         template_set_id: form.template_set_id || null,
-        from_email: form.from_email || null,
-        salesman_id: form.salesman_id || null,
+        email_account_id: form.email_account_id || null,
       });
       toast.success('Preset uložen');
       setPresetName('');
@@ -145,68 +133,29 @@ export default function WaveConfigForm({ wave }: WaveConfigFormProps) {
         </div>
 
         <div style={{ display: 'flex', flexDirection: 'column', gap: 5 }}>
-          <label style={LABEL}>Obchodník (Reply-To)</label>
-          <select className="glass-input" value={form.salesman_id} onChange={e => set('salesman_id', e.target.value)} disabled={locked}>
-            <option value="">— Vyberte obchodníka —</option>
-            {(salesmen ?? []).filter(s => s.is_active !== false).map(s => (
-              <option key={s.id} value={s.id}>{s.name} · {s.email}</option>
+          <label style={LABEL}>E-mailový účet</label>
+          <select
+            className="glass-input"
+            value={form.email_account_id}
+            onChange={e => set('email_account_id', e.target.value)}
+            disabled={locked}
+          >
+            <option value="">— Vyberte účet —</option>
+            {activeAccounts.map(a => (
+              <option key={a.id} value={a.id}>
+                {a.name} · {a.email_address} ({a.sends_today}/{a.daily_send_limit})
+              </option>
             ))}
           </select>
+          {form.email_account_id && (() => {
+            const sel = activeAccounts.find(a => a.id === form.email_account_id);
+            return sel && sel.sends_today >= sel.daily_send_limit ? (
+              <p style={{ fontSize: 11, color: '#ef4444', fontWeight: 500 }}>
+                Denní limit tohoto účtu je vyčerpán ({sel.sends_today}/{sel.daily_send_limit})
+              </p>
+            ) : null;
+          })()}
         </div>
-
-        {hasAccounts ? (
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 5 }}>
-            <label style={LABEL}>Odesílací účet (FROM)</label>
-            <select
-              className="glass-input"
-              value={form.outreach_account_id}
-              onChange={e => {
-                const accountId = e.target.value;
-                const account = activeAccounts.find(a => a.id === accountId);
-                setForm(f => ({
-                  ...f,
-                  outreach_account_id: accountId,
-                  from_email: account?.email_address ?? '',
-                }));
-              }}
-              disabled={locked}
-            >
-              <option value="">— Vyberte účet —</option>
-              {activeAccounts.map(a => (
-                <option key={a.id} value={a.id}>
-                  {a.email_address} ({a.sends_today}/{a.daily_send_limit})
-                </option>
-              ))}
-            </select>
-            {form.outreach_account_id && (() => {
-              const sel = activeAccounts.find(a => a.id === form.outreach_account_id);
-              return sel && sel.sends_today >= sel.daily_send_limit ? (
-                <p style={{ fontSize: 11, color: '#ef4444', fontWeight: 500 }}>
-                  Denní limit tohoto účtu je vyčerpán ({sel.sends_today}/{sel.daily_send_limit})
-                </p>
-              ) : null;
-            })()}
-          </div>
-        ) : (
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 5 }}>
-            <label style={LABEL}>Odesílací email (FROM)</label>
-            <input
-              className="glass-input"
-              list="from-email-suggestions"
-              type="email"
-              placeholder="outreach@firma.cz"
-              value={form.from_email}
-              onChange={e => set('from_email', e.target.value)}
-              disabled={locked}
-              style={{ fontFamily: 'JetBrains Mono, monospace' }}
-            />
-            <datalist id="from-email-suggestions">
-              {(emailSuggestions ?? []).map(email => (
-                <option key={email} value={email} />
-              ))}
-            </datalist>
-          </div>
-        )}
 
         <div style={{ padding: '10px 12px', background: 'var(--bg-subtle)', borderRadius: 8, border: '1px solid var(--border)' }}>
           <label style={{ display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer' }}>
@@ -261,7 +210,7 @@ export default function WaveConfigForm({ wave }: WaveConfigFormProps) {
       >
         <GlassInput label="Název presetu" placeholder="např. Hlavní outreach" value={presetName} onChange={e => setPresetName(e.target.value)} autoFocus />
         <p style={{ fontSize: 11, color: 'var(--text-muted)', marginTop: 8 }}>
-          Uloží aktuální šablonu, odesílací email a obchodníka jako znovupoužitelný preset.
+          Uloží aktuální šablonu a e-mailový účet jako znovupoužitelný preset.
         </p>
       </GlassModal>
     </GlassCard>

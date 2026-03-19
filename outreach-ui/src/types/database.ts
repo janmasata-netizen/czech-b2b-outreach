@@ -217,48 +217,33 @@ export interface EmailTemplate {
   created_at?: string;
 }
 
-export interface Salesman {
+export interface EmailAccount {
   id: string;
   team_id: string;
   name: string;
-  email: string;
-  imap_credential_name?: string;
-  imap_host?: string;
-  imap_port?: number;
-  imap_secure?: boolean;
-  imap_user?: string;
-  imap_password?: string;
-  is_active?: boolean;
-  created_at?: string;
-  team?: { name: string };
-}
-
-export interface OutreachAccount {
-  id: string;
-  team_id: string;
   email_address: string;
-  display_name?: string | null;
   smtp_host: string;
   smtp_port: number;
   smtp_secure: boolean;
   smtp_user: string;
-  smtp_password?: string; // excluded from safe view, only available to admin
+  smtp_password?: string;
+  imap_host: string;
+  imap_port: number;
+  imap_secure: boolean;
+  imap_user: string;
+  imap_password?: string;
   daily_send_limit: number;
   sends_today: number;
   is_active: boolean;
   created_at: string;
   updated_at?: string;
   team?: { name: string };
-  // Computed: which active wave is using this account (if any)
-  active_wave?: { id: string; name: string; status: string } | null;
 }
 
 export interface Wave {
   id: string;
   team_id?: string | null;
-  salesman_id?: string | null;
-  outreach_account_id?: string | null;
-  from_email?: string | null;
+  email_account_id?: string | null;
   template_set_id?: string | null;
   name: string | null;
   status: WaveStatus;
@@ -286,7 +271,7 @@ export interface Wave {
     skipped_leads: Array<{ lead_id: string; company_name: string; reason: string }>;
   } | null;
   team?: Team;
-  salesman?: Salesman;
+  email_account?: EmailAccount;
   template_set?: TemplateSet;
 }
 
@@ -298,7 +283,7 @@ export interface WaveLead {
   status: WaveLeadStatus;
   ab_variant: ABVariant | null;
   retarget_round?: number;
-  outreach_account_id?: string | null;
+  email_account_id?: string | null;
   created_at?: string;
   updated_at?: string;
   lead?: Lead;
@@ -311,7 +296,7 @@ export interface EmailQueue {
   jednatel_id?: string | null;
   email_address: string;
   sequence_number: number;
-  outreach_account_id?: string | null;
+  email_account_id?: string | null;
   smtp_message_id_ref?: string | null;
   subject_rendered?: string | null;
   body_rendered?: string | null;
@@ -330,7 +315,7 @@ export interface SentEmail {
   jednatel_id?: string | null;
   email_address: string;
   sequence_number: number;
-  outreach_account_id?: string | null;
+  email_account_id?: string | null;
   smtp_message_id?: string | null;
   subject?: string | null;
   sent_at: string;
@@ -341,7 +326,7 @@ export interface LeadReply {
   id: string;
   lead_id?: string | null;
   wave_lead_id?: string | null;
-  salesman_id?: string | null;
+  email_account_id?: string | null;
   from_email?: string | null;
   subject?: string | null;
   body_preview?: string | null;
@@ -357,9 +342,9 @@ export interface WaveAnalytics {
   status: WaveStatus;
   template_set_id: string | null;
   template_set_name: string | null;
-  salesman_id?: string | null;
-  outreach_account_id?: string | null;
-  from_email?: string | null;
+  email_account_id?: string | null;
+  email_account_name?: string | null;
+  email_address?: string | null;
   is_dummy?: boolean;
   dummy_email?: string | null;
   source_wave_id?: string | null;
@@ -479,12 +464,11 @@ export interface WavePreset {
   team_id: string;
   name: string;
   template_set_id: string | null;
-  from_email: string | null;
-  salesman_id: string | null;
+  email_account_id: string | null;
   created_at?: string;
   updated_at?: string;
   template_set?: TemplateSet;
-  salesman?: Salesman;
+  email_account?: EmailAccount;
 }
 
 // ── Bug Reports ──
