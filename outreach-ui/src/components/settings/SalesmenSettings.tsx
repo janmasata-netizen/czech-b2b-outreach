@@ -12,7 +12,6 @@ import { toast } from 'sonner';
 import { Trash2 } from 'lucide-react';
 
 const LABEL: React.CSSProperties = { fontSize: 12, fontWeight: 500, color: 'var(--text-dim)' };
-const HINT: React.CSSProperties = { fontSize: 11, color: 'var(--text-muted)', marginTop: 3 };
 
 export default function SalesmenSettings() {
   const { data: salesmen, isLoading } = useSalesmen();

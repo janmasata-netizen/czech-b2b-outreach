@@ -2,7 +2,6 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/lib/supabase';
 import type { Team, ConfigEntry, Salesman, TemplateVariable, OutreachAccount } from '@/types/database';
 import { useDemoMode } from '@/contexts/DemoModeContext';
-import { n8nWebhookUrl, n8nHeaders } from '@/lib/n8n';
 import { DEMO_TEAMS, DEMO_SALESMEN, DEMO_TEMPLATE_SETS } from '@/lib/demo-data';
 
 export function useTeamsSettings() {
@@ -76,7 +75,9 @@ export function useSalesmen(teamId?: string) {
       if (teamId) q = q.eq('team_id', teamId);
       const { data, error } = await q;
       if (error) throw error;
-      return data ?? [];
+      // Strip imap_password from list responses (security: don't expose to browser)
+      // eslint-disable-next-line @typescript-eslint/no-unused-vars
+      return (data ?? []).map(({ imap_password, ...rest }) => rest) as Salesman[];
     },
   });
 }
@@ -261,6 +262,7 @@ export function useUpsertOutreachAccount() {
     mutationFn: async (account: Partial<OutreachAccount> & { id?: string }) => {
       if (isDemoMode) return;
       // Strip computed/joined fields before write
+      // eslint-disable-next-line @typescript-eslint/no-unused-vars
       const { team, active_wave, ...rest } = account;
       if (rest.id) {
         const { id, ...updates } = rest;

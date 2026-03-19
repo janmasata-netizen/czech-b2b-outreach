@@ -26,7 +26,7 @@
         "specifyBody": "raw",
         "contentType": "raw",
         "rawContentType": "application/json",
-        "body": "={{ JSON.stringify({ credential_name: $json.imap_credential_name }) }}",
+        "body": "={{ JSON.stringify({ credential_name: $json.imap_credential_name, salesman_email: $json.email }) }}",
         "options": {
           "timeout": 60000,
           "neverError": true
@@ -1757,7 +1757,7 @@
           "specifyBody": "raw",
           "contentType": "raw",
           "rawContentType": "application/json",
-          "body": "={{ JSON.stringify({ credential_name: $json.imap_credential_name }) }}",
+          "body": "={{ JSON.stringify({ credential_name: $json.imap_credential_name, salesman_email: $json.email }) }}",
           "options": {
             "timeout": 60000,
             "neverError": true
