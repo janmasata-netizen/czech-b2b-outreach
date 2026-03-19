@@ -426,6 +426,12 @@ export default function WaveDetailPage() {
     });
   });
 
+  // Queued items ready for immediate send (bypass cron wait)
+  const queuedItems = waveLeads.flatMap((wl: WaveLeadRow) => {
+    const queue: EmailQueue[] = wl.email_queue ?? [];
+    return queue.filter((qi: EmailQueue) => qi.status === 'queued');
+  });
+
   // ── Handlers ──────────────────────────────────────────────────────────────
 
   function handlePreScheduleValidation() {
@@ -666,12 +672,40 @@ export default function WaveDetailPage() {
     }
   }
 
+  async function handleSendNowActive() {
+    setSendingNow(true);
+    try {
+      const ids = queuedItems.map((qi: EmailQueue) => qi.id);
+      await forceSend.mutateAsync({ queueIds: ids });
+      toast.success(`Odesláno ${ids.length} e-mailů`);
+      qc.invalidateQueries({ queryKey: ['waves', id] });
+      qc.invalidateQueries({ queryKey: ['waves'] });
+    } catch (e: unknown) {
+      toast.error(t('waves.errorScheduling') + (e as Error).message);
+    } finally {
+      setSendingNow(false);
+      setConfirmSendNow(false);
+    }
+  }
+
   // ── Header actions ────────────────────────────────────────────────────────
 
   function renderActions() {
     const buttons: React.ReactNode[] = [];
 
     if (['scheduled', 'sending'].includes(wave.status)) {
+      if (queuedItems.length > 0) {
+        buttons.push(
+          <GlassButton
+            key="send-now"
+            variant="primary"
+            onClick={() => setConfirmSendNow(true)}
+            disabled={sendingNow || forceSend.isPending}
+          >
+            {sendingNow ? t('waves.launching') : `Odeslat hned (${queuedItems.length})`}
+          </GlassButton>
+        );
+      }
       if (forceSendEligibleItems.length > 0) {
         buttons.push(
           <GlassButton
@@ -1304,7 +1338,7 @@ export default function WaveDetailPage() {
       <ConfirmDialog
         open={confirmSendNow}
         onClose={() => setConfirmSendNow(false)}
-        onConfirm={handleSendNow}
+        onConfirm={wave.status === 'draft' ? handleSendNow : handleSendNowActive}
         title="Odeslat hned"
         confirmLabel="Ano, odeslat hned"
         variant="danger"
@@ -1312,7 +1346,9 @@ export default function WaveDetailPage() {
       >
         <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
           <div style={{ fontSize: 13, color: 'var(--text-dim)', lineHeight: 1.5 }}>
-            {wave.is_dummy ? (
+            {wave.status !== 'draft' ? (
+              <>Okamžitě odešle <strong style={{ color: '#fbbf24' }}>{queuedItems.length}</strong> e-mailů ve frontě (bez čekání na cron).</>
+            ) : wave.is_dummy ? (
               <>Všechny e-maily budou odeslány na{' '}
                 <strong style={{ color: '#fbbf24', fontFamily: 'JetBrains Mono, monospace' }}>{wave.dummy_email}</strong>{' '}
                 ihned.
@@ -1323,18 +1359,22 @@ export default function WaveDetailPage() {
           </div>
           <div style={{ display: 'flex', gap: 16 }}>
             <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
-              <span style={{ fontSize: 11, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>{t('waves.leads')}</span>
-              <span style={{ fontSize: 14, fontFamily: 'JetBrains Mono, monospace', color: 'var(--green)' }}>{waveLeads.length}</span>
+              <span style={{ fontSize: 11, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>{wave.status !== 'draft' ? 'E-mailů ve frontě' : t('waves.leads')}</span>
+              <span style={{ fontSize: 14, fontFamily: 'JetBrains Mono, monospace', color: 'var(--green)' }}>{wave.status !== 'draft' ? queuedItems.length : waveLeads.length}</span>
             </div>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
-              <span style={{ fontSize: 11, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>{t('waves.confirmSendNowRecipient')}</span>
-              <span style={{ fontSize: 14, fontFamily: 'JetBrains Mono, monospace', color: 'var(--text)' }}>{wave.dummy_email}</span>
+            {wave.status === 'draft' && wave.dummy_email && (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+                <span style={{ fontSize: 11, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>{t('waves.confirmSendNowRecipient')}</span>
+                <span style={{ fontSize: 14, fontFamily: 'JetBrains Mono, monospace', color: 'var(--text)' }}>{wave.dummy_email}</span>
+              </div>
+            )}
+          </div>
+          {wave.status === 'draft' && (
+            <div style={{ fontSize: 12, color: 'var(--text-muted)', lineHeight: 1.5, padding: '8px 12px', background: 'rgba(251,191,36,0.06)', border: '1px solid rgba(251,191,36,0.2)', borderRadius: 8 }}>
+              {t('waves.confirmSendNowNote')}{' '}
+              {t('waves.confirmSendNowTestPrefix')} <code style={{ color: '#fbbf24' }}>[TEST]</code>.
             </div>
-          </div>
-          <div style={{ fontSize: 12, color: 'var(--text-muted)', lineHeight: 1.5, padding: '8px 12px', background: 'rgba(251,191,36,0.06)', border: '1px solid rgba(251,191,36,0.2)', borderRadius: 8 }}>
-            {t('waves.confirmSendNowNote')}{' '}
-            {t('waves.confirmSendNowTestPrefix')} <code style={{ color: '#fbbf24' }}>[TEST]</code>.
-          </div>
+          )}
         </div>
       </ConfirmDialog>
 
