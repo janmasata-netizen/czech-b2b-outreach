@@ -5,7 +5,6 @@ import { useDemoMode } from '@/contexts/DemoModeContext';
 import {
   DEMO_WAVES,
   DEMO_TEMPLATE_SETS,
-  DEMO_FROM_EMAILS,
   DEMO_FAILED_EMAILS,
   getDemoWaveDetail,
 } from '@/lib/demo-data';
@@ -61,24 +60,6 @@ export function useWave(id: string | undefined) {
         wave: { ...waveRes.data, ...waveRowRes.data } as WaveAnalytics,
         waveLeads: leadsRes.data ?? [],
       };
-    },
-  });
-}
-
-export function useFromEmailSuggestions() {
-  const { isDemoMode } = useDemoMode();
-  return useQuery<string[]>({
-    queryKey: ['from-email-suggestions'],
-    queryFn: async () => {
-      if (isDemoMode) return DEMO_FROM_EMAILS;
-      const { data, error } = await supabase
-        .from('waves')
-        .select('from_email')
-        .not('from_email', 'is', null)
-        .order('created_at', { ascending: false });
-      if (error) throw error;
-      const unique = [...new Set((data ?? []).map(d => d.from_email).filter(Boolean))] as string[];
-      return unique;
     },
   });
 }

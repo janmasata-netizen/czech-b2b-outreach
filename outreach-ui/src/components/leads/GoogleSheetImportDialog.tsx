@@ -8,12 +8,12 @@ import GlassInput from '@/components/glass/GlassInput';
 import GlassProgress from '@/components/glass/GlassProgress';
 import { useTeams } from '@/hooks/useLeads';
 import { supabase } from '@/lib/supabase';
-import { parseCsv, autoDetect } from '@/lib/csv-utils';
+import { parseCsv, autoDetect, isLikelyCompanyName } from '@/lib/csv-utils';
 import { toast } from 'sonner';
 import { n8nWebhookUrl, n8nHeaders } from '@/lib/n8n';
 import { checkDuplicates, extractDomain, type DedupResult, type DuplicateMatch } from '@/lib/dedup';
 import { LEAD_LANGUAGE_MAP } from '@/lib/constants';
-import { assignTeamToRows, type TeamAllocation } from '@/lib/team-distribution';
+import { percentagesToCounts, assignTeamToRowsByCount, type TeamAllocation } from '@/lib/team-distribution';
 import TeamDistributionSelector from '@/components/shared/TeamDistributionSelector';
 import type { LeadLanguage } from '@/types/database';
 
@@ -163,10 +163,19 @@ export default function GoogleSheetImportDialog({ open, onClose }: GoogleSheetIm
     }
     setMapError('');
 
+    // Filter empty rows (all mapped fields empty)
+    const mappedFields = (Object.keys(mapping) as (keyof typeof mapping)[]).filter(k => mapping[k]);
+    const filteredRows = rows.filter(row => mappedFields.some(f => getRowValue(row, f)));
+    const emptyCount = rows.length - filteredRows.length;
+    if (emptyCount > 0) {
+      toast.info(`${emptyCount} prázdných řádků přeskočeno`);
+      setRows(filteredRows);
+    }
+
     // Build candidates for dedup check
     setDedupChecking(true);
     try {
-      const candidates = rows.map(row => ({
+      const candidates = filteredRows.map(row => ({
         ico: getRowValue(row, 'ico') || undefined,
         domain: extractDomain(getRowValue(row, 'website')) || undefined,
         email: getRowValue(row, 'email') || undefined,
@@ -179,7 +188,7 @@ export default function GoogleSheetImportDialog({ open, onClose }: GoogleSheetIm
         setDedupResult(result);
         setStep('review');
       } else {
-        runImport(new Set());
+        runImport(new Set(), filteredRows);
       }
     } catch (err) {
       console.error('Dedup check failed:', err);
@@ -189,11 +198,9 @@ export default function GoogleSheetImportDialog({ open, onClose }: GoogleSheetIm
     }
   }
 
-  async function runImport(skipIndices: Set<number>) {
+  async function runImport(skipIndices: Set<number>, effectiveRows?: string[][]) {
+    const importRows = effectiveRows ?? rows;
     setStep('importing');
-    const total = rows.length;
-    let done = 0, errors = 0, duplicates = 0, icosFound = 0;
-    setProgress({ done: 0, errors: 0, duplicates: 0, total, icosFound: 0, phase: '' });
 
     const effectiveAllocations = teamAllocations.length > 0
       ? teamAllocations
@@ -217,21 +224,38 @@ export default function GoogleSheetImportDialog({ open, onClose }: GoogleSheetIm
     const groupId = group.id;
     setCreatedGroupId(groupId);
 
-    // Count non-skipped rows for team distribution
-    const activeCount = rows.filter((_, i) => !skipIndices.has(i)).length;
-    const teamForRow = assignTeamToRows(activeCount, effectiveAllocations);
-    let activeIdx = 0;
-
     const mappedCols = new Set(Object.values(mapping).filter(Boolean));
     const extraCols = headers.filter(h => !mappedCols.has(h));
 
-    // For full pipeline: Phase 1 — scrape ICOs from websites
-    const rowIcos: (string | null)[] = new Array(rows.length).fill(null);
+    // Build active rows (skip duplicates)
+    const skippedDups = skipIndices.size;
+    const activeRows: string[][] = [];
+    const activeOrigIndices: number[] = [];
+    for (let i = 0; i < importRows.length; i++) {
+      if (!skipIndices.has(i)) {
+        activeRows.push(importRows[i]);
+        activeOrigIndices.push(i);
+      }
+    }
+
+    // Assign teams by exact count (no percentage rounding)
+    const teamCounts = percentagesToCounts(activeRows.length, effectiveAllocations);
+    const teamForRow = assignTeamToRowsByCount(teamCounts);
+
+    const total = importRows.length;
+    let done = skippedDups;
+    let errors = 0;
+    const duplicates = skippedDups;
+    let icosFound = 0;
+    setProgress({ done, errors, duplicates, total, icosFound: 0, phase: '' });
+
+    // For full pipeline: Phase 1 — scrape ICOs from websites (sequential, throttled)
+    const rowIcos: Map<number, string> = new Map();
 
     if (enrichmentLevel === 'full_pipeline') {
-      const rowsNeedingIco = rows
+      const rowsNeedingIco = activeRows
         .map((row, i) => ({ i, website: getRowValue(row, 'website'), ico: getRowValue(row, 'ico') }))
-        .filter(r => r.website && !r.ico && !skipIndices.has(r.i));
+        .filter(r => r.website && !r.ico);
 
       if (rowsNeedingIco.length > 0) {
         setProgress(p => ({ ...p, phase: t('gsheetImport.searchingIco', { done: 0, total: rowsNeedingIco.length }) }));
@@ -246,7 +270,7 @@ export default function GoogleSheetImportDialog({ open, onClose }: GoogleSheetIm
             });
             const data = await res.json();
             if (data.ico) {
-              rowIcos[r.i] = data.ico;
+              rowIcos.set(r.i, data.ico);
               icosFound++;
             }
           } catch { /* ignore scrape failures */ }
@@ -260,22 +284,12 @@ export default function GoogleSheetImportDialog({ open, onClose }: GoogleSheetIm
       }
     }
 
-    // Phase 2: Import leads
+    // Phase 2: Import leads in batches
     setProgress(p => ({ ...p, phase: t('gsheetImport.importingLeads', { done: 0, total }) }));
 
-    for (let i = 0; i < rows.length; i++) {
-      // Skip duplicates identified in review step
-      if (skipIndices.has(i)) {
-        duplicates++;
-        done++;
-        setProgress(p => ({ ...p, done, duplicates, phase: t('gsheetImport.importingLeads', { done, total }) }));
-        continue;
-      }
-
-      const row = rows[i];
-      const rowTeamId = teamForRow[activeIdx++] || effectiveAllocations[0]?.teamId || '';
+    async function importSingleRow(row: string[], teamId: string, activeIdx: number): Promise<'ok' | 'error'> {
       const company_name = getRowValue(row, 'company_name');
-      const ico = getRowValue(row, 'ico') || rowIcos[i] || '';
+      const ico = getRowValue(row, 'ico') || rowIcos.get(activeIdx) || '';
       const website = getRowValue(row, 'website');
       const contact_name = getRowValue(row, 'contact_name');
       const email = getRowValue(row, 'email');
@@ -286,12 +300,6 @@ export default function GoogleSheetImportDialog({ open, onClose }: GoogleSheetIm
         if (val) custom_fields[col.toLowerCase().replace(/[^a-z0-9_]/g, '_')] = val;
       }
 
-      if (!company_name && !ico && !contact_name && !website) {
-        done++;
-        setProgress(p => ({ ...p, done, phase: t('gsheetImport.importingLeads', { done, total }) }));
-        continue;
-      }
-
       const validEmail = email && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email) ? email : '';
 
       try {
@@ -300,7 +308,7 @@ export default function GoogleSheetImportDialog({ open, onClose }: GoogleSheetIm
           p_ico: ico || null,
           p_website: website || null,
           p_domain: extractDomain(website) || null,
-          p_team_id: rowTeamId || null,
+          p_team_id: teamId || null,
           p_status: validEmail ? 'ready' : 'new',
           p_lead_type: 'company',
           p_language: language,
@@ -308,41 +316,51 @@ export default function GoogleSheetImportDialog({ open, onClose }: GoogleSheetIm
           p_import_group_id: groupId,
         });
 
-        if (rpcErr) {
-          errors++;
-        } else {
-          const companyId = rpcResult?.company_id;
+        if (rpcErr) return 'error';
 
-          if (validEmail && companyId) {
-            const { data: contact, error: ce } = await supabase
-              .from('contacts')
-              .insert({ company_id: companyId, full_name: contact_name || null })
-              .select()
-              .single();
-            if (ce) { errors++; }
-            else {
-              const { error: ee } = await supabase
-                .from('email_candidates')
-                .insert({
-                  contact_id: contact.id,
-                  email_address: validEmail,
-                  is_verified: true,
-                  qev_status: 'manually_verified',
-                  seznam_status: 'likely_valid',
-                });
-              if (ee) errors++;
-            }
-          } else if (contact_name && companyId) {
-            await supabase
-              .from('contacts')
-              .insert({ company_id: companyId, full_name: contact_name });
-          }
+        const companyId = rpcResult?.company_id;
+
+        if (validEmail && companyId) {
+          const { data: contact, error: ce } = await supabase
+            .from('contacts')
+            .insert({ company_id: companyId, full_name: contact_name || null })
+            .select()
+            .single();
+          if (ce) return 'error';
+          const { error: ee } = await supabase
+            .from('email_candidates')
+            .insert({
+              contact_id: contact.id,
+              email_address: validEmail,
+              is_verified: true,
+              qev_status: 'manually_verified',
+              seznam_status: 'likely_valid',
+            });
+          if (ee) return 'error';
+        } else if (contact_name && companyId) {
+          await supabase
+            .from('contacts')
+            .insert({ company_id: companyId, full_name: contact_name });
         }
+        return 'ok';
       } catch {
-        errors++;
+        return 'error';
       }
+    }
 
-      done++;
+    // Process in batches of 5 for ~5x speedup
+    const BATCH_SIZE = 5;
+    for (let batchStart = 0; batchStart < activeRows.length; batchStart += BATCH_SIZE) {
+      const batch = activeRows.slice(batchStart, batchStart + BATCH_SIZE);
+      const results = await Promise.allSettled(
+        batch.map((row, i) => importSingleRow(row, teamForRow[batchStart + i] || effectiveAllocations[0]?.teamId || '', batchStart + i))
+      );
+      for (const r of results) {
+        done++;
+        if (r.status === 'rejected' || (r.status === 'fulfilled' && r.value === 'error')) {
+          errors++;
+        }
+      }
       setProgress(p => ({
         ...p,
         done,
@@ -350,8 +368,6 @@ export default function GoogleSheetImportDialog({ open, onClose }: GoogleSheetIm
         duplicates,
         phase: t('gsheetImport.importingLeads', { done, total }),
       }));
-
-      if (i < rows.length - 1) await delay(200);
     }
 
     setProgress({ done, errors, duplicates, total, icosFound, phase: '' });
@@ -525,6 +541,27 @@ export default function GoogleSheetImportDialog({ open, onClose }: GoogleSheetIm
         return (
           <div style={{ fontSize: 12, color: 'var(--cyan)', padding: '8px 12px', background: 'rgba(34,211,238,0.06)', border: '1px solid rgba(34,211,238,0.2)', borderRadius: 6 }}>
             Zbývající sloupce budou uloženy jako vlastní pole: <strong>{extra.join(', ')}</strong>
+          </div>
+        );
+      })()}
+
+      {/* Company name in contact_name warning */}
+      {(() => {
+        if (!mapping.contact_name) return null;
+        const companyRows = rows.filter(row => isLikelyCompanyName(getRowValue(row, 'contact_name')));
+        if (companyRows.length === 0) return null;
+        const examples = companyRows.slice(0, 5).map(row => getRowValue(row, 'contact_name'));
+        return (
+          <div style={{ fontSize: 12, color: '#fb923c', padding: '8px 12px', background: 'rgba(251,146,60,0.08)', border: '1px solid rgba(251,146,60,0.25)', borderRadius: 6 }}>
+            <div style={{ fontWeight: 500, marginBottom: 4 }}>
+              {t('csvImport.companyNameInContact', { count: companyRows.length })}
+            </div>
+            <div style={{ color: 'var(--text-dim)', marginBottom: 4 }}>
+              {t('csvImport.companyNameInContactNote')}
+            </div>
+            <div style={{ color: 'var(--text-dim)' }}>
+              {t('csvImport.companyNameInContactExamples')} {examples.join(', ')}
+            </div>
           </div>
         );
       })()}

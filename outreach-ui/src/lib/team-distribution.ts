@@ -77,6 +77,53 @@ export function distributeEvenlyByCount(
 }
 
 /**
+ * Convert percentage-based allocations to exact counts using largest-remainder.
+ * E.g. 10 rows, [60%, 40%] -> [{teamId, count:6}, {teamId, count:4}]
+ */
+export function percentagesToCounts(
+  totalCount: number,
+  allocations: TeamAllocation[]
+): Array<{ teamId: string; count: number }> {
+  if (allocations.length === 0 || totalCount === 0) return [];
+  if (allocations.length === 1) return [{ teamId: allocations[0].teamId, count: totalCount }];
+
+  const counts = allocations.map(a => ({
+    teamId: a.teamId,
+    count: Math.floor((a.percentage / 100) * totalCount),
+  }));
+
+  let remaining = totalCount - counts.reduce((s, c) => s + c.count, 0);
+  const fractionals = allocations.map((a, i) => ({
+    i,
+    frac: ((a.percentage / 100) * totalCount) - counts[i].count,
+  }));
+  fractionals.sort((a, b) => b.frac - a.frac);
+  for (const f of fractionals) {
+    if (remaining <= 0) break;
+    counts[f.i].count++;
+    remaining--;
+  }
+
+  return counts;
+}
+
+/**
+ * Assign a team to each row using explicit counts (no percentage rounding).
+ * E.g. [{teamId:'A', count:6}, {teamId:'B', count:4}] -> [A,A,A,A,A,A,B,B,B,B]
+ */
+export function assignTeamToRowsByCount(
+  allocations: Array<{ teamId: string; count: number }>
+): string[] {
+  const result: string[] = [];
+  for (const a of allocations) {
+    for (let j = 0; j < a.count; j++) {
+      result.push(a.teamId);
+    }
+  }
+  return result;
+}
+
+/**
  * Weighted random pick for single-lead case.
  * Percentages act as probability weights.
  */

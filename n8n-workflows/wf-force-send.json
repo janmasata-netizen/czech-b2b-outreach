@@ -116,7 +116,7 @@
     {
       "parameters": {
         "mode": "runOnceForAllItems",
-        "jsCode": "const items = $input.all().map(i => i.json);\n\n// Filter out wrapper objects (HTTP response metadata)\nconst emails = items.filter(eq => eq.id && eq.wave_lead_id);\n\nif (emails.length === 0) {\n  return [{ json: { has_emails: false, success: false, error: 'No eligible queue items found (all already sent or cancelled)' } }];\n}\n\nreturn emails.map(eq => ({ json: {\n  has_emails: true,\n  id:                  eq.id,\n  wave_lead_id:        eq.wave_lead_id,\n  jednatel_id:         eq.jednatel_id,\n  email_address:       eq.email_address,\n  sequence_number:     eq.sequence_number,\n  outreach_account_id: eq.outreach_account_id,\n  smtp_message_id_ref: eq.smtp_message_id_ref,\n  subject_rendered:    eq.subject_rendered,\n  body_rendered:       eq.body_rendered,\n  original_status:     eq.status,\n  thread_subject:      eq.thread_subject || '',\n  max_sequence_number: eq.max_sequence_number || 3,\n  retry_count:         0,\n} }));"
+        "jsCode": "const items = $input.all().map(i => i.json);\n\n// Filter out wrapper objects (HTTP response metadata)\nconst emails = items.filter(eq => eq.id && eq.wave_lead_id);\n\nif (emails.length === 0) {\n  return [{ json: { has_emails: false, success: false, error: 'No eligible queue items found (all already sent or cancelled)' } }];\n}\n\nreturn emails.map(eq => ({ json: {\n  has_emails: true,\n  id:                  eq.id,\n  wave_lead_id:        eq.wave_lead_id,\n  jednatel_id:         eq.jednatel_id,\n  email_address:       eq.email_address,\n  sequence_number:     eq.sequence_number,\n  email_account_id: eq.email_account_id,\n  smtp_message_id_ref: eq.smtp_message_id_ref,\n  subject_rendered:    eq.subject_rendered,\n  body_rendered:       eq.body_rendered,\n  original_status:     eq.status,\n  thread_subject:      eq.thread_subject || '',\n  max_sequence_number: eq.max_sequence_number || 3,\n  retry_count:         0,\n} }));"
       },
       "id": "fs-0005",
       "name": "Flatten Queue Items",
@@ -270,7 +270,7 @@
             },
             {
               "name": "select",
-              "value": "leads(teams(id,daily_send_limit,sends_today)),waves(from_email,salesmen(email))"
+              "value": "waves(team_id,email_account_id,email_accounts(email_address,name,daily_send_limit,sends_today))"
             },
             {
               "name": "limit",
@@ -295,7 +295,7 @@
     {
       "parameters": {
         "mode": "runOnceForEachItem",
-        "jsCode": "const emailItem = $('Loop Items').first().json;\nconst wlData = $input.item.json;\nconst team = (wlData.leads || {}).teams || {};\nconst wave = wlData.waves || {};\nconst salesman = wave.salesmen || {};\nreturn { json: {\n  ...emailItem,\n  team_id: team.id || '',\n  outreach_email: wave.from_email || '',\n  display_name: wave.from_email || '',\n  salesman_email: salesman.email || '',\n  fresh_sends_today: team.sends_today || 0,\n  fresh_daily_limit: team.daily_send_limit || 130\n}};"
+        "jsCode": "const emailItem = $('Loop Items').first().json;\nconst wlData = $input.item.json;\nconst wave = wlData.waves || {};\nconst account = wave.email_accounts || {};\nreturn { json: {\n  ...emailItem,\n  team_id: wave.team_id || '',\n  email_account_id: wave.email_account_id || '',\n  outreach_email: account.email_address || '',\n  display_name: account.name || '',\n  fresh_sends_today: account.sends_today || 0,\n  fresh_daily_limit: account.daily_send_limit || 100\n}};"
       },
       "id": "fs-0010",
       "name": "Parse Limit Check",
@@ -362,7 +362,7 @@
         },
         "sendBody": true,
         "specifyBody": "json",
-        "jsonBody": "={{ JSON.stringify({ credential_name: 'Burner SMTP', from: $json.outreach_email, to: $json.email_address, subject: $json.smtp_subject, html: $json.body_rendered, replyTo: $json.salesman_email, messageId: $json.generated_message_id, inReplyTo: $json.proxy_in_reply_to || '', references: $json.proxy_references || '' }) }}",
+        "jsonBody": "={{ JSON.stringify({ from: $json.outreach_email, to: $json.email_address, subject: $json.smtp_subject, html: $json.body_rendered, replyTo: $json.outreach_email, messageId: $json.generated_message_id, inReplyTo: $json.proxy_in_reply_to || '', references: $json.proxy_references || '' }) }}",
         "options": {
           "timeout": 30000,
           "neverError": true
@@ -380,7 +380,7 @@
     {
       "parameters": {
         "mode": "runOnceForEachItem",
-        "jsCode": "const sendOutput = $input.item.json;\nconst e = $('Prepare Email').first().json;\n\n// smtp-proxy returns { success, messageId, response } or { success: false, error }\nconst proxySuccess = sendOutput.success === true;\nconst base = {\n  id: e.id,\n  wave_lead_id: e.wave_lead_id,\n  jednatel_id: e.jednatel_id,\n  email_address: e.email_address,\n  sequence_number: e.sequence_number,\n  outreach_account_id: e.outreach_account_id,\n  outreach_email: e.outreach_email,\n  salesman_email: e.salesman_email,\n  subject_rendered: e.subject_rendered,\n  smtp_subject: e.smtp_subject,\n  smtp_message_id: e.generated_message_id,\n  max_sequence_number: e.max_sequence_number || 3,\n};\n\nif (!proxySuccess) {\n  return { json: { ...base, success: false, error: sendOutput.error || 'SMTP proxy send failed' } };\n}\n\nreturn { json: { ...base, success: true } };"
+        "jsCode": "const sendOutput = $input.item.json;\nconst e = $('Prepare Email').first().json;\n\n// smtp-proxy returns { success, messageId, response } or { success: false, error }\nconst proxySuccess = sendOutput.success === true;\nconst base = {\n  id: e.id,\n  wave_lead_id: e.wave_lead_id,\n  jednatel_id: e.jednatel_id,\n  email_address: e.email_address,\n  sequence_number: e.sequence_number,\n  email_account_id: e.email_account_id,\n  outreach_email: e.outreach_email,\n  subject_rendered: e.subject_rendered,\n  smtp_subject: e.smtp_subject,\n  smtp_message_id: e.generated_message_id,\n  max_sequence_number: e.max_sequence_number || 3,\n};\n\nif (!proxySuccess) {\n  return { json: { ...base, success: false, error: sendOutput.error || 'SMTP proxy send failed' } };\n}\n\nreturn { json: { ...base, success: true } };"
       },
       "id": "fs-0014",
       "name": "Check Send Result",
@@ -441,7 +441,7 @@
         },
         "sendBody": true,
         "specifyBody": "json",
-        "jsonBody": "={{ JSON.stringify({ queue_id: $json.id, wave_lead_id: $json.wave_lead_id, jednatel_id: $json.jednatel_id, email_address: $json.email_address, sequence_number: $json.sequence_number, outreach_account_id: $json.outreach_account_id, smtp_message_id: $json.smtp_message_id, subject: $json.smtp_subject, sent_at: new Date().toISOString() }) }}",
+        "jsonBody": "={{ JSON.stringify({ queue_id: $json.id, wave_lead_id: $json.wave_lead_id, jednatel_id: $json.jednatel_id, email_address: $json.email_address, sequence_number: $json.sequence_number, email_account_id: $json.email_account_id, smtp_message_id: $json.smtp_message_id, subject: $json.smtp_subject, sent_at: new Date().toISOString() }) }}",
         "options": {
           "timeout": 30000,
           "neverError": true
@@ -506,7 +506,7 @@
     {
       "parameters": {
         "method": "POST",
-        "url": "https://cycapkswtucbucyegdsn.supabase.co/rest/v1/rpc/increment_and_check_sends",
+        "url": "https://cycapkswtucbucyegdsn.supabase.co/rest/v1/rpc/increment_and_check_sends_account",
         "sendHeaders": true,
         "headerParameters": {
           "parameters": [
@@ -526,7 +526,7 @@
         },
         "sendBody": true,
         "specifyBody": "json",
-        "jsonBody": "={{ JSON.stringify({ p_team_id: $('Parse Limit Check').first().json.team_id }) }}",
+        "jsonBody": "={{ JSON.stringify({ p_account_id: $('Parse Limit Check').first().json.email_account_id }) }}",
         "options": {
           "timeout": 30000,
           "neverError": true

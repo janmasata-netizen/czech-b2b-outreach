@@ -134,7 +134,6 @@
         },
         "options": {
           "timeout": 30000,
-          "fullResponse": true,
           "neverError": true,
           "response": {
             "response": {

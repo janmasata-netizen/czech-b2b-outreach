@@ -143,7 +143,7 @@
             },
             {
               "name": "select",
-              "value": "waves(from_email,team_id,outreach_account_id,teams(daily_send_limit,sends_today),salesmen(email),outreach_accounts(daily_send_limit,sends_today))"
+              "value": "waves(team_id,email_account_id,email_accounts(email_address,name,daily_send_limit,sends_today),teams(daily_send_limit,sends_today))"
             },
             {
               "name": "limit",
@@ -168,7 +168,7 @@
     {
       "parameters": {
         "mode": "runOnceForEachItem",
-        "jsCode": "const emailItem = $('Loop Emails').first().json;\nconst wlData = $input.item.json;\nconst waveData = wlData.waves || {};\nconst team = waveData.teams || {};\nconst salesman = waveData.salesmen || {};\nconst account = waveData.outreach_accounts || {};\nconst hasAccount = !!waveData.outreach_account_id;\nreturn { json: {\n  ...emailItem,\n  outreach_email: waveData.from_email || '',\n  display_name: waveData.from_email || '',\n  salesman_email: salesman.email || '',\n  team_id: waveData.team_id || '',\n  outreach_account_id: waveData.outreach_account_id || '',\n  fresh_sends_today: hasAccount ? (account.sends_today || 0) : (team.sends_today || 0),\n  fresh_daily_limit: hasAccount ? (account.daily_send_limit || 100) : (team.daily_send_limit || 130)\n}};"
+        "jsCode": "const emailItem = $('Loop Emails').first().json;\nconst wlData = $input.item.json;\nconst waveData = wlData.waves || {};\nconst team = waveData.teams || {};\nconst account = waveData.email_accounts || {};\nreturn { json: {\n  ...emailItem,\n  outreach_email: account.email_address || '',\n  display_name: account.name || '',\n  team_id: waveData.team_id || '',\n  email_account_id: waveData.email_account_id || '',\n  fresh_sends_today: account.sends_today || 0,\n  fresh_daily_limit: account.daily_send_limit || 100\n}};"
       },
       "id": "wf08-0000-0000-0000-000000000024",
       "name": "Parse Limit Check",
@@ -182,7 +182,7 @@
     {
       "parameters": {
         "method": "POST",
-        "url": "={{ $json.outreach_account_id ? 'https://cycapkswtucbucyegdsn.supabase.co/rest/v1/rpc/increment_and_check_sends_account' : 'https://cycapkswtucbucyegdsn.supabase.co/rest/v1/rpc/increment_and_check_sends' }}",
+        "url": "https://cycapkswtucbucyegdsn.supabase.co/rest/v1/rpc/increment_and_check_sends_account",
         "sendHeaders": true,
         "headerParameters": {
           "parameters": [
@@ -202,7 +202,7 @@
         },
         "sendBody": true,
         "specifyBody": "json",
-        "jsonBody": "={{ JSON.stringify($json.outreach_account_id ? { p_account_id: $json.outreach_account_id } : { p_team_id: $json.team_id }) }}",
+        "jsonBody": "={{ JSON.stringify({ p_account_id: $json.email_account_id }) }}",
         "options": {
           "timeout": 30000,
           "neverError": true
@@ -380,7 +380,7 @@
         },
         "sendBody": true,
         "specifyBody": "json",
-        "jsonBody": "={{ JSON.stringify(Object.assign({ from: $('Prepare Email').first().json.outreach_email, to: $('Prepare Email').first().json.email_address, subject: $('Prepare Email').first().json.smtp_subject, html: $('Prepare Email').first().json.body_rendered, replyTo: $('Prepare Email').first().json.salesman_email, messageId: $('Prepare Email').first().json.generated_message_id, inReplyTo: $('Prepare Email').first().json.proxy_in_reply_to || '', references: $('Prepare Email').first().json.proxy_references || '' }, $('Prepare Email').first().json.outreach_account_id ? {} : { credential_name: 'Burner SMTP' })) }}",
+        "jsonBody": "={{ JSON.stringify({ from: $('Prepare Email').first().json.outreach_email, to: $('Prepare Email').first().json.email_address, subject: $('Prepare Email').first().json.smtp_subject, html: $('Prepare Email').first().json.body_rendered, replyTo: $('Prepare Email').first().json.outreach_email, messageId: $('Prepare Email').first().json.generated_message_id, inReplyTo: $('Prepare Email').first().json.proxy_in_reply_to || '', references: $('Prepare Email').first().json.proxy_references || '' }) }}",
         "options": {
           "timeout": 30000,
           "neverError": true
@@ -398,7 +398,7 @@
     {
       "parameters": {
         "mode": "runOnceForEachItem",
-        "jsCode": "const sendOutput = $input.item.json;\nconst e = $('Prepare Email').first().json;\n\n// smtp-proxy returns { success, messageId, response } or { success: false, error }\nconst proxySuccess = sendOutput.success === true;\nconst base = {\n  id: e.id,\n  wave_lead_id: e.wave_lead_id,\n  jednatel_id: e.jednatel_id,\n  email_address: e.email_address,\n  sequence_number: e.sequence_number,\n  outreach_email: e.outreach_email,\n  salesman_email: e.salesman_email,\n  team_id: e.team_id,\n  subject_rendered: e.subject_rendered,\n  smtp_subject: e.smtp_subject,\n  smtp_message_id: e.generated_message_id,\n  max_sequence_number: e.max_sequence_number || 3,\n  retry_count: e.retry_count || 0,\n};\n\nif (!proxySuccess) {\n  return { json: { ...base, success: false, error: sendOutput.error || 'SMTP proxy send failed' } };\n}\n\nreturn { json: { ...base, success: true } };"
+        "jsCode": "const sendOutput = $input.item.json;\nconst e = $('Prepare Email').first().json;\n\n// smtp-proxy returns { success, messageId, response } or { success: false, error }\nconst proxySuccess = sendOutput.success === true;\nconst base = {\n  id: e.id,\n  wave_lead_id: e.wave_lead_id,\n  jednatel_id: e.jednatel_id,\n  email_address: e.email_address,\n  sequence_number: e.sequence_number,\n  outreach_email: e.outreach_email,\n  team_id: e.team_id,\n  subject_rendered: e.subject_rendered,\n  smtp_subject: e.smtp_subject,\n  smtp_message_id: e.generated_message_id,\n  max_sequence_number: e.max_sequence_number || 3,\n  retry_count: e.retry_count || 0,\n};\n\nif (!proxySuccess) {\n  return { json: { ...base, success: false, error: sendOutput.error || 'SMTP proxy send failed' } };\n}\n\nreturn { json: { ...base, success: true } };"
       },
       "id": "wf08-0000-0000-0000-000000000011",
       "name": "Check Send Result",

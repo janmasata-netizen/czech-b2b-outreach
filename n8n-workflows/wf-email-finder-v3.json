@@ -334,7 +334,7 @@
             { "name": "User-Agent", "value": "Mozilla/5.0 (compatible; bot)" }
           ]
         },
-        "options": { "neverError": true, "timeout": 15000, "fullResponse": true, "response": { "response": { "responseFormat": "text" } } }
+        "options": { "neverError": true, "timeout": 15000, "response": { "response": { "responseFormat": "text" } } }
       },
       "id": "v3-0046",
       "name": "Kurzy Scrape",

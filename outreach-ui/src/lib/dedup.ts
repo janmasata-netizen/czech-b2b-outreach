@@ -24,36 +24,49 @@ export interface DedupResult {
   duplicateIndices: Set<number>;
 }
 
+const DEDUP_CHUNK_SIZE = 200;
+
 /**
  * Check an array of lead candidates against existing leads.
  * Uses the `check_lead_duplicates` Supabase RPC.
+ * For large sets (200+), splits into chunks to avoid RPC timeout.
  */
 export async function checkDuplicates(candidates: DuplicateCandidate[]): Promise<DedupResult> {
   if (candidates.length === 0) {
     return { duplicates: [], candidateMatches: new Map(), duplicateIndices: new Set() };
   }
 
-  const { data, error } = await supabase.rpc('check_lead_duplicates', {
-    candidates: candidates,
-  });
+  let allDuplicates: DuplicateMatch[] = [];
 
-  if (error) {
-    console.error('check_lead_duplicates RPC error:', error);
-    throw error;
+  for (let offset = 0; offset < candidates.length; offset += DEDUP_CHUNK_SIZE) {
+    const chunk = candidates.slice(offset, offset + DEDUP_CHUNK_SIZE);
+    const { data, error } = await supabase.rpc('check_lead_duplicates', {
+      candidates: chunk,
+    });
+
+    if (error) {
+      console.error('check_lead_duplicates RPC error:', error);
+      throw error;
+    }
+
+    const chunkDups = ((data as DuplicateMatch[]) ?? []).map(d => ({
+      ...d,
+      candidate_index: d.candidate_index + offset,
+    }));
+    allDuplicates = allDuplicates.concat(chunkDups);
   }
 
-  const duplicates: DuplicateMatch[] = (data as DuplicateMatch[]) ?? [];
   const candidateMatches = new Map<number, DuplicateMatch[]>();
   const duplicateIndices = new Set<number>();
 
-  for (const d of duplicates) {
+  for (const d of allDuplicates) {
     duplicateIndices.add(d.candidate_index);
     const arr = candidateMatches.get(d.candidate_index) ?? [];
     arr.push(d);
     candidateMatches.set(d.candidate_index, arr);
   }
 
-  return { duplicates, candidateMatches, duplicateIndices };
+  return { duplicates: allDuplicates, candidateMatches, duplicateIndices };
 }
 
 /**

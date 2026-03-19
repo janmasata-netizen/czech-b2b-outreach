@@ -51,7 +51,7 @@ export default function WavePresetsTab() {
         }}>
           {presets.map(p => {
             const ts = p.template_set as unknown as { id: string; name: string } | null;
-            const sm = p.salesman as unknown as { id: string; name: string; email: string } | null;
+            const ea = p.email_account as unknown as { id: string; name: string; email_address: string } | null;
             return (
               <div
                 key={p.id}
@@ -79,19 +79,19 @@ export default function WavePresetsTab() {
                       {ts.name}
                     </div>
                   )}
-                  {p.from_email && (
+                  {ea && (
                     <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
                       <Mail size={12} strokeWidth={1.7} />
-                      <span style={{ fontFamily: 'JetBrains Mono, monospace', fontSize: 11 }}>{p.from_email}</span>
+                      <span style={{ fontFamily: 'JetBrains Mono, monospace', fontSize: 11 }}>{ea.email_address}</span>
                     </div>
                   )}
-                  {sm && (
+                  {ea && (
                     <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
                       <User size={12} strokeWidth={1.7} />
-                      {sm.name}
+                      {ea.name}
                     </div>
                   )}
-                  {!ts && !p.from_email && !sm && (
+                  {!ts && !ea && (
                     <span style={{ color: 'var(--text-muted)', fontStyle: 'italic' }}>Prazdny preset</span>
                   )}
                 </div>

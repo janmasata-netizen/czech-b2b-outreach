@@ -9,11 +9,11 @@ import GlassProgress from '@/components/glass/GlassProgress';
 import { useTeams } from '@/hooks/useLeads';
 import { supabase } from '@/lib/supabase';
 
-import { parseCsv, autoDetect } from '@/lib/csv-utils';
+import { parseCsv, autoDetect, isLikelyCompanyName } from '@/lib/csv-utils';
 import { toast } from 'sonner';
 import { checkDuplicates, extractDomain, type DedupResult, type DuplicateMatch } from '@/lib/dedup';
 import { LEAD_LANGUAGE_MAP } from '@/lib/constants';
-import { assignTeamToRows, type TeamAllocation } from '@/lib/team-distribution';
+import { percentagesToCounts, assignTeamToRowsByCount, type TeamAllocation } from '@/lib/team-distribution';
 import TeamDistributionSelector from '@/components/shared/TeamDistributionSelector';
 import type { LeadLanguage } from '@/types/database';
 
@@ -109,10 +109,19 @@ export default function CsvImportDialog({ open, onClose }: CsvImportDialogProps)
     }
     setMapError('');
 
+    // Filter empty rows (all mapped fields empty)
+    const mappedFields = (Object.keys(mapping) as (keyof typeof mapping)[]).filter(k => mapping[k]);
+    const filteredRows = rows.filter(row => mappedFields.some(f => getRowValue(row, f)));
+    const emptyCount = rows.length - filteredRows.length;
+    if (emptyCount > 0) {
+      toast.info(`${emptyCount} prázdných řádků přeskočeno`);
+      setRows(filteredRows);
+    }
+
     // Build candidates for dedup check
     setDedupChecking(true);
     try {
-      const candidates = rows.map(row => ({
+      const candidates = filteredRows.map(row => ({
         ico: getRowValue(row, 'ico') || undefined,
         domain: extractDomain(getRowValue(row, 'website')) || undefined,
         email: getRowValue(row, 'email') || undefined,
@@ -125,7 +134,7 @@ export default function CsvImportDialog({ open, onClose }: CsvImportDialogProps)
         setDedupResult(result);
         setStep('review');
       } else {
-        runImport(new Set());
+        runImport(new Set(), filteredRows);
       }
     } catch (err) {
       console.error('Dedup check failed:', err);
@@ -135,11 +144,9 @@ export default function CsvImportDialog({ open, onClose }: CsvImportDialogProps)
     }
   }
 
-  async function runImport(skipIndices: Set<number>) {
+  async function runImport(skipIndices: Set<number>, effectiveRows?: string[][]) {
+    const importRows = effectiveRows ?? rows;
     setStep('importing');
-    const total = rows.length;
-    let done = 0, errors = 0, duplicates = 0;
-    setProgress({ done: 0, errors: 0, duplicates: 0, total });
 
     const effectiveAllocations = teamAllocations.length > 0
       ? teamAllocations
@@ -163,60 +170,52 @@ export default function CsvImportDialog({ open, onClose }: CsvImportDialogProps)
     const groupId = group.id;
     setCreatedGroupId(groupId);
 
-    // Count non-skipped rows for team distribution
-    const activeCount = rows.filter((_, i) => !skipIndices.has(i)).length;
-    const teamForRow = assignTeamToRows(activeCount, effectiveAllocations);
-    let activeIdx = 0;
-
     // Determine unmapped columns for custom_fields
     const mappedCols = new Set(Object.values(mapping).filter(Boolean));
     const extraCols = headers.filter(h => !mappedCols.has(h));
 
-    for (let i = 0; i < rows.length; i++) {
-      const row = rows[i];
+    // Build active rows (skip duplicates)
+    const skippedDups = skipIndices.size;
+    const activeRows: string[][] = [];
+    for (let i = 0; i < importRows.length; i++) {
+      if (!skipIndices.has(i)) activeRows.push(importRows[i]);
+    }
 
-      // Skip duplicates identified in review step
-      if (skipIndices.has(i)) {
-        duplicates++;
-        done++;
-        setProgress({ done, errors, duplicates, total });
-        continue;
-      }
+    // Assign teams by exact count (no percentage rounding)
+    const teamCounts = percentagesToCounts(activeRows.length, effectiveAllocations);
+    const teamForRow = assignTeamToRowsByCount(teamCounts);
 
-      const rowTeamId = teamForRow[activeIdx++] || effectiveAllocations[0]?.teamId || '';
+    const total = importRows.length;
+    let done = skippedDups;
+    let errors = 0;
+    const duplicates = skippedDups;
+    setProgress({ done, errors, duplicates, total });
 
+    // Per-row import logic
+    async function importSingleRow(row: string[], teamId: string): Promise<'ok' | 'error'> {
       const company_name = getRowValue(row, 'company_name');
       const ico          = getRowValue(row, 'ico');
       const website      = getRowValue(row, 'website');
       const contact_name = getRowValue(row, 'contact_name');
       const email        = getRowValue(row, 'email');
 
-      // Build custom_fields from unmapped columns
       const custom_fields: Record<string, string> = {};
       for (const col of extraCols) {
         const val = (row[headers.indexOf(col)] ?? '').trim();
         if (val) custom_fields[col.toLowerCase().replace(/[^a-z0-9_]/g, '_')] = val;
       }
 
-      // Skip rows with no usable data
-      if (!company_name && !ico && !contact_name) {
-        done++;
-        setProgress({ done, errors, duplicates, total });
-        continue;
-      }
-
       const validEmail = email && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email) ? email : '';
 
       try {
         if (validEmail) {
-          // Full insert: ingest_lead RPC → contact + email_candidate → status='ready'
           const { data: rpcData, error: le } = await supabase
             .rpc('ingest_lead', {
               p_company_name: company_name || null,
               p_ico: ico || null,
               p_website: website || null,
               p_domain: extractDomain(website) || null,
-              p_team_id: rowTeamId || null,
+              p_team_id: teamId || null,
               p_status: 'ready',
               p_lead_type: 'company',
               p_language: language,
@@ -224,47 +223,40 @@ export default function CsvImportDialog({ open, onClose }: CsvImportDialogProps)
               p_import_group_id: groupId,
             });
 
-          if (le) {
-            errors++;
-          } else {
-            const companyId = rpcData?.company_id ?? rpcData?.[0]?.company_id;
-            const { data: contact, error: ce } = await supabase
-              .from('contacts')
-              .insert({ company_id: companyId, full_name: contact_name || null })
-              .select()
-              .single();
-            if (ce) { errors++; }
-            else {
-              const { error: ee } = await supabase
-                .from('email_candidates')
-                .insert({
-                  contact_id: contact.id,
-                  email_address: validEmail,
-                  is_verified: true,
-                  qev_status: 'manually_verified',
-                  seznam_status: 'likely_valid',
-                });
-              if (ee) errors++;
-            }
-          }
+          if (le) return 'error';
+          const companyId = rpcData?.company_id ?? rpcData?.[0]?.company_id;
+          const { data: contact, error: ce } = await supabase
+            .from('contacts')
+            .insert({ company_id: companyId, full_name: contact_name || null })
+            .select()
+            .single();
+          if (ce) return 'error';
+          const { error: ee } = await supabase
+            .from('email_candidates')
+            .insert({
+              contact_id: contact.id,
+              email_address: validEmail,
+              is_verified: true,
+              qev_status: 'manually_verified',
+              seznam_status: 'likely_valid',
+            });
+          if (ee) return 'error';
         } else {
-          // No valid email: ingest_lead RPC, status='new'
           const { data: rpcResult, error: le } = await supabase
             .rpc('ingest_lead', {
               p_company_name: company_name || null,
               p_ico: ico || null,
               p_website: website || null,
               p_domain: extractDomain(website) || null,
-              p_team_id: rowTeamId || null,
+              p_team_id: teamId || null,
               p_status: 'new',
               p_lead_type: 'company',
               p_language: language,
               p_custom_fields: Object.keys(custom_fields).length > 0 ? custom_fields : {},
               p_import_group_id: groupId,
             });
-          if (le) {
-            errors++;
-          } else if (contact_name) {
+          if (le) return 'error';
+          if (contact_name) {
             const companyId = rpcResult?.company_id ?? rpcResult?.[0]?.company_id;
             if (companyId) {
               await supabase
@@ -273,11 +265,25 @@ export default function CsvImportDialog({ open, onClose }: CsvImportDialogProps)
             }
           }
         }
+        return 'ok';
       } catch {
-        errors++;
+        return 'error';
       }
+    }
 
-      done++;
+    // Process in batches of 5 for ~5x speedup
+    const BATCH_SIZE = 5;
+    for (let batchStart = 0; batchStart < activeRows.length; batchStart += BATCH_SIZE) {
+      const batch = activeRows.slice(batchStart, batchStart + BATCH_SIZE);
+      const results = await Promise.allSettled(
+        batch.map((row, i) => importSingleRow(row, teamForRow[batchStart + i] || effectiveAllocations[0]?.teamId || ''))
+      );
+      for (const r of results) {
+        done++;
+        if (r.status === 'rejected' || (r.status === 'fulfilled' && r.value === 'error')) {
+          errors++;
+        }
+      }
       setProgress({ done, errors, duplicates, total });
     }
 
@@ -491,6 +497,27 @@ export default function CsvImportDialog({ open, onClose }: CsvImportDialogProps)
         return (
           <div style={{ fontSize: 12, color: 'var(--cyan)', padding: '8px 12px', background: 'rgba(34,211,238,0.06)', border: '1px solid rgba(34,211,238,0.2)', borderRadius: 6 }}>
             {t('csvImport.extraColumnsNote', { columns: '' }).replace(/<\/?[0-9]+>/g, '')} <strong>{extraCols.join(', ')}</strong>
+          </div>
+        );
+      })()}
+
+      {/* Company name in contact_name warning */}
+      {(() => {
+        if (!mapping.contact_name) return null;
+        const companyRows = rows.filter(row => isLikelyCompanyName(getRowValue(row, 'contact_name')));
+        if (companyRows.length === 0) return null;
+        const examples = companyRows.slice(0, 5).map(row => getRowValue(row, 'contact_name'));
+        return (
+          <div style={{ fontSize: 12, color: '#fb923c', padding: '8px 12px', background: 'rgba(251,146,60,0.08)', border: '1px solid rgba(251,146,60,0.25)', borderRadius: 6 }}>
+            <div style={{ fontWeight: 500, marginBottom: 4 }}>
+              {t('csvImport.companyNameInContact', { count: companyRows.length })}
+            </div>
+            <div style={{ color: 'var(--text-dim)', marginBottom: 4 }}>
+              {t('csvImport.companyNameInContactNote')}
+            </div>
+            <div style={{ color: 'var(--text-dim)' }}>
+              {t('csvImport.companyNameInContactExamples')} {examples.join(', ')}
+            </div>
           </div>
         );
       })()}

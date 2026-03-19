@@ -125,7 +125,7 @@
         "sendBody": true,
         "specifyBody": "json",
         "jsonBody": "={{ JSON.stringify({ obchodniJmeno: $('Extract Lead').first().json.company_name, pocet: 5 }) }}",
-        "options": { "timeout": 30000, "fullResponse": true, "neverError": true }
+        "options": { "timeout": 30000, "neverError": true }
       },
       "id": "wf02-0000-0000-0000-000000000006",
       "name": "ARES API Search",

@@ -108,89 +108,46 @@
 
 # Cast 2 — Detailni postupy
 
-## 1. Pridani noveho obchodnika / e-mailoveho uctu
+## 1. Pridani noveho e-mailoveho uctu
 
 ### Cil
 
-Pridat do systemu noveho obchodnika (salesman) se schopnosti prijimat odpovedi a odesilat emaily.
+Pridat do systemu novy e-mailovy ucet (`email_accounts`) se schopnosti odesilat emaily (SMTP) a prijimat odpovedi (IMAP).
 
 ### Predpoklady
 
-- Pristup k VPS (SSH)
+- Admin pristup do UI (Supabase)
 - Pristupove udaje IMAP a SMTP pro novy e-mailovy ucet
-- Admin pristup do n8n
 
 ### Postup
 
-#### Krok 1 — Nastavit IMAP credentials na VPS
-
-1. Pripojte se k VPS: `ssh -i ~/.ssh/vps_deploy_key root@<VPS_IP>`
-2. Otevirete soubor `/root/imap-proxy/config.json`
-3. Pridejte novy zaznam:
-
-```json
-{
-  "Salesman IMAP X": {
-    "host": "imap.example.com",
-    "port": 993,
-    "user": "obchodnik@firma.cz",
-    "password": "heslo-imap",
-    "tls": true
-  }
-}
-```
-
-4. Restartujte IMAP proxy: `docker restart imap-proxy`
-
-> **TIP:** Nazev klice (napr. `Salesman IMAP X`) musi presne odpovidat nazvu IMAP credentialu, ktery pozdeji zadavate v UI.
-
-#### Krok 2 — Nastavit SMTP credentials na VPS
-
-1. Otevirete soubor `/root/smtp-proxy/config.json`
-2. Pridejte novy zaznam:
-
-```json
-{
-  "Salesman SMTP X": {
-    "host": "smtp.example.com",
-    "port": 465,
-    "user": "obchodnik@firma.cz",
-    "password": "heslo-smtp",
-    "secure": true
-  }
-}
-```
-
-3. Restartujte SMTP proxy: `docker restart smtp-proxy`
-
-#### Krok 3 — Pridat obchodnika v UI
-
-1. Jdete na `/nastaveni/obchodnici`
-2. Kliknete **+ Novy obchodnik**
-3. Vyplnte:
-   - **Jmeno**: cele jmeno obchodnika
-   - **E-mail**: e-mailova adresa (pouzije se jako Reply-To)
-   - **IMAP credential**: nazev odpovidajici klici v `imap-proxy/config.json`
-   - **Tym**: priradeny tym
-   - **Aktivni**: zapnuto
-4. Ulozte
-
-> **POZOR:** Maximalni pocet aktivnich obchodniku je 5 na system. Pri pokusu pridat dalsiho se zobrazi chyba.
-
-#### Krok 4 — Pridat Outreach ucet
+#### Krok 1 — Pridat email_accounts zaznam v UI
 
 1. Jdete na `/nastaveni/ucty`
 2. Kliknete **+ Novy ucet**
 3. Vyplnte:
-   - **E-mailova adresa**: stejna adresa jako u obchodnika
-   - **Nazev SMTP credentialu**: nazev odpovidajici klici v `smtp-proxy/config.json`
-   - **Tym**: priradeny tym (kazdy tym muze mit max 1 outreach ucet)
-   - **Denni limit odeslani**: volitelne (limit na ucet, navic k limitu tymu)
+   - **Nazev**: identifikator uctu (napr. `Salesman SMTP X`) — musi presne odpovidat `credential_name` pouzitemu v n8n workflow
+   - **E-mailova adresa**: adresa odesilatele / prijemce odpovedi
+   - **SMTP credentials**: host, port, secure, user, password
+   - **IMAP credentials**: host, port, secure, user, password
+   - **Tym**: priradeny tym
+   - **Denni limit odeslani**: volitelne
+   - **Aktivni**: zapnuto
 4. Ulozte
+
+Credentials jsou automaticky dostupne IMAP i SMTP proxim z databaze — restart kontejneru neni potreba.
+
+#### Krok 2 (legacy) — Volitelne: config.json na VPS
+
+Pokud proxy jeste pouzivaji `config.json` jako fallback:
+
+1. Pripojte se k VPS: `ssh -i ~/.ssh/vps_deploy_key root@<VPS_IP>`
+2. Pridejte IMAP zaznam do `/root/imap-proxy/config.json` a SMTP zaznam do `/root/smtp-proxy/config.json`
+3. Restartujte proxy: `docker restart imap-proxy smtp-proxy`
 
 ### Vysledek
 
-Novy obchodnik muze byt prirazen k vlnam. Odpovedi doruci WF9 pres IMAP proxy, odchozi emaily jdou pres SMTP proxy.
+Novy ucet muze byt prirazen k vlnam pres `waves.email_account_id`. Odpovedi doruci WF9 pres IMAP proxy, odchozi emaily jdou pres SMTP proxy. FROM a Reply-To jsou oba nastaveny na `email_accounts.email_address`.
 
 ---
 
@@ -223,8 +180,7 @@ Vytvorit vlnu, naplnit ji leady, pridat e-mailovou sablonu a naplanovat odeslani
    - **Nazev vlny**: popisny nazev (napr. "IT firmy Praha Q1 2026")
    - **Tym**: prirazeny tym
    - **Sada sablon**: vyberte predpripravenou sadu
-   - **FROM email**: e-mailova adresa odesilatele (volny text — nemusı byt outreach ucet)
-   - **Obchodnik**: kdo bude mit Reply-To
+   - **Email ucet**: vyberte z `email_accounts` — urcuje FROM adresu, Reply-To i IMAP schranku pro odpovedi
 4. Vytvorte vlnu (bude ve stavu `draft`)
 
 #### Krok 3 — Pridat leady do vlny
@@ -420,6 +376,8 @@ System nabizi tri zpusoby importu leadu.
 
 > **TIP:** Kontrola duplicit porovnava ICO, domenu a nazev firmy. Duplicity se automaticky preskoci.
 
+> **UPOZORNENI:** Pokud sloupec *Jmeno kontaktu* obsahuje nazvy firem (napr. "Stavba Plus s.r.o."), system zobrazi oranzove varovani s poctem a priklady. Import pokracuje normalne, ale tyto kontakty neobdrzi personalizovane oslovovani (salutation bude NULL).
+
 ### 6.2 Import z Google Sheetu
 
 **Cil:** Importovat leady primo z Google tabulky.
@@ -582,7 +540,7 @@ Stav demo rezimu se uklada do `localStorage` pod klicem `demo-mode`. Rezim prezi
 ### 9.1 Detekce odpovedi (WF9)
 
 - **Workflow:** WF9 (reply detection), bezi kazdou minutu
-- **Jak funguje:** Kontroluje IMAP schranky vsech aktivnich obchodniku pres IMAP proxy
+- **Jak funguje:** Kontroluje IMAP schranky vsech aktivnich email_accounts pres IMAP proxy
 - **Pri nalezeni odpovedi:**
   - Lead se prepne do stavu `replied`
   - Odpoved se ulozi do `lead_replies`
@@ -602,7 +560,7 @@ Stav demo rezimu se uklada do `localStorage` pod klicem `demo-mode`. Rezim prezi
 
 - **Workflow:** WF10, spousti se o pulnoci
 - **Co dela:**
-  - Resetuje `teams.sends_today` na 0 (pres RPC `reset_daily_sends()`)
+  - Resetuje `teams.sends_today` a `email_accounts.sends_today` na 0 (pres RPC `reset_daily_sends()`)
   - Maze stare zaznamy z `email_probe_bounces`
 
 ### 9.4 Stranka stavu systemu (`/system`)
@@ -677,7 +635,7 @@ Zobrazované metriky:
 |---------------|------------|--------|
 | WF9 neni aktivni | Zkontrolujte v n8n admin (`/workflow/AaHXknYh9egPDxcG`) | Aktivujte workflow |
 | IMAP proxy nefunguje | SSH → `docker logs imap-proxy` | `docker restart imap-proxy`, zkontrolujte `config.json` |
-| Obchodnik nema IMAP credential | `/nastaveni/obchodnici` | Doplnte IMAP credential name |
+| Email ucet nema IMAP credentials | `/nastaveni/ucty` | Doplnte IMAP credentials v email_accounts |
 | Email je v `processed_reply_emails` | Zkontrolujte tabulku v Supabase | Pokud zpracovan, ale neprirazen → podivejte se do `unmatched_replies` |
 
 ### Obohaceni se zaseklo
@@ -734,8 +692,7 @@ Zobrazované metriky:
 | **Template set** | Sada sablon — obsahuje sekvence 1-3, kazda s variantami A/B. |
 | **Salutation** | Formalni osloveni v 5. padu ("Vazeny pane Novaku"). Generuje se automaticky z `full_name`. |
 | **Vokativ** | Paty pad v ceske gramatice. System aplikuje pravidla sklonovani automaticky. |
-| **Outreach ucet** | E-mailovy ucet pouzivany k odesilani (1 na tym). |
-| **Obchodnik (Salesman)** | Osoba, jejiz email se pouziva jako Reply-To. Ma vlastni IMAP schranku. |
+| **Email ucet** | Zaznam v `email_accounts` — obsahuje SMTP i IMAP credentials, pouziva se jako FROM, Reply-To i IMAP schranku pro odpovedi. |
 | **Enrichment** | Proces obohaceni leadu — ARES lookup, kurzy scraping, generovani emailu, overeni. |
 | **Enrichment pipeline** | Retez workflowu WF1 → WF2 → WF3 → WF4 → WF5 → WF11 pro kompletni obohaceni. WF6 (QEV) je deaktivovany. Leady bez ICO ale s domenou preskoci WF3 a jdou primo na WF4. WF4, WF5 i WF11 pouzivaji get_contacts_for_lead() RPC pro nacitani kontaktu. WF5 nastavuje seznam_status='verified' (drive 'likely_valid') a is_verified=true pro SMTP-overene emaily. WF11 rozpoznava oba statusy. **Dual-strictness:** WF5 je strikni (combo emaily — vyzaduje smtp_result='valid'), WF11 je lenientni (website-scraped emaily — odmitne jen smtp_result='invalid'). |
 | **Email discovery** | Proces hledani emailove adresy — generovani kandidatu + SMTP overeni. |
@@ -758,8 +715,8 @@ Zobrazované metriky:
 | **Daily send limit** | Maximalni pocet emailu, ktere muze tym odeslat za den. Resetuje se o pulnoci. |
 | **Drip mode** | Rezim planovani vlny — leady se rozkladaji po dnech (napr. 50/den) misto odeslani vsech najednou. Nastavuje se polem "Leadu za den" v planovacim formulari. |
 | **Daily lead count** | Pocet novych leadu k odeslani za den v drip mode. NULL = vsechny najednou (default). |
-| **FROM email** | Adresa odesilatele nastavena primo na vlne (volny text). |
-| **Reply-To** | Adresa pro odpovedi — nastavuje se automaticky na email obchodnika z tymu. |
+| **FROM email** | Adresa odesilatele — pochazi z `email_accounts.email_address` prirazenych k vlne pres `waves.email_account_id`. |
+| **Reply-To** | Adresa pro odpovedi — shodna s FROM (oba z `email_accounts.email_address`). |
 | **Demo Mode** | Prezentacni rezim UI — zobrazuje fiktivni ceska B2B data. Prepina se ikonou Eye v TopBar. Stav v localStorage. Admin stranky neovlivneny. |
 
 ---

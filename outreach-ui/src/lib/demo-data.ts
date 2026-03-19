@@ -15,7 +15,7 @@ import type {
   LeadTag,
   CompanyTag,
   Team,
-  Salesman,
+  EmailAccount,
   TemplateSet,
   EmailTemplate,
   RetargetPoolLead,
@@ -54,15 +54,24 @@ export const DEMO_TEAM: Team = {
   created_at: daysAgo(90),
 };
 
-// ── Salesmen ──
+// ── Email Accounts ──
 
-export const DEMO_SALESMEN: Salesman[] = [
+export const DEMO_EMAIL_ACCOUNTS: EmailAccount[] = [
   {
     id: did(10),
     team_id: did(1),
     name: 'Jan Novak',
-    email: 'jan.novak@meisat.cz',
-    imap_credential_name: 'Salesman IMAP 1',
+    email_address: 'jan.novak@meisat.cz',
+    smtp_host: 'smtp.gmail.com',
+    smtp_port: 465,
+    smtp_secure: true,
+    smtp_user: 'jan.novak@meisat.cz',
+    imap_host: 'imap.gmail.com',
+    imap_port: 993,
+    imap_secure: true,
+    imap_user: 'jan.novak@meisat.cz',
+    daily_send_limit: 100,
+    sends_today: 23,
     is_active: true,
     created_at: daysAgo(90),
     team: { name: 'Meisat Outreach' },
@@ -71,8 +80,17 @@ export const DEMO_SALESMEN: Salesman[] = [
     id: did(11),
     team_id: did(1),
     name: 'Petr Horak',
-    email: 'petr.horak@meisat.cz',
-    imap_credential_name: 'Salesman IMAP 2',
+    email_address: 'petr.horak@meisat.cz',
+    smtp_host: 'smtp.gmail.com',
+    smtp_port: 465,
+    smtp_secure: true,
+    smtp_user: 'petr.horak@meisat.cz',
+    imap_host: 'imap.gmail.com',
+    imap_port: 993,
+    imap_secure: true,
+    imap_user: 'petr.horak@meisat.cz',
+    daily_send_limit: 100,
+    sends_today: 24,
     is_active: true,
     created_at: daysAgo(60),
     team: { name: 'Meisat Outreach' },
@@ -283,8 +301,7 @@ export const DEMO_WAVES: WaveAnalytics[] = [
     status: 'completed',
     template_set_id: did(490),
     template_set_name: 'Hlavni sablona - CZ',
-    salesman_id: did(10),
-    from_email: 'jan.novak@meisat.cz',
+    email_account_id: did(10),
     send_date_seq1: daysAgo(30),
     send_date_seq2: daysAgo(25),
     send_date_seq3: daysAgo(20),
@@ -313,8 +330,7 @@ export const DEMO_WAVES: WaveAnalytics[] = [
     status: 'sending',
     template_set_id: did(490),
     template_set_name: 'Hlavni sablona - CZ',
-    salesman_id: did(10),
-    from_email: 'jan.novak@meisat.cz',
+    email_account_id: did(10),
     send_date_seq1: daysAgo(5),
     send_date_seq2: daysFromNow(2),
     send_date_seq3: daysFromNow(9),
@@ -342,8 +358,7 @@ export const DEMO_WAVES: WaveAnalytics[] = [
     status: 'scheduled',
     template_set_id: did(490),
     template_set_name: 'Hlavni sablona - CZ',
-    salesman_id: did(11),
-    from_email: 'petr.horak@meisat.cz',
+    email_account_id: did(11),
     send_date_seq1: daysFromNow(3),
     send_date_seq2: daysFromNow(10),
     send_date_seq3: daysFromNow(17),
@@ -371,7 +386,6 @@ export const DEMO_WAVES: WaveAnalytics[] = [
     status: 'draft',
     template_set_id: null,
     template_set_name: null,
-    from_email: null,
     send_date_seq1: null,
     send_date_seq2: null,
     send_date_seq3: null,
@@ -589,11 +603,10 @@ export const DEMO_WAVE_PRESETS: WavePreset[] = [
     team_id: did(1),
     name: 'Default CZ Preset',
     template_set_id: did(490),
-    from_email: 'jan.novak@meisat.cz',
-    salesman_id: did(10),
+    email_account_id: did(10),
     created_at: daysAgo(30),
     template_set: { id: did(490), name: 'Hlavni sablona - CZ' },
-    salesman: { id: did(10), team_id: did(1), name: 'Jan Novak', email: 'jan.novak@meisat.cz', imap_credential_name: 'Salesman IMAP 1' },
+    email_account: DEMO_EMAIL_ACCOUNTS[0],
   },
 ];
 
@@ -629,10 +642,6 @@ export const DEMO_IMPORT_GROUPS: ImportGroupStats[] = [
     in_progress_count: 2,
   },
 ];
-
-// ── From email suggestions ──
-
-export const DEMO_FROM_EMAILS: string[] = ['jan.novak@meisat.cz', 'petr.horak@meisat.cz'];
 
 // ── Lead Tags (for useLeadTags) ──
 

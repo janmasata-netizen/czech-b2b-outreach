@@ -92,7 +92,7 @@ Self-hosted na Hostinger VPS. Vsechny workflow jsou ulozeny jako JSON v `n8n-wor
 
 ### Supabase (Databaze + Auth)
 
-- **23 tabulek** (viz [Databazove schema](#databazove-schema))
+- **24 tabulek** (viz [Databazove schema](#databazove-schema))
 - Autentizace pres Supabase Auth (JWT tokeny)
 - Row Level Security (RLS) na vsech tabulkach
 - Realtime subscriptions pro live aktualizace v UI
@@ -135,9 +135,8 @@ Self-hosted na Hostinger VPS. Vsechny workflow jsou ulozeny jako JSON v `n8n-wor
 | `/system` | SystemHealthPage | Admin | Stav systemu — zdravi workflow, proxy, DB |
 | `/nastaveni/*` | SettingsPage | Admin | Nastaveni (vnorene routy nize) |
 | `/nastaveni/tymy` | TeamsSettings | Admin | Sprava tymu (daily_send_limit, retarget_lockout_days) |
-| `/nastaveni/obchodnici` | SalesmenSettings | Admin | Sprava obchodniku |
 | `/nastaveni/uzivatele` | UsersSettings | Admin | Sprava uzivatelu |
-| `/nastaveni/ucty` | OutreachAccountsSettings | Admin | Outreach ucty (SMTP/IMAP) |
+| `/nastaveni/ucty` | EmailAccountsSettings | Admin | Email ucty (SMTP+IMAP, tabulka email_accounts) |
 | `/nastaveni/api-klice` | ApiKeysSettings | Admin | Sprava API klicu (QEV, atd.) |
 | `/login` | LoginPage | Verejne | Prihlaseni |
 
@@ -212,7 +211,7 @@ System obsahuje vestaveny demo rezim pro prezentace a skoleni. Kdyz je aktivni, 
 - Max body size: 1 MB
 - Pristupne pouze z lokalni site (127.0.0.1)
 
-**Konfigurace:** `config.json` (gitignored) — IMAP credentials dle slot name. Pridani obchodnika = nova polozka v `config.json` → `docker restart imap-proxy`.
+**Konfigurace:** Credentials se nacitaji z tabulky `email_accounts` v Supabase (primarne) nebo `config.json` (legacy fallback). Pridani noveho uctu = zaznam v `email_accounts`.
 
 ### SMTP Proxy
 
@@ -232,7 +231,7 @@ System obsahuje vestaveny demo rezim pro prezentace a skoleni. Kdyz je aktivni, 
 - Max body size: 1 MB
 - Pristupne pouze z lokalni site (127.0.0.1)
 
-**Konfigurace:** `config.json` (gitignored) — SMTP credentials dle credential name. Transporter instance kesirovany s 30min TTL.
+**Konfigurace:** Credentials se nacitaji z tabulky `email_accounts` v Supabase (primarne) nebo `config.json` (legacy fallback). Transporter instance kesirovany s 30min TTL.
 
 **Threading:** Pouziva nodemailer's dedicated `messageId`, `inReplyTo`, `references` mail options (NE headers objekt).
 
@@ -411,7 +410,7 @@ Kompletni seznam vsech n8n workflow s identifikatory:
 | `leads` | **Email outreach vrstva** — navazano na companies | id, company_id (FK → companies), status, team_id |
 | `contacts` | Kontaktni osoby firem (nahrazuje jednatels) | id, company_id (FK → companies), full_name, first_name, last_name, salutation, role, phone, linkedin, other_contact, notes, created_at, updated_at |
 | `jednatels` | **Deprecated** — zachovano pro zpetnou kompatibilitu, vsechny workflow jiz pouzivaji `contacts` | Stejna UUID jako contacts |
-| `salesmen` | Obchodnici | id, jmeno, email, team_id |
+| `email_accounts` | Unified SMTP+IMAP email accounts per team | id, team_id, name, email_address, smtp_host/port/secure/user/password, imap_host/port/secure/user/password, daily_send_limit, sends_today, is_active |
 | `profiles` | Uzivatelske profily (Supabase Auth) | id, role (admin/user) |
 
 #### Emailove entity
@@ -428,7 +427,7 @@ Kompletni seznam vsech n8n workflow s identifikatory:
 
 | Tabulka | Popis |
 |---|---|
-| `waves` | Vlny odesilani (from_email, scheduling_report, daily_lead_count, delay_seq1_to_seq2_days, delay_seq2_to_seq3_days) |
+| `waves` | Vlny odesilani (email_account_id, scheduling_report, daily_lead_count, delay_seq1_to_seq2_days, delay_seq2_to_seq3_days) |
 | `wave_leads` | Prirazeni leadu do vln |
 | `template_sets` | Sady sablon |
 | `email_templates` | Jednotlive sablony (sequence v ramci sady) |
@@ -483,7 +482,7 @@ Kompletni seznam vsech n8n workflow s identifikatory:
 | Funkce | Popis |
 |---|---|
 | `ingest_lead()` | Vytvori/najde company, pak vytvori lead |
-| `reset_daily_sends()` | Resetuje `teams.sends_today` na 0 |
+| `reset_daily_sends()` | Resetuje `teams.sends_today` a `email_accounts.sends_today` na 0 |
 | `handle_lead_reply()` | Trigger pri vlozeni odpovedi — aktualizuje lead status |
 | `get_dashboard_stats()` | Statistiky pro dashboard (podporuje casove rozsahy) |
 | `claim_queued_emails()` | Atomicke prevzeti emailu z fronty (WF8) |
@@ -494,9 +493,9 @@ Kompletni seznam vsech n8n workflow s identifikatory:
 | `check_email_cache()` | Kontrola cache overeni emailu |
 | `mark_contacts_email_status()` | Oznaceni stavu emailu kontaktu |
 | `mark_jednatels_email_status()` | Oznaceni stavu emailu jednatelu (compat) |
-| `check_max_salesmen()` | Kontrola max poctu obchodniku |
 | `parse_full_name()` | Parsovani celeho jmena na casti |
 | `generate_salutation()` | Generovani oslovovani (cesky vokativ) |
+| `is_likely_company_name()` | Detekce nazvu firem v poli `full_name` (ceske pravni formy, ICO). IMMUTABLE. |
 | `backfill_salutations()` | Hromadne doplneni — iteruje contacts + jednatels |
 | `check_and_mark_reply_processed()` | Oznaceni odpovedi jako zpracovane (deduplikace) |
 | `auto_complete_waves()` | Automaticke dokonceni vln po odeslani vsech emailu |
@@ -506,7 +505,7 @@ Kompletni seznam vsech n8n workflow s identifikatory:
 
 | Trigger | Tabulka | Popis |
 |---|---|---|
-| `trg_auto_salutation` | `jednatels`, `contacts` | Pri INSERT/UPDATE vzdy re-derivuje `first_name`/`last_name` z `full_name` a regeneruje `salutation` (cesky vokativ). `full_name` je jediny zdroj pravdy. Vsechna muzska jmena se sklonovani bez vyjimek. |
+| `trg_auto_salutation` | `jednatels`, `contacts` | Pri INSERT/UPDATE vzdy re-derivuje `first_name`/`last_name` z `full_name` a regeneruje `salutation` (cesky vokativ). `full_name` je jediny zdroj pravdy. Vsechna muzska jmena se sklonovani bez vyjimek. **Pokud `is_likely_company_name(full_name)` vrati true, nastavi first_name/last_name/salutation na NULL** (nazvy firem nedostavaji oslovovani). |
 | `trg_refresh_salutations_on_wave_add` | `wave_leads` | Po INSERT touchne `contacts.updated_at` (pres leads.company_id) a `jednatels.updated_at`, cimz spusti `trg_auto_salutation` pro cerstve oslovovani. |
 
 ### Vokativni pravidla (ceska jmena)
@@ -569,7 +568,7 @@ Vsechna muzska jmena se sklonovani — zadna vyjimka pro cizi jmena.
 
 - **Zadna n8n atribuce** — vsechny odchozi emaily bez "Sent via n8n" / "Powered by n8n"
 - `appendAttribution: false` na kazdem emailSend nodu
-- Reply-To nastaven na `salesman_email` z `teams` tabulky
+- Reply-To nastaven na email adresu z `email_accounts` tabulky (shodna s FROM)
 
 ---
 
