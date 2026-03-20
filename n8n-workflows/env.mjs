@@ -31,3 +31,6 @@ export const SUPABASE_MANAGEMENT_TOKEN = env.SUPABASE_MANAGEMENT_TOKEN;
 
 // VPS
 export const VPS_IP = env.VPS_IP;
+
+// Webhook
+export const WEBHOOK_SECRET = env.WEBHOOK_SECRET;

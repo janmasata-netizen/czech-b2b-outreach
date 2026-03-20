@@ -1,4 +1,4 @@
-import { SUPABASE_PROJECT_REF, SUPABASE_SERVICE_ROLE_KEY, SUPABASE_MANAGEMENT_TOKEN } from './env.mjs';
+import { SUPABASE_URL, SUPABASE_PROJECT_REF, SUPABASE_SERVICE_ROLE_KEY, SUPABASE_MANAGEMENT_TOKEN } from './env.mjs';
 /**
  * Full setup script:
  * 1. DB migration: drop unique constraint on outreach_accounts.team_id, add outreach_account_id to waves

@@ -13,6 +13,10 @@ import {
   getDemoEmailCandidates,
 } from '@/lib/demo-data';
 
+function escapePostgrest(val: string): string {
+  return val.replace(/[%_\\(),."']/g, c => '\\' + c);
+}
+
 export function useLeads(filters: LeadFilters = {}, page = 1) {
   const { isDemoMode } = useDemoMode();
   return useQuery({
@@ -33,7 +37,8 @@ export function useLeads(filters: LeadFilters = {}, page = 1) {
       if (filters.team_id) q = q.eq('team_id', filters.team_id);
       if (filters.language) q = q.eq('language', filters.language);
       if (filters.search) {
-        q = q.or(`company_name.ilike.%${filters.search}%,ico.ilike.%${filters.search}%`);
+        const safe = escapePostgrest(filters.search);
+        q = q.or(`company_name.ilike.%${safe}%,ico.ilike.%${safe}%`);
       }
 
       q = q.order('created_at', { ascending: false })
@@ -330,7 +335,7 @@ export function useLeadsNotInWave(teamId: string | undefined, search?: string, l
         .neq('master_status', 'blacklisted')
         .order('company_name');
 
-      if (search) q = q.or(`company_name.ilike.%${search}%,ico.ilike.%${search}%`);
+      if (search) { const s = escapePostgrest(search); q = q.or(`company_name.ilike.%${s}%,ico.ilike.%${s}%`); }
       if (language) q = q.eq('language', language);
       if (usedIds.length > 0) q = q.not('id', 'in', `(${usedIds.join(',')})`);
 

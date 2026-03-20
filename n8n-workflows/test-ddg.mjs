@@ -3,11 +3,11 @@
  * Usage: cd n8n-workflows && node test-ddg.mjs
  */
 import http from 'http';
+import { VPS_IP, WEBHOOK_SECRET } from './env.mjs';
 
-const WEBHOOK_HOST = '72.62.53.244';
+const WEBHOOK_HOST = VPS_IP;
 const WEBHOOK_PORT = 32770;
 const WEBHOOK_PATH = '/webhook/wf-domain-discovery-test';
-const WEBHOOK_SECRET = 'reWDUmcjSRPTv3k-0CKdoASO_KY7Z3ux';
 
 // Test firms that should fall through to DDG (DNS won't find them)
 const FIRMS = [

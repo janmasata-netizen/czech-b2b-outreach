@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import DOMPurify from 'dompurify';
 import { useTranslation } from 'react-i18next';
 import { useSearchParams } from 'react-router-dom';
 import { useLeads } from '@/hooks/useLeads';
@@ -147,7 +148,7 @@ export default function LeadsPage() {
           <span style={{ fontWeight: 700, fontSize: 15, background: 'rgba(251,146,60,0.2)', border: '1px solid rgba(251,146,60,0.4)', borderRadius: 20, padding: '1px 9px', lineHeight: 1.6 }}>
             {needsReviewCount}
           </span>
-          <span dangerouslySetInnerHTML={{ __html: t('leads.needsReview') }} />
+          <span dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(t('leads.needsReview')) }} />
         </button>
       )}
 

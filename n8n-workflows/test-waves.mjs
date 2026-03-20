@@ -20,6 +20,7 @@ import {
   N8N_HOST, N8N_PORT,
   SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY,
   SUPABASE_PROJECT_REF, SUPABASE_MANAGEMENT_TOKEN,
+  WEBHOOK_SECRET,
 } from './env.mjs';
 
 // ═══════════════════════════════════════════════════════════════════════
@@ -27,7 +28,6 @@ import {
 // ═══════════════════════════════════════════════════════════════════════
 
 const SB_HOST = new URL(SUPABASE_URL).hostname;
-const WEBHOOK_SECRET = 'reWDUmcjSRPTv3k-0CKdoASO_KY7Z3ux';
 const TEAM_ID = 'd892c25b-f53f-467e-b0c0-f37bdbf519d7'; // Obchodník Míra
 const TEMPLATE_SET_FULL = 'eb67c491-4576-4284-bbe9-2b5051f828e4'; // Míra šablona: seq 1/2/3 A+B
 const DUMMY_EMAIL = 'david.benes@meisat.com';
